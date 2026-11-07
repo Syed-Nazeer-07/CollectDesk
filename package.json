@@ -1,7 +1,25 @@
 {
-  "name": "commercial-collections-mvp", "private": true,
-  "workspaces": ["apps/api", "apps/web"],
-  "scripts": {"dev": "concurrently -k -n API,WEB -c yellow,cyan \"npm run dev -w @collectdesk/api\" \"npm run dev -w @collectdesk/web\"", "build": "npm run build -w @collectdesk/web", "start:api": "npm run start -w @collectdesk/api", "seed": "npm run seed -w @collectdesk/api", "test": "npm run test -w @collectdesk/api", "check": "npm test && npm run build", "smoke": "node scripts/smoke.mjs"},
-  "devDependencies": {"concurrently": "^9.2.1"},
-  "engines": {"node": "^22.23.4 || ^24.22.1 || >=26.12.1"}
+  "name": "commercial-collections-mvp",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n API,WEB -c yellow,cyan \"npm run dev -w @collectdesk/api\" \"npm run dev -w @collectdesk/web\"",
+    "build": "npm run build -w @collectdesk/web",
+    "start:api": "npm run start -w @collectdesk/api",
+    "seed": "npm run seed -w @collectdesk/api",
+    "test": "npm run test -w @collectdesk/api",
+    "check": "npm test && npm run build",
+    "smoke": "node scripts/smoke.mjs",
+    "audit:browser": "node scripts/browser-audit.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "playwright": "1.65.0"
+  },
+  "engines": {
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
+  }
 }
