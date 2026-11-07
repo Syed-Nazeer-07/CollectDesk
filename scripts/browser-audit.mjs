@@ -96,7 +96,7 @@ try {
   await admin.getByLabel('Amount (INR)').fill('250');
   await admin.getByLabel('Evidence reference').fill('AUDIT-RECEIPT-001');
   await admin.getByRole('button', { name: /Record pending receipt/i }).click();
-  await admin.getByText('Awaiting verification').waitFor();
+  await admin.locator('.receipt-row .status').filter({ hasText: 'Awaiting verification' }).waitFor();
   await admin.getByRole('button', { name: 'Verify', exact: true }).click();
   await admin.getByText('Verified', { exact: true }).last().waitFor();
   await creditor.reload();
