@@ -112,6 +112,11 @@ try {
   await mobile.getByRole('button', { name: 'Open menu' }).click();
   await mobile.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /All cases/i }).click();
   await mobile.getByRole('heading', { name: 'All cases', exact: true }).waitFor();
+  await mobile.locator('.loading-panel').waitFor({ state: 'hidden' });
+  const mobileCount = Number(await mobile.locator('.case-list-title h3 span').innerText());
+  assert.ok(mobileCount > 0, 'Mobile case register did not load any demo records');
+  const pageOverflow = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+  assert.equal(pageOverflow, false, 'Mobile page has unintended horizontal overflow');
   await mobile.screenshot({ path: 'browser-audit-results/mobile-cases.png', fullPage: true });
   log('Mobile navigation reaches the case register');
   console.log('All browser audit scenarios passed. Screenshots saved in browser-audit-results/.');
