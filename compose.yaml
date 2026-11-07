@@ -1,0 +1,56 @@
+# Local demonstration only. Never ingest real customer or debtor information.
+name: collectdesk-demo
+services:
+  database:
+    image: mongo:8.0
+    restart: unless-stopped
+    volumes:
+      - mongo_demo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    image: collectdesk-local:0.3
+    build: .
+    command: npm run start:api
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      WEB_ORIGIN: http://localhost:3000
+      MONGODB_URI: mongodb://database:27017/collectdesk_demo
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.compose}
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  web:
+    image: collectdesk-local:0.3
+    command: npm run start -w @collectdesk/web
+    environment:
+      NODE_ENV: production
+      API_PROXY_TARGET: http://api:4000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+
+  seed:
+    image: collectdesk-local:0.3
+    profiles: [seed]
+    command: npm run seed
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://database:27017/collectdesk_demo
+      DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:?Set DEMO_SEED_PASSWORD in .env.compose}
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  mongo_demo_data: {}
