@@ -100,6 +100,15 @@ Remove-Item Env:DEMO_SEED_PASSWORD
 
 This creates synthetic records in the local demo database. Do not point it at a production deployment, and don't publish its screenshots if they ever contain real customer information.
 
+## Hosted demo (Render + MongoDB Atlas)
+
+The repository now includes a **free-tier Render preview Blueprint** (`render.yaml`) and a dedicated single-container image (`Dockerfile.render`) that starts both the Next.js frontend and Express API. This **does not** deploy MongoDB; use a separate, isolated Atlas demo cluster. The deployed URL is only available once the Render service and its secret database configuration have been created.
+
+- Full setup and security guidance: **[Render deployment guide](docs/RENDER_DEPLOYMENT.md)**
+- Hosted readiness check: `/api/health` (HTTP 200 only if MongoDB and the API are reachable)
+- A publicly accessible demo must contain **fictional** records only; do not confuse this with a private production service.
+- The existing local Docker Compose stack remains unchanged and continues using `Dockerfile`.
+
 ## Current user journey
 
 1. Sign in as a **creditor** → open **New case** → enter a fictional overdue B2B invoice → save draft or submit.
