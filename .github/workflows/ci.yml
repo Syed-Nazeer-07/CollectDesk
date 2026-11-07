@@ -43,6 +43,11 @@ jobs:
       - name: Build Next.js frontend
         run: npm run build
 
+      - name: Build and syntax-check Render hosted container
+        run: |
+          node --check scripts/start-hosted.mjs
+          docker build --file Dockerfile.render --tag collectdesk-render-ci .
+
       - name: Install Chromium for browser audit
         run: npx playwright install --with-deps chromium
 
@@ -64,6 +69,38 @@ jobs:
           done
           npm run smoke
           npm run audit:browser
+
+      - name: Verify hosted container serves frontend and authenticated API
+        env:
+          DEMO_SEED_PASSWORD: CI-Demo-Only-Password-2026!
+        run: |
+          docker run -d --name collectdesk-render-ci \
+            --add-host=host.docker.internal:host-gateway \
+            -p 127.0.0.1:10000:10000 \
+            -e NODE_ENV=production \
+            -e PORT=10000 \
+            -e MONGODB_URI=mongodb://host.docker.internal:27017/collectdesk_ci_demo \
+            -e JWT_SECRET=collectdesk-only-for-ci-tests-do-not-use-in-production \
+            -e WEB_ORIGIN=http://127.0.0.1:10000 \
+            -e SEED_DEMO_ON_START=true \
+            -e DEMO_SEED_PASSWORD="$DEMO_SEED_PASSWORD" \
+            collectdesk-render-ci
+          ready=0
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:10000/api/health >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker logs collectdesk-render-ci
+            exit 1
+          fi
+          SMOKE_WEB_URL=http://127.0.0.1:10000 \
+          SMOKE_API_URL=http://127.0.0.1:4000 \
+          SMOKE_EMAIL=admin@demo.collectdesk.test \
+          SMOKE_PASSWORD="$DEMO_SEED_PASSWORD" npm run smoke
 
       - name: Upload browser audit screenshots
         if: always()
