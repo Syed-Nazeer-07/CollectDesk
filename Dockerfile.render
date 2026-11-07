@@ -1,0 +1,16 @@
+# Hosted demo: Next.js and Express share one Render web-service container.
+# Local Docker Compose continues using Dockerfile (separate services).
+FROM node:22.23.4-bookworm-slim
+WORKDIR /app
+COPY package.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN npm install --no-audit --no-fund
+COPY . .
+# Next.js rewrites are built into its output. In this image Express runs
+# alongside Next.js, rather than in a separate Compose service.
+ENV API_PROXY_TARGET=http://127.0.0.1:4000
+ENV NODE_ENV=production
+RUN npm run build
+EXPOSE 10000
+CMD ["node", "scripts/start-hosted.mjs"]
