@@ -14,7 +14,8 @@ import {assertAccess,canAssign,canEditDraft,canReview,canSubmit,calculateMoney,R
 const app=express();
 app.disable('x-powered-by');
 app.use(helmet());
-const webOrigin=process.env.WEB_ORIGIN || 'http://localhost:3000';
+// Render exposes the public HTTPS URL; WEB_ORIGIN can override it for custom domains.
+const webOrigin=process.env.WEB_ORIGIN || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
 app.use(cors({origin:webOrigin,credentials:true}));
 app.use(express.json({limit:'32kb'}));
 app.use(cookieParser());
