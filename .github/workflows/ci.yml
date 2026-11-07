@@ -43,6 +43,9 @@ jobs:
       - name: Build Next.js frontend
         run: npm run build
 
+      - name: Install Chromium for browser audit
+        run: npx playwright install --with-deps chromium
+
       - name: Seed fictional demo and smoke-test running full stack
         env:
           MONGODB_URI: mongodb://127.0.0.1:27017/collectdesk_ci_demo
@@ -60,3 +63,13 @@ jobs:
             sleep 2
           done
           npm run smoke
+          npm run audit:browser
+
+      - name: Upload browser audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collectdesk-browser-audit
+          path: browser-audit-results/
+          if-no-files-found: ignore
+          retention-days: 14
