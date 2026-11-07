@@ -10,7 +10,12 @@ const API='/api/v1'; // Next.js proxies to Express (same-origin cookies).
 export class ApiError extends Error {status:number;issues?:{field:string;message:string}[];constructor(message:string,status:number,issues?:{field:string;message:string}[]){super(message);this.name='ApiError';this.status=status;this.issues=issues;}}
 export async function api<T>(path:string,options:RequestInit={}):Promise<T>{
   let response:Response;
-  try{response=await fetch(`${API}${path}`,{credentials:'include',headers:{...(options.body?{'Content-Type':'application/json'}:{}),...options.headers},cache:'no-store',...options});}
+  try{
+    const {headers:providedHeaders,...requestOptions}=options;
+    const headers=new Headers(providedHeaders);
+    if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
+    response=await fetch(`${API}${path}`,{credentials:'include',cache:'no-store',...requestOptions,headers});
+  }
   catch{throw new ApiError('Cannot connect to the server. Check that the API and MongoDB are running.',0);}
   let data:unknown;try{data=await response.json();}catch{data={};}
   const parsed=data as {error?:string;issues?:{field:string;message:string}[]};

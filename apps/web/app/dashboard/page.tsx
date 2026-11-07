@@ -6,7 +6,7 @@ import AppShell from '@/components/AppShell';import {CaseTable} from '@/componen
 import {api,Dashboard,shortMoney,User,label} from '@/lib/api';
 const colors=['#2f8e82','#b4d8d1','#e3d2a0','#efb9ac','#d5d8df','#8fa3c5','#ebe7d8','#a4b0ac'];
 export default function DashboardPage(){const [data,setData]=useState<Dashboard|null>(null);const [error,setError]=useState('');const [refresh,setRefresh]=useState(0);
-useEffect(()=>{api<Dashboard>('/dashboard/summary').then(setData).catch(e=>setError(e.message));},[refresh]);
+useEffect(()=>{let active=true;setError('');api<Dashboard>('/dashboard/summary').then(d=>{if(active)setData(d)}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[refresh]);
 return <AppShell title="Overview" subtitle="A clear view of your collections, activity, and progress.">{(user:User)=><>
   <div className="welcome-strip"><div><div className="welcome-kicker"><span className="sparkle">✦</span> YOUR WORKSPACE AT A GLANCE</div><h2>Good to have you here, {user.name.split(' ')[0]}.</h2><p>Stay on top of your cases and every important update.</p></div><div className="welcome-decoration"><span className="welcome-ring ring-one"/><span className="welcome-ring ring-two"/><div className="welcome-symbol">↗</div></div></div>
   {error?<div className="message error">{error} <button onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?<div className="loading-panel"><div className="spinner"/> Loading dashboard…</div>:<>
