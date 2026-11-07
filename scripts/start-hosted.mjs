@@ -28,8 +28,8 @@ function stop(signal='SIGTERM') {
 }
 for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>stop(signal));
 
-function run(cmd,args,environment) {
-  return spawn(cmd,args,{env:environment,stdio:'inherit'});
+function run(cmd,args,environment,cwd=process.cwd()) {
+  return spawn(cmd,args,{env:environment,stdio:'inherit',cwd});
 }
 
 if(process.env.SEED_DEMO_ON_START==='true') {
@@ -53,7 +53,7 @@ children.push(api);
 const web=run(process.execPath,[
   resolve('node_modules/next/dist/bin/next'),
   'start','--hostname','0.0.0.0','--port',String(publicPort)
-],process.env);
+],process.env,resolve('apps/web'));
 children.push(web);
 
 for(const [name,child] of [['api',api],['web',web]]) {
