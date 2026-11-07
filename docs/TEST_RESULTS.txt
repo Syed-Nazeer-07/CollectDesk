@@ -1,0 +1,127 @@
+
+> test
+> npm run test -w @collectdesk/api
+
+
+> @collectdesk/api@0.1.0 test
+> node --test test/*.test.js
+
+TAP version 13
+# Subtest: creditor only sees own organization
+ok 1 - creditor only sees own organization
+  ---
+  duration_ms: 1.913785
+  type: 'test'
+  ...
+# Subtest: operator only sees assigned case; admin sees all
+ok 2 - operator only sees assigned case; admin sees all
+  ---
+  duration_ms: 0.182495
+  type: 'test'
+  ...
+# Subtest: unknown role has no access
+ok 3 - unknown role has no access
+  ---
+  duration_ms: 0.128594
+  type: 'test'
+  ...
+# Subtest: draft editing and submission lifecycle
+ok 4 - draft editing and submission lifecycle
+  ---
+  duration_ms: 1.407812
+  type: 'test'
+  ...
+# Subtest: unverified receipts never count as recovered
+ok 5 - unverified receipts never count as recovered
+  ---
+  duration_ms: 0.87545
+  type: 'test'
+  ...
+# Subtest: verified partial receipt: correct fee and outstanding
+ok 6 - verified partial receipt: correct fee and outstanding
+  ---
+  duration_ms: 0.112369
+  type: 'test'
+  ...
+# Subtest: verified reversal reduces net recovery and fee
+ok 7 - verified reversal reduces net recovery and fee
+  ---
+  duration_ms: 0.266532
+  type: 'test'
+  ...
+# Subtest: rejected receipt ignored
+ok 8 - rejected receipt ignored
+  ---
+  duration_ms: 0.101924
+  type: 'test'
+  ...
+# Subtest: half up fee rounding at paisa
+ok 9 - half up fee rounding at paisa
+  ---
+  duration_ms: 0.289216
+  type: 'test'
+  ...
+# Subtest: reject over-recovery
+ok 10 - reject over-recovery
+  ---
+  duration_ms: 0.474014
+  type: 'test'
+  ...
+# Subtest: reject negative net recovery
+ok 11 - reject negative net recovery
+  ---
+  duration_ms: 0.445682
+  type: 'test'
+  ...
+# Subtest: reject unsafe currency amounts
+ok 12 - reject unsafe currency amounts
+  ---
+  duration_ms: 0.189426
+  type: 'test'
+  ...
+# Subtest: case code formatting
+ok 13 - case code formatting
+  ---
+  duration_ms: 0.118259
+  type: 'test'
+  ...
+# Subtest: fee rounds half-up when exactly half a paisa
+ok 14 - fee rounds half-up when exactly half a paisa
+  ---
+  duration_ms: 0.083566
+  type: 'test'
+  ...
+# Subtest: fee at 30 percent is calculated on verified amount not invoice
+ok 15 - fee at 30 percent is calculated on verified amount not invoice
+  ---
+  duration_ms: 0.279211
+  type: 'test'
+  ...
+# Subtest: pending and rejected items do not change verified recovery
+ok 16 - pending and rejected items do not change verified recovery
+  ---
+  duration_ms: 0.081212
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 84.435775
+
+Node API syntax checks:
+All API syntax checks passed
+
+TypeScript syntax parsed: 11 files, 0 parse errors
+
+NOT EXECUTED IN THIS ENVIRONMENT:
+- npm install (network blocked: EAI_AGAIN registry.npmjs.org)
+- Next.js production build (dependencies not installed)
+- MongoDB connection, API integration and browser E2E tests
+- Browser visual preview (headless Chromium blocked by local policy)
+
+These checks must be run before presenting a live demo or asserting completion.
