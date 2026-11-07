@@ -8,3 +8,8 @@
 *.log
 **/coverage
 **/.DS_Store
+
+# Never copy host configuration or private credentials into an image.
+.env.compose
+.env.compose.*
+**/.env.*
