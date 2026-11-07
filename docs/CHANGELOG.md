@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3 — Pagination, validation, reproducible testing (8 November 2026)
+
+- Fixed the case register only searching the first 100 loaded cases; added backend filtering, stable ordering and 25-item pages.
+- Added overdue-date checks at submission and India business-day handling, while allowing future-dated drafts.
+- Hardened role scopes for malformed user records that lack an organization or user ID.
+- Fixed request header merging and dashboard retry-state cleanup.
+- Added read-only full-stack smoke checker and optional local Docker Compose services for Next.js, Express and MongoDB.
+- Expanded pure unit tests to 19 passing; MongoDB integration still skipped in this environment.
+- Added CI smoke-test step after build and seed. Not yet run on GitHub.
+
+
+
 ## v0.2 — Development verification and safeguards (8 November 2026)
 
 - Retained v0.1 source as an explicit local Git rollback point.

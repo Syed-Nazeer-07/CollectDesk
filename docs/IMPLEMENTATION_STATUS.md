@@ -1,4 +1,4 @@
-# Implementation status · CollectDesk v0.2
+# Implementation status · CollectDesk v0.3
 
 **Status:** Working source-code prototype; **not yet verified end-to-end against a running MongoDB and Next.js build**.
 
@@ -19,13 +19,17 @@
 - UI distinguishes completed action from subsequent refresh failure, reducing accidental duplicate submissions.
 - Automated unit tests and an opt-in MongoDB-backed API integration suite.
 - Local Git history and rollback tag; GitHub Actions CI configuration.
+- Server-side case search with pagination (25 items/page) and validation of filter inputs.
+- Creditors can save future-dated invoice drafts but submit only overdue invoices (Indian business date).
+- Tenant query scope fails closed for malformed accounts without a valid organization/actor ID.
+- Read-only full-stack smoke script and optional Docker Compose setup for MongoDB, API and frontend (not executed here).
 
 ## Test evidence
 
-- **16 passing unit tests** from `node --test`, independently executable without npm packages.
+- **19 passing unit tests** from `node --test`, independently executable without npm packages.
 - **1 skipped API integration test**, containing many assertions; requires dependencies + disposable MongoDB to execute.
 - JavaScript syntax checks: passing. TypeScript/TSX parse checks: separate report.
-- No confirmed `npm install`, TypeScript typecheck, Next.js build, or browser E2E execution in this environment.
+- No successful `npm install`, TypeScript typecheck, Next.js build, live-stack smoke or browser E2E execution in this environment. Docker Compose was parsed as valid YAML but not launched.
 - GitHub Actions workflow is prepared but **has not been executed**.
 
 ## Security limitations requiring follow-up
@@ -42,8 +46,9 @@
 1. Upgrade to patched Node.js LTS; install dependencies with `npm install`.
 2. Run API unit + integration tests against `collectdesk_integration_test` (destructive test database).
 3. Run `npm run typecheck -w @collectdesk/web` and `npm run build`.
-4. Seed a **different, throwaway** demo database and run the two servers.
-5. Execute the role-by-role checklist in `docs/DEMO_SCRIPT.md` using the browser.
-6. Fix issues surfaced in those runs, then decide repository ownership and deployment.
+4. Seed a **different, throwaway** demo database and run the two servers (or use the optional Docker Compose workflow).
+5. Run `npm run smoke` with both `SMOKE_EMAIL` and `SMOKE_PASSWORD`, then capture results.
+6. Execute the role-by-role checklist in `docs/DEMO_SCRIPT.md` using the browser.
+7. Fix issues surfaced in those runs, then decide repository ownership and deployment.
 
 Do not submit this as a production-ready collections platform.

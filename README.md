@@ -1,6 +1,6 @@
 # CollectDesk
 
-**Commercial Collections · MVP v0.2 (development preview)**
+**Commercial Collections · MVP v0.3 (development preview)**
 
 A simple, responsive B2B invoice recovery **case-management demo** for the Ricoz Innovation project. Built from the competitor research and proposed PRD of 8 November 2026. All seeded business names and invoices are fictional.
 
@@ -18,9 +18,40 @@ A simple, responsive B2B invoice recovery **case-management demo** for the Ricoz
 
 Next.js proxies browser `/api/v1/*` traffic to Express, keeping cookies same-origin. Express connects to MongoDB via a **server-only** connection string.
 
+## Simplified local demo with Docker Compose (optional)
+
+If Docker Desktop with Linux containers is available on your computer, Compose can start **MongoDB, Express and Next.js** together. This configuration is **unverified here** because Docker and npm downloads are unavailable in the authoring environment. It is for **localhost and fake data only**; MongoDB stays on the internal container network.
+
+```powershell
+Copy-Item .env.compose.example .env.compose
+# Edit .env.compose: provide a unique JWT_SECRET (32+ characters)
+# and a unique DEMO_SEED_PASSWORD (12+ characters).
+# Example secure JWT secret generator (paste result into .env.compose):
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+
+docker compose --env-file .env.compose build
+docker compose --env-file .env.compose --profile seed run --rm seed
+docker compose --env-file .env.compose up -d database api web
+node scripts/smoke.mjs
+```
+
+Open **http://localhost:3000**. The demo password is the value you set in `.env.compose`. When finished, run `docker compose --env-file .env.compose down` to stop services without deleting the demo database. Be careful: `down -v` **erases the local demo database**. Never store actual customer information in this prototype.
+
+### Read-only full-stack smoke check
+
+After either startup method is running, this checker validates the Express health endpoint, MongoDB state, Next login page, and unauthenticated API proxy. To also test login, session cookies, dashboard and case pagination, set **both** credentials:
+
+```powershell
+$env:SMOKE_EMAIL = 'admin@demo.collectdesk.test'
+$env:SMOKE_PASSWORD = 'YOUR_CONFIGURED_DEMO_PASSWORD'
+npm run smoke
+```
+
+The smoke test makes **no changes** to cases or receipts. The heavier API integration suite runs independently against a specially named disposable test database and clears that database. The GitHub Actions workflow now includes a production frontend build and a read-only cross-service smoke step (when pushed and run).
+
 ## Running locally (Windows PowerShell)
 
-**Prerequisites:** Patched Node.js 22 LTS (22.23.4+) or 24 LTS (24.22.1+), npm, and a local MongoDB database or a MongoDB Atlas development database. No paid AI API key is needed. The updated project has **not** been installed or run end-to-end in the authoring environment because the npm registry is unreachable here. A CI workflow and API integration test suite are provided, but have not yet been executed on GitHub. The npm lockfile is also pending the first successful dependency installation.
+**Prerequisites:** Patched Node.js 22 LTS (22.23.4+) or 24 LTS (24.22.1+), npm, and a local MongoDB database or a MongoDB Atlas development database. No paid AI API key is needed. The updated project has **not** been installed or run end-to-end in the authoring environment because the npm registry is unreachable here. A CI workflow, read-only smoke checker and MongoDB integration suite are provided but have not yet been executed against the real stack. The npm lockfile is pending the first successful dependency installation.
 
 ```powershell
 # Unzip the archive, then open the project folder
@@ -75,7 +106,7 @@ npm run build               # Production Next.js build
 npm run check               # Unit tests + Next.js build
 ```
 
-The test runner does not need npm dependencies for pure rule tests, but a full build and API tests do.
+The domain-rule tests do not need npm dependencies, but a full build and API integration tests do. The v0.3 API also provides server-side case search, status filtering, 25-item paging, and overdue-only submission for the India demo market.
 
 ### API integration suite (requires a disposable database)
 
@@ -122,7 +153,7 @@ docs/
 - Use a same-origin Next.js API proxy when deploying; the API should not be directly exposed to untrusted public traffic without additional hardening.
 - The per-case financial mutation lease serializes ordinary simultaneous demo requests; it is **not** an ACID transaction, and operations spanning receipts + audit events are not crash-atomic. Use replica-set transactions and reconciliation before real financial use.
 - The filename label is *not* a stored evidence file. Implement private object storage, malware scanning and authorized download only after scope approval.
-- DB-backed integration and browser E2E tests have not yet run here. Production deployment would require operational, legal and security review.
+- DB-backed integration and browser E2E tests have not yet run here. The smoke script is prepared but has not been executed against the live stack. Production deployment would require operational, legal and security review.
 - This package contains a local Git history with a `rollback-v0.1` tag and focused development commits; no remote GitHub push or live deployment has been performed.
 
 See `docs/IMPLEMENTATION_STATUS.md` for the accurate implementation and test status.

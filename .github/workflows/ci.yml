@@ -42,3 +42,21 @@ jobs:
         run: npm test
       - name: Build Next.js frontend
         run: npm run build
+
+      - name: Seed fictional demo and smoke-test running full stack
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/collectdesk_ci_demo
+          DEMO_SEED_PASSWORD: CI-Demo-Only-Password-2026!
+          SMOKE_EMAIL: admin@demo.collectdesk.test
+          SMOKE_PASSWORD: CI-Demo-Only-Password-2026!
+        run: |
+          npm run seed
+          npm run start:api > /tmp/collectdesk-api.log 2>&1 &
+          npm run start -w @collectdesk/web > /tmp/collectdesk-web.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:4000/health >/dev/null && curl -fsS http://127.0.0.1:3000/login >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          npm run smoke
