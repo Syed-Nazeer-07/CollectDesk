@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assertAccess,canEditDraft,canSubmit,canReview,canAssign,calculateMoney,formatCaseCode} from '../src/rules.js';
+import {assertAccess,canEditDraft,canSubmit,canReview,canAssign,calculateMoney,formatCaseCode,isOverdue,indiaDateKey,pageInfo,scopeForUser} from '../src/rules.js';
 test('creditor only sees own organization',()=>{
   const caseItem={organizationId:'A',assignedTo:'operator-x'};
   assert.equal(assertAccess({_id:'u1',role:'creditor',organizationId:'A'},caseItem),true);
@@ -47,4 +47,29 @@ test('fee at 30 percent is calculated on verified amount not invoice',()=>{
 });
 test('pending and rejected items do not change verified recovery',()=>{
   assert.equal(calculateMoney(1000000,1500,[{status:'recorded',kind:'receipt',amountPaise:100000},{status:'rejected',kind:'receipt',amountPaise:200000},{status:'verified',kind:'receipt',amountPaise:300000}]).recoveredPaise,300000);
+});
+
+test('India business date handles the UTC day boundary',()=>{
+  const instant=new Date('2026-11-07T19:00:00.000Z'); // 00:30 IST, 8 Nov
+  assert.equal(indiaDateKey(instant),'2026-11-08');
+  assert.equal(isOverdue('2026-11-07',instant),true);
+  assert.equal(isOverdue('2026-11-08',instant),false);
+  assert.equal(isOverdue('2026-11-09',instant),false);
+  assert.equal(isOverdue('not-a-date',instant),false);
+});
+test('case pagination metadata counts remaining pages correctly',()=>{
+  assert.deepEqual(pageInfo(2,25,51),{page:2,pageSize:25,total:51,totalPages:3});
+  assert.deepEqual(pageInfo(1,25,0),{page:1,pageSize:25,total:0,totalPages:1});
+});
+
+test('missing tenant and unknown roles fail closed for queries and single cases',()=>{
+  const c={organizationId:'org-one',assignedTo:'op-one'};
+  assert.equal(assertAccess({role:'creditor'},c),false);
+  assert.equal(assertAccess({role:'creditor'},{}),false);
+  assert.equal(assertAccess({role:'operator'},c),false);
+  assert.deepEqual(scopeForUser({role:'admin'}),{});
+  assert.deepEqual(scopeForUser({role:'creditor',organizationId:'org-one'}),{organizationId:'org-one'});
+  assert.deepEqual(scopeForUser({role:'creditor'}),{organizationId:{$exists:false}});
+  assert.deepEqual(scopeForUser({role:'operator'}),{assignedTo:{$exists:false}});
+  assert.deepEqual(scopeForUser({role:'guest'}),{_id:{$exists:false}});
 });

@@ -6,8 +6,8 @@ export const REVIEW_DECISIONS = {accept: 'accepted', reject: 'rejected', request
 export function assertAccess(user, item) {
   if (!user || !item) return false;
   if (user.role === 'admin') return true;
-  if (user.role === 'creditor') return String(user.organizationId) === String(item.organizationId);
-  if (user.role === 'operator') return String(user._id) === String(item.assignedTo || '');
+  if (user.role === 'creditor') return Boolean(user.organizationId && item.organizationId) && String(user.organizationId) === String(item.organizationId);
+  if (user.role === 'operator') return Boolean(user._id && item.assignedTo) && String(user._id) === String(item.assignedTo);
   return false;
 }
 
@@ -35,3 +35,32 @@ export function calculateMoney(principalPaise, feeRateBps, receipts = []) {
 }
 
 export function formatCaseCode(id) { return `CC-${String(id).toUpperCase()}`; }
+
+/** Date key in the demo market's local timezone, independent of server locale. */
+export function indiaDateKey(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+/** A case is overdue only if its due date precedes today's Indian business date. */
+export function isOverdue(dueDate, now = new Date()) {
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return false;
+  return due.toISOString().slice(0, 10) < indiaDateKey(now);
+}
+
+/** Stable, user-visible page metadata; avoid negative/empty totals. */
+export function pageInfo(page, pageSize, total) {
+  return {page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize))};
+}
+
+/** Safe query scope for every role, including malformed/legacy user accounts. */
+export function scopeForUser(user) {
+  if (user?.role === 'admin') return {};
+  if (user?.role === 'creditor') return user.organizationId ? {organizationId: user.organizationId} : {organizationId: {$exists: false}};
+  if (user?.role === 'operator') return user._id ? {assignedTo: user._id} : {assignedTo: {$exists: false}};
+  return {_id: {$exists: false}};
+}

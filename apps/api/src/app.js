@@ -9,7 +9,7 @@ import {z, ZodError} from 'zod';
 import mongoose from 'mongoose';
 import {User,Case,Activity,Receipt} from './models.js';
 import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRole} from './auth.js';
-import {assertAccess,canAssign,canEditDraft,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode} from './rules.js';
+import {assertAccess,canAssign,canEditDraft,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
 app.disable('x-powered-by');
@@ -40,11 +40,7 @@ app.get('/api/v1/auth/me',requireAuth,(req,res)=>res.json({user:publicUser(req.u
 
 const route=express.Router();
 route.use(requireAuth);
-function scope(user) {
-  if(user.role==='creditor') return {organizationId:user.organizationId};
-  if(user.role==='operator') return {assignedTo:user._id};
-  return {};
-}
+const scope=scopeForUser;
 async function getCase(req,res,next) {
   if(!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({error:'Case not found.'});
   const item=await Case.findOne({_id:req.params.id,...scope(req.user)}).lean();
@@ -92,13 +88,22 @@ route.get('/dashboard/summary',async(req,res)=>{
     statusBreakdown:['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed'].map(status=>({status,count:cases.filter(c=>c.status===status).length}))
   });
 });
+const caseListQuery=z.object({
+  status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),
+  q:z.string().trim().max(100).optional(),
+  page:z.coerce.number().int().min(1).max(10000).default(1),
+  limit:z.coerce.number().int().min(1).max(100).default(25)
+}).strict();
 route.get('/cases',async(req,res)=>{
+  const {status,q,page,limit}=caseListQuery.parse(req.query);
   const filter={...scope(req.user)};
-  if(req.query.status && ['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed'].includes(req.query.status)) filter.status=req.query.status;
-  const query=String(req.query.q||'').trim().slice(0,100);
-  if(query)filter.$or=[{debtorName:{$regex:escapeRegex(query),$options:'i'}},{invoiceNo:{$regex:escapeRegex(query),$options:'i'}},{caseCode:{$regex:escapeRegex(query),$options:'i'}}];
-  const items=await Case.find(filter).sort({updatedAt:-1}).limit(100).lean();
-  res.json({cases:items.map(c=>({id:String(c._id),caseCode:c.caseCode,debtorName:c.debtorName,invoiceNo:c.invoiceNo,principalPaise:c.principalPaise,status:c.status,dueDate:c.dueDate,createdAt:c.createdAt,updatedAt:c.updatedAt,assignedTo:c.assignedTo?String(c.assignedTo):null}))});
+  if(status) filter.status=status;
+  if(q)filter.$or=[{debtorName:{$regex:escapeRegex(q),$options:'i'}},{invoiceNo:{$regex:escapeRegex(q),$options:'i'}},{caseCode:{$regex:escapeRegex(q),$options:'i'}}];
+  const [total,items]=await Promise.all([
+    Case.countDocuments(filter),
+    Case.find(filter).sort({updatedAt:-1,_id:-1}).skip((page-1)*limit).limit(limit).lean()
+  ]);
+  res.json({cases:items.map(c=>({id:String(c._id),caseCode:c.caseCode,debtorName:c.debtorName,invoiceNo:c.invoiceNo,principalPaise:c.principalPaise,status:c.status,dueDate:c.dueDate,createdAt:c.createdAt,updatedAt:c.updatedAt,assignedTo:c.assignedTo?String(c.assignedTo):null})),pagination:pageInfo(page,limit,total)});
 });
 function escapeRegex(value){return value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
 const caseBody=z.object({debtorName:z.string().trim().min(2).max(160),invoiceNo:z.string().trim().min(2).max(70),
@@ -131,6 +136,7 @@ route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
 });
 route.post('/cases/:id/submit',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canSubmit(req.caseItem.status))return res.status(409).json({error:'Case has already been submitted.'});
+  if(!isOverdue(req.caseItem.dueDate))return res.status(422).json({error:'Only overdue invoices can be submitted. Check the due date.'});
   const updated=await Case.updateOne({_id:req.caseItem._id,status:{$in:['draft','needs_info']}},{$set:{status:'submitted',submittedAt:new Date()}});
   if(!updated.modifiedCount)return res.status(409).json({error:'Case has already been submitted.'});
   await logEvent(req.caseItem,req.user,'submitted','Invoice submitted for review.');res.json({ok:true});

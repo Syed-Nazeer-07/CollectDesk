@@ -66,11 +66,31 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const caseId = r.data.id;
     assert.ok(caseId);
 
+    const futureInvoice={...invoice,invoiceNo:'INV-FUTURE-TEST',issueDate:'2098-01-01',dueDate:'2099-01-01'};
+    const future=await call('/cases',{method:'POST',cookie:a,body:futureInvoice});
+    assert.equal(future.status,201);
+    const futureSubmit=await call(`/cases/${future.data.id}/submit`,{method:'POST',cookie:a});
+    assert.equal(futureSubmit.status,422,'future invoices may be drafted but not submitted for collection');
     r = await call(`/cases/${caseId}`,{cookie:b});
     assert.equal(r.status,404,'other creditors must not access private case details');
     r = await call('/cases',{cookie:b});
     assert.equal(r.status,200);
     assert.ok(r.data.cases.every(c=>c.id!==caseId),'other tenant must not see private cases');
+    // Server-side search/filter, pagination and input validation.
+    r = await call('/cases?limit=1&page=1',{cookie:a});
+    assert.equal(r.status,200);
+    assert.equal(r.data.pagination.pageSize,1);
+    assert.equal(r.data.pagination.total,2);
+    assert.equal(r.data.cases.length,1);
+    r = await call('/cases?q=TEST-001',{cookie:a});
+    assert.equal(r.status,200);
+    assert.equal(r.data.cases.length,1);
+    r = await call('/cases?q=nomatch',{cookie:a});
+    assert.equal(r.data.cases.length,0);
+    r = await call('/cases?status=made_up',{cookie:a});
+    assert.equal(r.status,422);
+    r = await call('/cases?limit=9999',{cookie:a});
+    assert.equal(r.status,422);
     r = await call(`/cases/${caseId}`,{cookie:operator});
     assert.equal(r.status,404,'unassigned operator must not see the case');
     r = await call(`/cases/${caseId}/review`,{method:'POST',cookie:admin,body:{decision:'accept',reason:'Test review',feeRateBps:2000}});
