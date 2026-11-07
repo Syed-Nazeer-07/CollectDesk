@@ -84,6 +84,22 @@ All demo accounts share the **development-only** password configured in `DEMO_SE
 
 The UI runs at port **3000**. Express runs on port **4000**. Health endpoint: `http://localhost:4000/health` (returns `database: connected` only when MongoDB is connected).
 
+## Browser audit (Chromium)
+
+The GitHub Actions workflow installs Chromium and runs `npm run audit:browser` against the live CI demo after smoke testing. The audit logs in as separate creditor, admin and operator accounts; creates a **fictional** invoice; reviews and assigns it; checks internal-note and organization isolation; verifies a test receipt; and exercises mobile navigation. Screenshots are uploaded as the `collectdesk-browser-audit` Actions artifact. This is test automation, not a substitute for a security assessment or human accessibility/visual review.
+
+To run against your **own local demo**, start Docker Compose and seed its dedicated demo database, then (outside Docker, with Node/npm installed) run:
+
+```powershell
+npm install
+npx playwright install chromium
+$env:DEMO_SEED_PASSWORD = (Get-Content .env.compose | Where-Object { $_ -match '^DEMO_SEED_PASSWORD=' } | Select-Object -First 1) -replace '^DEMO_SEED_PASSWORD=', ''
+npm run audit:browser
+Remove-Item Env:DEMO_SEED_PASSWORD
+```
+
+This creates synthetic records in the local demo database. Do not point it at a production deployment, and don't publish its screenshots if they ever contain real customer information.
+
 ## Current user journey
 
 1. Sign in as a **creditor** → open **New case** → enter a fictional overdue B2B invoice → save draft or submit.
