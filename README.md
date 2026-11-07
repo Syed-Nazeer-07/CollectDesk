@@ -51,7 +51,7 @@ The smoke test makes **no changes** to cases or receipts. The heavier API integr
 
 ## Running locally (Windows PowerShell)
 
-**Prerequisites:** Patched Node.js 22 LTS (22.23.4+) or 24 LTS (24.22.1+), npm, and a local MongoDB database or a MongoDB Atlas development database. No paid AI API key is needed. The updated project has **not** been installed or run end-to-end in the authoring environment because the npm registry is unreachable here. A CI workflow, read-only smoke checker and MongoDB integration suite are provided but have not yet been executed against the real stack. The npm lockfile is pending the first successful dependency installation.
+**Prerequisites:** Patched Node.js 22 LTS (22.23.4+) or 24 LTS (24.22.1+), npm, and a local MongoDB database or a MongoDB Atlas development database. No paid AI API key is needed. The updated project has **not** been installed or run end-to-end in the authoring environment because the npm registry is unreachable here. GitHub Actions has passed its configured typecheck, unit/integration-test, production-build and smoke-test stages. The user also reported a successful local Docker Compose startup and all nine authenticated smoke checks passing on 8 November 2026. A manual multi-role browser audit and production deployment are still pending.
 
 ```powershell
 # Unzip the archive, then open the project folder
@@ -126,7 +126,7 @@ for this destructive integration test. **Never** point it to live or personal da
 
 GitHub Actions configuration is included in `.github/workflows/ci.yml` and will run
 TypeScript checks, unit + MongoDB integration tests, and the Next.js production build
-when pushed to a repository with Actions enabled. A workflow file existing is not proof that CI passed.
+when pushed to a repository with Actions enabled. GitHub Actions passed its configured checks after the MongoDB runner and TypeScript fixes; review the most recent run before relying on that result.
 
 
 ## Source tree
@@ -153,7 +153,7 @@ docs/
 - Use a same-origin Next.js API proxy when deploying; the API should not be directly exposed to untrusted public traffic without additional hardening.
 - The per-case financial mutation lease serializes ordinary simultaneous demo requests; it is **not** an ACID transaction, and operations spanning receipts + audit events are not crash-atomic. Use replica-set transactions and reconciliation before real financial use.
 - The filename label is *not* a stored evidence file. Implement private object storage, malware scanning and authorized download only after scope approval.
-- DB-backed integration and browser E2E tests have not yet run here. The smoke script is prepared but has not been executed against the live stack. Production deployment would require operational, legal and security review.
-- This package contains a local Git history with a `rollback-v0.1` tag and focused development commits; no remote GitHub push or live deployment has been performed.
+- GitHub Actions has passed the configured DB-backed integration and build checks, and local Docker smoke tests passed per the user-provided terminal logs. Comprehensive browser E2E/security testing and production deployment are still pending. Production use would require operational, legal and security review.
+- Source code and rollback tags are now pushed to the private GitHub repository `Syed-Nazeer-07/CollectDesk`. There is no public live deployment yet.
 
 See `docs/IMPLEMENTATION_STATUS.md` for the accurate implementation and test status.
