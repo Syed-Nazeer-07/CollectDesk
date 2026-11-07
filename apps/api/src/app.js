@@ -54,6 +54,22 @@ async function getCase(req,res,next) {
 async function logEvent(item,user,kind,text,visibility='creditor',metadata={}) {
   await Activity.create({caseId:item._id,organizationId:item.organizationId,actorId:user._id,kind,text,visibility,metadata});
 }
+// Short-lived per-case lease serializes demo ledger updates. Without this guard,
+// two parallel verifications could each read the same unverified balance.
+// It is NOT a substitute for an ACID transaction in a real financial platform.
+async function withFinancialLock(req,res,operation) {
+  const token=randomUUID();
+  const acquired=await Case.updateOne({
+    _id:req.caseItem._id,
+    $or:[{financialLockToken:null},{financialLockExpiresAt:{$lt:new Date()}}]
+  },{$set:{financialLockToken:token,financialLockExpiresAt:new Date(Date.now()+120_000)}});
+  if(!acquired.modifiedCount) return res.status(409).json({error:'Another financial update is in progress. Refresh and retry.'});
+  try {return await operation();}
+  finally {
+    try {await Case.updateOne({_id:req.caseItem._id,financialLockToken:token},{$set:{financialLockToken:null,financialLockExpiresAt:null}});}
+    catch (error) {console.error('[API] Ledger lease cleanup failed; it will expire:',error?.message);}
+  }
+}
 const moneySummary=(items)=>items.reduce((sum,i)=>sum+i,0);
 route.get('/operators',requireRole('admin'),async(_req,res)=>{
   const operators=await User.find({role:'operator',active:true}).select('name email').lean();
@@ -99,9 +115,12 @@ route.get('/cases/:id',getCase,async(req,res)=>{
   const acts=await Activity.find({caseId:item._id,...(req.user.role==='creditor'?{visibility:'creditor'}:{})}).sort({createdAt:1}).populate('actorId','name role').lean();
   const recs=await Receipt.find({caseId:item._id}).sort({createdAt:-1}).lean();
   const calc=calculateMoney(item.principalPaise,item.feeRateBps,recs);
+  // Unverified receipt references are internal reconciliation information.
+  // Creditor dashboards receive verified ledger entries only.
+  const visibleReceipts=req.user.role==='creditor'?recs.filter(r=>r.status==='verified'):recs;
   res.json({case:{...item,id:String(item._id),organizationId:String(item.organizationId),assignedTo:item.assignedTo?String(item.assignedTo):null},
     financials:calc,activities:acts.map(a=>({id:String(a._id),kind:a.kind,text:a.text,visibility:a.visibility,createdAt:a.createdAt,actor:a.actorId?.name||'Team member'})),
-    receipts:recs.map(r=>({id:String(r._id),amountPaise:r.amountPaise,kind:r.kind,status:r.status,reference:r.reference,createdAt:r.createdAt}))});
+    receipts:visibleReceipts.map(r=>({id:String(r._id),amountPaise:r.amountPaise,kind:r.kind,status:r.status,reference:r.reference,createdAt:r.createdAt}))});
 });
 route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canEditDraft(req.user.role,req.caseItem.status))return res.status(409).json({error:'Only draft or information-requested cases can be edited.'});
@@ -143,7 +162,7 @@ route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(r
   await logEvent(req.caseItem,req.user,'note',text,visibility);res.status(201).json({ok:true});
 });
 const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120)}).strict();
-route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>{
+route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
   if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return res.status(409).json({error:'Case must be accepted first.'});
   const input=receiptBody.parse(req.body);
   const existing=await Receipt.find({caseId:req.caseItem._id}).lean();
@@ -153,8 +172,8 @@ route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>{
   const r=await Receipt.create({...input,kind:'receipt',status:'recorded',caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,recordedBy:req.user._id});
   await logEvent(req.caseItem,req.user,'receipt','Receipt recorded, awaiting verification.');
   res.status(201).json({id:String(r._id),status:'recorded'});
-});
-route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),async(req,res)=>{
+}));
+route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
   if(!mongoose.isValidObjectId(req.params.receiptId))return res.status(404).json({error:'Receipt not found.'});
   const r=await Receipt.findOne({caseId:req.caseItem._id,_id:req.params.receiptId});
   if(!r)return res.status(404).json({error:'Receipt not found.'});
@@ -166,8 +185,8 @@ route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),
   if(!result.modifiedCount)return res.status(409).json({error:'Receipt already processed.'});
   await logEvent(req.caseItem,req.user,'verified','Receipt verified; financial totals updated.');
   res.json({ok:true});
-});
-route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin'),async(req,res)=>{
+}));
+route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
   const body=z.object({reason:z.string().trim().min(4).max(400)}).strict().parse(req.body);
   if(!mongoose.isValidObjectId(req.params.receiptId))return res.status(404).json({error:'Receipt not found.'});
   const r=await Receipt.findOne({_id:req.params.receiptId,caseId:req.caseItem._id,kind:'receipt',status:'verified'});
@@ -176,7 +195,7 @@ route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin')
   if(prior)return res.status(409).json({error:'Receipt has already been reversed.'});
   await Receipt.create({caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,amountPaise:r.amountPaise,kind:'reversal',status:'verified',reference:`REV-${r.reference}`,reversedFrom:r._id,recordedBy:req.user._id,verifiedBy:req.user._id,verifiedAt:new Date()});
   await logEvent(req.caseItem,req.user,'reversal',`Verified receipt correction: ${body.reason}`,'creditor');res.json({ok:true});
-});
+}));
 app.use('/api/v1',route);
 app.use((_req,res)=>res.status(404).json({error:'Not found.'}));
 app.use((error,_req,res,_next)=>{

@@ -17,7 +17,7 @@ export async function api<T>(path:string,options:RequestInit={}):Promise<T>{
   if(!response.ok)throw new ApiError(parsed?.error||`Request failed (${response.status})`,response.status,parsed?.issues);
   return data as T;
 }
-export function money(paise:number){return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(paise/100);}
+export function money(paise:number){const decimals=paise%100===0?0:2;return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:decimals,maximumFractionDigits:2}).format(paise/100);}
 export function shortMoney(paise:number){const n=paise/100;if(n>=10000000)return `₹${(n/10000000).toFixed(2)}Cr`;if(n>=100000)return `₹${(n/100000).toFixed(2)}L`;return money(paise);}
 export function date(value?:string){if(!value)return '—';return new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(value));}
 export function label(status:string){return status.split('_').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');}

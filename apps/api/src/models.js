@@ -16,6 +16,10 @@ const caseSchema = new mongoose.Schema({
   disputed: {type:Boolean, default: false}, status: {type:String, enum:['draft','submitted','needs_info','rejected','accepted','in_progress','on_hold','closed'], default:'draft'},
   feeRateBps: {type:Number, min:1500, max:3000, default:2000}, assignedTo: {...id, ref:'User'},
   decisionReason: {type:String, default:''}, submittedAt: Date, acceptedAt: Date,
+  // Demo-only lease prevents simultaneous financial mutations on the same case.
+  // Production still needs multi-document transactions and audited reconciliation.
+  financialLockToken: {type:String, default:null, select:false},
+  financialLockExpiresAt: {type:Date, default:null, select:false},
   evidenceLabel: {type:String, default:''} // demo-only text label; NOT an uploaded file
 }, options);
 caseSchema.index({organizationId:1,invoiceNo:1},{unique:true});
