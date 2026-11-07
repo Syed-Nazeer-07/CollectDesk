@@ -31,6 +31,7 @@ async function session(email, mobile = false) {
   await page.getByRole('button', { name: /Sign in to workspace/i }).click();
   await page.waitForURL(/\/dashboard(?:\?.*)?$/);
   await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor();
+  await page.locator('.metrics-grid').waitFor();
   return page;
 }
 async function statusIs(page, status) {
