@@ -35,7 +35,7 @@ export default function CasesPage(){
     return ()=>{cancelled=true;};
   },[page,status,debouncedQ,reload]);
   return <AppShell title="All cases" subtitle="Track, review, and manage your collection cases.">
-    <section className="panel cases-full">
+    {() => <section className="panel cases-full">
       <div className="case-tools">
         <div className="search-field"><Search size={18}/><input aria-label="Search cases" placeholder="Search by case, debtor, invoice…" value={q} onChange={e=>{setQ(e.target.value);setPage(1);}}/></div>
         <div className="select-wrap"><SlidersHorizontal size={17}/><select aria-label="Filter by status" value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}>{STATUSES.map(s=><option key={s} value={s}>{s==='all'?'All statuses':s.replace('_',' ')}</option>)}</select></div>
@@ -51,6 +51,6 @@ export default function CasesPage(){
           <button type="button" className="button button-muted" aria-label="Next page" disabled={loading||page>=pagination.totalPages} onClick={()=>setPage(v=>v+1)}>Next <ChevronRight size={17}/></button>
         </div>
       </div>
-    </section>
+    </section>}
   </AppShell>;
 }
