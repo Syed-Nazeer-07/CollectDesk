@@ -1,5 +1,5 @@
 {
-  "name": "@collectdesk/api", "version": "0.2.0", "private": true, "type": "module",
+  "name": "@collectdesk/api", "version": "0.3.0", "private": true, "type": "module",
   "scripts": {"dev": "node --watch src/server.js", "start": "node src/server.js", "seed": "node src/seed.js", "test": "node --test test/*.test.js"},
   "dependencies": {
     "bcryptjs": "^3.0.2", "cookie-parser": "^1.4.7", "cors": "^2.8.5",
