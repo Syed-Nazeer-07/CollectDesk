@@ -1,6 +1,6 @@
 # CollectDesk
 
-**Commercial Collections · MVP v0.1**
+**Commercial Collections · MVP v0.2 (development preview)**
 
 A simple, responsive B2B invoice recovery **case-management demo** for the Ricoz Innovation project. Built from the competitor research and proposed PRD of 8 November 2026. All seeded business names and invoices are fictional.
 
@@ -10,8 +10,8 @@ A simple, responsive B2B invoice recovery **case-management demo** for the Ricoz
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | Next.js 16 App Router, React 19, TypeScript |
-| Backend | Node.js 22+, Express 5 |
+| Frontend | Next.js 16.4.5+ App Router, React 19, TypeScript |
+| Backend | Node.js 22.23.4+ LTS or 24.22.1+ LTS, Express 5 |
 | Database | MongoDB + Mongoose |
 | Auth | bcrypt password hashing, signed httpOnly session cookie |
 | API protection | Strict input schemas, origin check, rate limiting, case-level access checks |
@@ -20,7 +20,7 @@ Next.js proxies browser `/api/v1/*` traffic to Express, keeping cookies same-ori
 
 ## Running locally (Windows PowerShell)
 
-**Prerequisites:** Node.js 22+, npm, and a local MongoDB database or a MongoDB Atlas development database. No paid AI API key is needed. This project has **not** been installed or run end-to-end in the authoring environment because the npm registry was unreachable there.
+**Prerequisites:** Patched Node.js 22 LTS (22.23.4+) or 24 LTS (24.22.1+), npm, and a local MongoDB database or a MongoDB Atlas development database. No paid AI API key is needed. The updated project has **not** been installed or run end-to-end in the authoring environment because the npm registry is unreachable here. A CI workflow and API integration test suite are provided, but have not yet been executed on GitHub. The npm lockfile is also pending the first successful dependency installation.
 
 ```powershell
 # Unzip the archive, then open the project folder
@@ -63,7 +63,7 @@ The UI runs at port **3000**. Express runs on port **4000**. Health endpoint: `h
 
 ## Important financial rule
 
-Use **integer paise**. Recovered = verified receipts − approved reversal entries. Pending receipts never count as cash received. Estimated fee = round-half-up(net recovery × fee basis points ÷ 10,000). Fees are an estimate and exclude taxes, discounts and legal expenses.
+Use **integer paise**. Recovered = verified receipts − approved reversal entries. Pending receipts never count as cash received. Unverified receipt references are not exposed to creditor accounts. Estimated fee = round-half-up(net recovery × fee basis points ÷ 10,000). Fees are an estimate and exclude taxes, discounts and legal expenses.
 
 ## Scripts
 
@@ -76,6 +76,27 @@ npm run check               # Unit tests + Next.js build
 ```
 
 The test runner does not need npm dependencies for pure rule tests, but a full build and API tests do.
+
+### API integration suite (requires a disposable database)
+
+The new integration test covers role-based login, cross-organization isolation, invoice submission,
+admin reviews, operator updates, creditor-visible vs internal notes, pending/verified receipts,
+reversals, and competing verification requests. It is **skipped** unless `TEST_MONGODB_URI` is provided.
+
+```powershell
+# Use an isolated disposable MongoDB database. THIS DATABASE IS CLEARED by the test.
+$env:TEST_MONGODB_URI = "mongodb://127.0.0.1:27017/collectdesk_integration_test"
+npm install
+npm test
+```
+
+Only the exact database names `collectdesk_integration_test` or `collectdesk_ci_test` are accepted
+for this destructive integration test. **Never** point it to live or personal data.
+
+GitHub Actions configuration is included in `.github/workflows/ci.yml` and will run
+TypeScript checks, unit + MongoDB integration tests, and the Next.js production build
+when pushed to a repository with Actions enabled. A workflow file existing is not proof that CI passed.
+
 
 ## Source tree
 
@@ -99,8 +120,9 @@ docs/
 - Activity visibility is filtered server-side; operators may access only assigned cases.
 - API requires a matching frontend Origin for state-changing requests. Configure `WEB_ORIGIN` exactly (including protocol) to match your frontend.
 - Use a same-origin Next.js API proxy when deploying; the API should not be directly exposed to untrusted public traffic without additional hardening.
+- The per-case financial mutation lease serializes ordinary simultaneous demo requests; it is **not** an ACID transaction, and operations spanning receipts + audit events are not crash-atomic. Use replica-set transactions and reconciliation before real financial use.
 - The filename label is *not* a stored evidence file. Implement private object storage, malware scanning and authorized download only after scope approval.
-- Login, endpoint, database and browser integration tests are not yet run. Production deployment would require operational, legal and security review.
-- For updates, use feature branches, make focused commits and keep rollback tags. **No commits or GitHub pushes are included in this archive.**
+- DB-backed integration and browser E2E tests have not yet run here. Production deployment would require operational, legal and security review.
+- This package contains a local Git history with a `rollback-v0.1` tag and focused development commits; no remote GitHub push or live deployment has been performed.
 
 See `docs/IMPLEMENTATION_STATUS.md` for the accurate implementation and test status.

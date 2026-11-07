@@ -1,6 +1,6 @@
-# Implementation status · CollectDesk v0.1
+# Implementation status · CollectDesk v0.2
 
-**Status:** source-code MVP foundation; **not yet verified end-to-end against a running MongoDB and Next.js build**.
+**Status:** Working source-code prototype; **not yet verified end-to-end against a running MongoDB and Next.js build**.
 
 ## Implemented in source
 
@@ -13,32 +13,37 @@
 - Operator: view assigned cases and add permissioned notes.
 - Pure domain math rules: integer paise; verified recovery only; reversals; fees.
 - Cross-origin request check, password hashing, httpOnly cookie, rate limiting, generic auth errors, input validation.
-- Automated unit tests for pure domain rules.
+- Creditor API now hides unverified internal receipt records; staff still see pending entries.
+- Demo ledger mutations serialized by short-lived per-case MongoDB lease (not a transaction).
+- Draft-creation UI handles a failed second-step submission without claiming the draft disappeared.
+- UI distinguishes completed action from subsequent refresh failure, reducing accidental duplicate submissions.
+- Automated unit tests and an opt-in MongoDB-backed API integration suite.
+- Local Git history and rollback tag; GitHub Actions CI configuration.
 
-## Incomplete / not proven
+## Test evidence
 
-- **No successful npm install or complete Next.js build in the authoring environment** (package registry DNS unavailable).
-- **No running MongoDB integration tests or browser E2E tests yet.** Source behavior has not been confirmed under real server conditions.
-- Evidence field is **filename label only**, not file upload or document storage.
-- No automated emails, real debt collection messaging, money processing, legal notices, or third-party integration.
-- No settlement/closure or full re-opening workflow yet.
-- No formal security penetration testing or compliance sign-off.
-- No real deployment, public URL, or GitHub repository/push.
+- **16 passing unit tests** from `node --test`, independently executable without npm packages.
+- **1 skipped API integration test**, containing many assertions; requires dependencies + disposable MongoDB to execute.
+- JavaScript syntax checks: passing. TypeScript/TSX parse checks: separate report.
+- No confirmed `npm install`, TypeScript typecheck, Next.js build, or browser E2E execution in this environment.
+- GitHub Actions workflow is prepared but **has not been executed**.
+
+## Security limitations requiring follow-up
+
+- Financial lease uses a 120-second timeout, not atomic multi-document transactions. Process crashes, partial failures, or a request exceeding its lease can leave an inconsistent audit trail; a production service must use MongoDB replica-set transactions and reconciliation.
+- `Case` updates and audit logs are separate writes. Partial failures can persist a case change even if the request eventually reports an error. Do not use this for real collection or money tracking.
+- No public account registration, password reset, MFA, immutable audit store, file storage/scanning, debtor messaging, money movement, real recovery verification, legal notices or external integrations.
+- No independent penetration test, legal compliance review, production backup/recovery plan, or deployment.
+- No formal browser visual checks of the real running app.
 - **45% completion is an unapproved milestone proposed by the PRD, not a calculated or accepted percentage.**
 
-## Demo milestones suggested to Ricoz
+## Next checks to run when npm and MongoDB are available
 
-1. Install dependencies, connect MongoDB, run seed.
-2. Verify role-based login for admin, creditor A/B, and operator.
-3. As creditor A: create draft, submit; refresh and confirm persistence.
-4. As admin: accept with rationale and assign operator.
-5. As operator: post creditor-facing update; creditor sees it.
-6. Verify creditor A cannot access creditor B case even with guessed URL.
-7. Save screenshots of the above and present to Rajesh for a check-in.
+1. Upgrade to patched Node.js LTS; install dependencies with `npm install`.
+2. Run API unit + integration tests against `collectdesk_integration_test` (destructive test database).
+3. Run `npm run typecheck -w @collectdesk/web` and `npm run build`.
+4. Seed a **different, throwaway** demo database and run the two servers.
+5. Execute the role-by-role checklist in `docs/DEMO_SCRIPT.md` using the browser.
+6. Fix issues surfaced in those runs, then decide repository ownership and deployment.
 
-## Security gates before showing real data
-
-- Do not use real customer or debtor data.
-- Configure secure HTTPS, private Mongo credentials, a random JWT_SECRET, provider secrets, and enforce role/tenant authorization.
-- Run package vulnerability audit, tests, and a legal/privacy review for actual collections.
-- Decide repository ownership and hosting arrangements.
+Do not submit this as a production-ready collections platform.

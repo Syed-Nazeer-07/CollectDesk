@@ -33,7 +33,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     <main className="main"><header className="topbar"><div className="topbar-left"><button className="icon-button hide-desktop" aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <b>{title}</b></span></div><div className="topbar-right"><span className="topbar-demo"><span className="safety-dot"/> Demo mode</span><div className="top-avatar">{user?.name?.[0]||'C'}</div></div></header>
       <div className="main-content"><div className="page-heading"><div><div className="eyebrow">COMMERCIAL COLLECTIONS / WORKSPACE</div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
         {authError?<div className="message error">{authError} <button onClick={()=>location.reload()}>Retry</button></div>:!ready||!user?<div className="loading-panel"><div className="spinner"/> Loading your secure workspace…</div>:children(user)}
-        <footer className="app-footer"><span>CollectDesk v0.1 · Fictional data only</span><span>Built for demonstration · No funds moved</span></footer>
+        <footer className="app-footer"><span>CollectDesk v0.2 · Fictional data only</span><span>Built for demonstration · No funds moved</span></footer>
       </div>
     </main>
   </div>;
