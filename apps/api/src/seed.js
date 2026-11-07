@@ -6,6 +6,14 @@ import {formatCaseCode} from './rules.js';
 if(!process.env.MONGODB_URI || !process.env.DEMO_SEED_PASSWORD || process.env.DEMO_SEED_PASSWORD.length<12 || process.env.DEMO_SEED_PASSWORD==='change-this-before-seeding'){
   console.error('Set MONGODB_URI and a 12+ character DEMO_SEED_PASSWORD before seeding.');process.exit(1);
 }
+// A seed resets demo account passwords. Refuse any database outside dedicated fixtures.
+let databaseName;
+try { databaseName = new URL(process.env.MONGODB_URI).pathname.slice(1).split('/')[0]; }
+catch { console.error('Invalid MongoDB connection URI.'); process.exit(1); }
+if (!['collectdesk_demo', 'collectdesk_ci_demo'].includes(databaseName)) {
+  console.error('Seed refused: only collectdesk_demo or collectdesk_ci_demo databases are allowed.');
+  process.exit(1);
+}
 await mongoose.connect(process.env.MONGODB_URI);
 const hash=await bcrypt.hash(process.env.DEMO_SEED_PASSWORD,12);
 async function org(name){return Organization.findOneAndUpdate({name},{$setOnInsert:{name,country:'IN',active:true}},{upsert:true,returnDocument:'after'});}
