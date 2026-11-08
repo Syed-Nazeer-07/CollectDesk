@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assertAccess,canEditDraft,canSubmit,canReview,canAssign,calculateMoney,formatCaseCode,isOverdue,indiaDateKey,pageInfo,scopeForUser} from '../src/rules.js';
+import {assertAccess,canEditDraft,canSubmit,canReview,canAssign,canHold,canResume,canClose,calculateMoney,formatCaseCode,isOverdue,indiaDateKey,pageInfo,scopeForUser} from '../src/rules.js';
 test('creditor only sees own organization',()=>{
   const caseItem={organizationId:'A',assignedTo:'operator-x'};
   assert.equal(assertAccess({_id:'u1',role:'creditor',organizationId:'A'},caseItem),true);
@@ -23,6 +23,19 @@ test('draft editing and submission lifecycle',()=>{
   assert.equal(canReview('submitted'),true);
   assert.equal(canAssign('accepted'),true);
   assert.equal(canAssign('submitted'),false);
+});
+test('admin operational transitions explicitly reject invalid case states',()=>{
+  assert.equal(canHold('accepted'),true);
+  assert.equal(canHold('in_progress'),true);
+  assert.equal(canHold('submitted'),false);
+  assert.equal(canHold('closed'),false);
+  assert.equal(canResume('on_hold'),true);
+  assert.equal(canResume('in_progress'),false);
+  assert.equal(canClose('accepted'),true);
+  assert.equal(canClose('in_progress'),true);
+  assert.equal(canClose('on_hold'),true);
+  assert.equal(canClose('draft'),false);
+  assert.equal(canClose('closed'),false);
 });
 test('unverified receipts never count as recovered',()=>{
   assert.deepEqual(calculateMoney(10000000,2000,[{status:'recorded',kind:'receipt',amountPaise:6000000}]),{recoveredPaise:0,outstandingPaise:10000000,feePaise:0});
