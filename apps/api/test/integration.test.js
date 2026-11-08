@@ -159,6 +159,14 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,201,JSON.stringify(r.data));
     const receiptId = r.data.id;
+    const erroneous=await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:10_000,reference:'INCORRECT-PENDING'}});
+    assert.equal(erroneous.status,201,'additional synthetic pending receipt recorded');
+    r = await call(`/cases/${caseId}/receipts/${erroneous.data.id}/reject`,{method:'POST',cookie:operator,body:{reason:'Invalid reference'}});
+    assert.equal(r.status,403,'operator cannot reject pending receipts');
+    r = await call(`/cases/${caseId}/receipts/${erroneous.data.id}/reject`,{method:'POST',cookie:admin,body:{reason:'Incorrect fictional reference'}});
+    assert.equal(r.status,200,'admin can reject incorrect pending receipt');
+    r = await call(`/cases/${caseId}/receipts/${erroneous.data.id}/reject`,{method:'POST',cookie:admin,body:{reason:'Duplicate rejection'}});
+    assert.equal(r.status,409,'rejected receipt cannot be processed twice');
     r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'close',reason:'Close while payment pending'}});
     assert.equal(r.status,409,'pending receipts must be reconciled before closing');
     r = await call(`/cases/${caseId}`,{cookie:a});
