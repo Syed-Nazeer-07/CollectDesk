@@ -18,6 +18,10 @@ export function canEditDraft(role, status) {
 export function canSubmit(status) { return status === 'draft' || status === 'needs_info'; }
 export function canReview(status) { return status === 'submitted'; }
 export function canAssign(status) { return status === 'accepted' || status === 'in_progress'; }
+/** Admin-only operational transitions; closed is deliberately terminal in this demo. */
+export function canHold(status) { return status === 'accepted' || status === 'in_progress'; }
+export function canResume(status) { return status === 'on_hold'; }
+export function canClose(status) { return ['accepted','in_progress','on_hold'].includes(status); }
 
 export function calculateMoney(principalPaise, feeRateBps, receipts = []) {
   if (!Number.isSafeInteger(principalPaise) || principalPaise < 0) throw new Error('Invalid principal');
