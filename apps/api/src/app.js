@@ -214,6 +214,21 @@ route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>wi
   await logEvent(req.caseItem,req.user,'receipt','Receipt recorded, awaiting verification.');
   res.status(201).json({id:String(r._id),status:'recorded'});
 }));
+// Reject an erroneous pending fictional receipt so it no longer blocks case
+// reconciliation or closure. A verified receipt requires a reversal instead.
+route.post('/cases/:id/receipts/:receiptId/reject',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
+  const {reason}=z.object({reason:z.string().trim().min(4).max(400)}).strict().parse(req.body);
+  if(!mongoose.isValidObjectId(req.params.receiptId))return res.status(404).json({error:'Receipt not found.'});
+  const result=await Receipt.updateOne({
+    _id:req.params.receiptId,
+    caseId:req.caseItem._id,
+    kind:'receipt',
+    status:'recorded'
+  },{$set:{status:'rejected'}});
+  if(!result.matchedCount)return res.status(409).json({error:'Only pending receipts may be rejected.'});
+  await logEvent(req.caseItem,req.user,'receipt_rejected',`Pending receipt rejected: ${reason}`,'internal');
+  res.json({ok:true});
+}));
 route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
   if(!mongoose.isValidObjectId(req.params.receiptId))return res.status(404).json({error:'Receipt not found.'});
   const r=await Receipt.findOne({caseId:req.caseItem._id,_id:req.params.receiptId});
