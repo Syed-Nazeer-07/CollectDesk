@@ -12,6 +12,23 @@ services:
     dockerCommand: node scripts/start-hosted.mjs
     healthCheckPath: /api/health
     autoDeployTrigger: checksPass
+    # CI still runs for all commits; only runtime-affecting changes redeploy.
+    # A docs/test-only commit must not restart an idle free demo server.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - apps/web/**
+        - scripts/start-hosted.mjs
+        - Dockerfile.render
+        - .dockerignore
+        - package.json
+        - package-lock.json
+        - render.yaml
+      ignoredPaths:
+        - apps/api/test/**
+        - docs/**
+        - README.md
+        - .github/**
     envVars:
       - key: NODE_ENV
         value: production
