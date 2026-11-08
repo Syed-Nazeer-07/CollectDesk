@@ -19,6 +19,7 @@ export default function GoogleSignIn({onAuthenticated}:{onAuthenticated:(user:Us
   const [scriptReady,setScriptReady]=useState(false);
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
+  const [attempt,setAttempt]=useState(0);
   const target=useRef<HTMLDivElement|null>(null);
   const callback=useRef(onAuthenticated);
   useEffect(()=>{callback.current=onAuthenticated;},[onAuthenticated]);
@@ -53,13 +54,13 @@ export default function GoogleSignIn({onAuthenticated}:{onAuthenticated:(user:Us
     }
     setup();
     return()=>{cancelled=true;};
-  },[options,scriptReady]);
+  },[options,scriptReady,attempt]);
   if(!options?.googleEnabled)return null;
   return <div className="auth-google">
     <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={()=>setScriptReady(true)}/>
     <div ref={target} className="auth-google-button" aria-label="Google sign-in"/>
     {busy&&<p className="auth-note">Verifying Google account…</p>}
-    {error&&<p role="alert" className="auth-error">{error}</p>}
+    {error&&<div role="alert" className="auth-error">{error} <button type="button" className="auth-retry-link" onClick={()=>{setError('');setAttempt(n=>n+1)}}>Try Google again</button></div>}
     <div className="auth-divider"><span>or continue with email</span></div>
   </div>;
 }
