@@ -637,3 +637,5 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
 .auth-signup-link a{color:#136d63;font-weight:750}
 .auth-signup-link a:hover{text-decoration:underline}
 @media(max-width:700px){.auth-card{padding:26px 22px}.auth-card h1{font-size:25px}}
+
+.auth-retry-link{border:0;background:transparent;color:#8c3b35;font-size:12px;font-weight:750;text-decoration:underline;padding:3px 0;display:block;margin-top:6px}
