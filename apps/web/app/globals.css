@@ -582,3 +582,8 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
   .cases-table .money-cell{font-size:14px}
   .cases-table .status{font-size:10px}
 }
+
+/* Hosted authentication must always offer a clear escape from slow requests. */
+.slow-session-notice{margin-top:12px;display:flex;align-items:flex-start;flex-direction:column;gap:12px}
+.slow-session-notice .muted{margin:0;max-width:440px;font-size:12px;line-height:1.6;color:#667f87}
+.slow-session-notice .button{min-height:36px;font-size:12px;padding:0 13px}
