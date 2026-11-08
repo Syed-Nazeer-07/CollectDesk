@@ -1,0 +1,30 @@
+name: Live Render preview diagnostics
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/live-preview-check.mjs
+      - .github/workflows/live-preview.yml
+      - apps/web/next.config.ts
+      - apps/api/src/auth.js
+      - apps/api/src/app.js
+      - apps/web/lib/api.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-external-preview:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 9
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check public Render HTTPS, API proxy and login origin
+        run: node scripts/live-preview-check.mjs
