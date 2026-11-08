@@ -11,11 +11,13 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   const [ready,setReady]=useState(false);
   const [menu,setMenu]=useState(false);
   const [authError,setAuthError]=useState('');
+  const [takingLong,setTakingLong]=useState(false);
   const pathname=usePathname();const router=useRouter();
-  const load=useCallback(()=>{api<{user:User}>('/auth/me').then(r=>setUser(r.user)).catch(e=>{
+  const load=useCallback(()=>{setReady(false);setTakingLong(false);setAuthError('');api<{user:User}>('/auth/me').then(r=>setUser(r.user)).catch(e=>{
     if(e.status===401)router.replace('/login'); else setAuthError(e.message);
   }).finally(()=>setReady(true));},[router]);
   useEffect(()=>{load();},[load]);
+  useEffect(()=>{if(ready)return;const timeout=setTimeout(()=>setTakingLong(true),8000);return()=>clearTimeout(timeout);},[ready]);
   async function logout(){try{await api('/auth/logout',{method:'POST'});router.replace('/login');}catch(e:any){setAuthError(e.message);}}
   return <div className="app-root">
     {menu&&<button className="mobile-overlay" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}
@@ -32,7 +34,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     </aside>
     <main className="main"><header className="topbar"><div className="topbar-left"><button className="icon-button hide-desktop" aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <b>{title}</b></span></div><div className="topbar-right"><span className="topbar-demo"><span className="safety-dot"/> Demo mode</span><div className="top-avatar">{user?.name?.[0]||'C'}</div></div></header>
       <div className="main-content"><div className="page-heading"><div><div className="eyebrow">COMMERCIAL COLLECTIONS / WORKSPACE</div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
-        {authError?<div className="message error">{authError} <button onClick={()=>location.reload()}>Retry</button></div>:!ready||!user?<div className="loading-panel"><div className="spinner"/> Loading your secure workspace…</div>:children(user)}
+        {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your secure workspace…{takingLong&&<p className="muted">Our free demo server may be waking up. This can take a minute. If it keeps loading, refresh or try again.</p>}</div></div>:children(user)}
         <footer className="app-footer"><span>CollectDesk v0.3 · Fictional data only</span><span>Built for demonstration · No funds moved</span></footer>
       </div>
     </main>
