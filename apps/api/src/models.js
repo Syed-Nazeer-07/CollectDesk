@@ -5,7 +5,7 @@ const id = {type: mongoose.Schema.Types.ObjectId};
 export const Organization = mongoose.model('Organization', new mongoose.Schema({name: {type: String, required: true}, country: {type: String, default: 'IN'}, active: {type: Boolean, default: true}}, options));
 export const User = mongoose.model('User', new mongoose.Schema({
   name: {type: String, required: true}, email: {type: String, required: true, lowercase: true, unique: true},
-  passwordHash: {type: String, required: true, select: false}, role: {type: String, enum: ['creditor','operator','admin'], required: true},
+  passwordHash: {type: String, required: true, select: false}, googleSub: {type:String,unique:true,sparse:true,select:false}, role: {type: String, enum: ['creditor','operator','admin'], required: true},
   organizationId: {...id, ref: 'Organization'}, active: {type: Boolean, default: true}
 }, options));
 const caseSchema = new mongoose.Schema({
@@ -42,3 +42,13 @@ const receiptSchema = new mongoose.Schema({
 receiptSchema.index({caseId:1,reference:1},{unique:true});
 receiptSchema.index({reversedFrom:1},{unique:true,partialFilterExpression:{reversedFrom:{$exists:true}}});
 export const Receipt = mongoose.model('Receipt',receiptSchema);
+
+// Unverified signups never become active users or organizations. One-time tokens
+// are stored as hashes and expire after 30 minutes (MongoDB TTL cleanup is async).
+const pendingSignupSchema=new mongoose.Schema({
+  name:{type:String,required:true},email:{type:String,required:true,lowercase:true},
+  organizationName:{type:String,required:true},passwordHash:{type:String,required:true},
+  tokenHash:{type:String,required:true,unique:true},expiresAt:{type:Date,required:true}
+},options);
+pendingSignupSchema.index({expiresAt:1},{expireAfterSeconds:0});
+export const PendingSignup=mongoose.model('PendingSignup',pendingSignupSchema);
