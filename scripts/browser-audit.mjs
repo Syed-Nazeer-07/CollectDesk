@@ -157,6 +157,14 @@ try {
   await admin.getByLabel('Evidence reference').fill('AUDIT-RECEIPT-001');
   await admin.getByRole('button', { name: /Record pending receipt/i }).click();
   await admin.locator('.receipt-row .status').filter({ hasText: 'Awaiting verification' }).waitFor();
+  await admin.getByLabel('Amount (INR)').fill('10');
+  await admin.getByLabel('Evidence reference').fill('AUDIT-REJECT-PENDING');
+  await admin.getByRole('button', { name: /Record pending receipt/i }).click();
+  const wrongReceipt=admin.locator('.receipt-row').filter({hasText:'AUDIT-REJECT-PENDING'});
+  await wrongReceipt.getByRole('button', {name:'Reject pending'}).click();
+  await wrongReceipt.getByLabel('Reason for rejecting pending receipt').fill('Incorrect fictional reference');
+  await wrongReceipt.getByRole('button', {name:'Confirm pending rejection'}).click();
+  await wrongReceipt.getByText('Rejected', {exact:true}).waitFor();
   await admin.getByRole('button', { name: 'Verify', exact: true }).click();
   await admin.getByText('Verified', { exact: true }).last().waitFor();
   await creditor.reload();
