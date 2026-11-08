@@ -1,5 +1,15 @@
 # Changelog
 
+## Demo hardening — 8 November 2026
+
+- Created rollback branch `rollback/pre-final-hardening-2026-11-08` before final changes.
+- Made creditor edits safe against concurrent submission by including editable status in the database write; added tenant and immutable-invoice regression tests.
+- Added administrator case transitions: hold, resume and terminal close, with reasons and audit events. Close blocks while receipts are pending.
+- Added pending receipt rejection and verified receipt correction controls with explicit reasons, role enforcement and confirmation.
+- Added unit, API integration and Chromium browser coverage for new transitions and corrections.
+- Updated README, deployment instructions and implementation status to describe the actual hosted demo, testing and free-tier limitations.
+- Real-money operations and secure document uploads remain intentionally outside demo scope.
+
 ## v0.3 — Pagination, validation, reproducible testing (8 November 2026)
 
 - Fixed the case register only searching the first 100 loaded cases; added backend filtering, stable ordering and 25-item pages.
