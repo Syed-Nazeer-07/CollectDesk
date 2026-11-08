@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {LayoutDashboard,FolderKanban,Plus,ShieldCheck,LogOut,Menu,X,BriefcaseBusiness,ArrowUpRight} from 'lucide-react';
 import {api,User} from '@/lib/api';
 
@@ -17,14 +17,24 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   const [takingLong,setTakingLong]=useState(false);
   const pathname=usePathname();
   const router=useRouter();
+  const requestRef=useRef<AbortController|null>(null);
   const load=useCallback(()=>{
+    // Cancel stale /auth/me fetches before retrying. Do not let an old response
+    // overwrite a newer session check.
+    requestRef.current?.abort();
+    const controller=new AbortController();
+    requestRef.current=controller;
     setReady(false);setTakingLong(false);setAuthError('');
-    api<{user:User}>('/auth/me')
-      .then(r=>setUser(r.user))
-      .catch(e=>{if(e.status===401)router.replace('/login');else setAuthError(e.message);})
-      .finally(()=>setReady(true));
+    api<{user:User}>('/auth/me',{signal:controller.signal})
+      .then(r=>{if(!controller.signal.aborted)setUser(r.user);})
+      .catch(e=>{
+        if(controller.signal.aborted)return;
+        if(e.status===401)router.replace('/login');
+        else setAuthError(e.message);
+      })
+      .finally(()=>{if(requestRef.current===controller && !controller.signal.aborted)setReady(true);});
   },[router]);
-  useEffect(()=>{load();},[load]);
+  useEffect(()=>{load();return()=>{requestRef.current?.abort();};},[load]);
   useEffect(()=>{setMenu(false);},[pathname]);
   useEffect(()=>{
     if(ready)return;
@@ -73,7 +83,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
       </header>
       <div className="main-content">
         <div className="page-heading"><div><div className="eyebrow">COLLECTDESK / WORKSPACE</div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
-        {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<p className="muted">Our free demo server may be waking up. This can take a minute. If it keeps loading, refresh or try again.</p>}</div></div>:children(user)}
+        {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user)}
         <footer className="app-footer"><span>CollectDesk · Fictional demo data</span><span>No actual collection activity or payments</span></footer>
       </div>
     </main>
