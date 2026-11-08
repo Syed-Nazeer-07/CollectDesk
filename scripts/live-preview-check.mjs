@@ -1,0 +1,56 @@
+/**
+ * Production preview diagnostics from GitHub Actions outside Render's network.
+ * Never logs or accepts real credentials. Designed to distinguish cold starts
+ * from broken proxy/origin rules and client-side login failures.
+ */
+import assert from 'node:assert/strict';
+
+const base = process.env.LIVE_PREVIEW_URL || 'https://collectdesk-preview-ah80.onrender.com';
+const origin = new URL(base).origin;
+const timeoutMs=95_000;
+const sleep=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
+
+async function request(path,{method='GET',body,headers={}}={}){
+  const started=Date.now();
+  try {
+    const result=await fetch(new URL(path,base),{
+      method,
+      cache:'no-store',
+      redirect:'follow',
+      headers:{...headers,...(body?{'content-type':'application/json'}:{})},
+      ...(body?{body:JSON.stringify(body)}:{}),
+      signal:AbortSignal.timeout(timeoutMs),
+    });
+    const duration=Date.now()-started;
+    const contentType=result.headers.get('content-type')||'';
+    const text=await result.text();
+    console.log(method, path, 'HTTP', result.status, duration+'ms', 'content-type:',contentType);
+    return {status:result.status,body:text,contentType,duration,headers:result.headers};
+  } catch(error){
+    console.error(method,path,'failed after',Date.now()-started+'ms:',error?.message||String(error));
+    throw error;
+  }
+}
+let health;
+for(let attempt=1;attempt<=3;attempt++){
+  try {
+    health=await request('/api/health');
+    if(health.status===200)break;
+    console.error('Health attempt',attempt,'returned',health.status,'body:',health.body.slice(0,240));
+  }catch(err){if(attempt===3)throw err;}
+  if(attempt<3)await sleep(8_000);
+}
+assert.equal(health?.status,200,'Public API health did not return HTTP 200');
+assert.deepEqual(JSON.parse(health.body),{ok:true},'Public API and database readiness check failed');
+const login=await request('/login');
+assert.equal(login.status,200,'Public login page failed');
+assert.match(login.body,/(collectdesk|Sign in to your workspace)/i,'Login page content missing');
+const auth=await request('/api/v1/auth/me');
+assert.equal(auth.status,401,'Unauthenticated public API must return HTTP 401');
+const invalid=await request('/api/v1/auth/login',{
+  method:'POST',
+  headers:{origin},
+  body:{email:'admin@demo.collectdesk.test',password:'this-is-intentionally-not-the-password'},
+});
+assert.equal(invalid.status,401,'Public login proxy must allow same-origin POST and reject wrong credentials with HTTP 401 (not 403/502)');
+console.log('PASS public HTTPS frontend, Atlas-backed API, proxy, origin checks and rejected login');
