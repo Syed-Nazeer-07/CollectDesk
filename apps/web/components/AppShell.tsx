@@ -26,7 +26,10 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     requestRef.current=controller;
     setReady(false);setTakingLong(false);setAuthError('');
     api<{user:User}>('/auth/me',{signal:controller.signal})
-      .then(r=>{if(!controller.signal.aborted)setUser(r.user);})
+      .then(r=>{if(controller.signal.aborted)return;
+        if(r.user.role==='creditor'&&!r.user.organizationId){router.replace('/onboarding');return;}
+        setUser(r.user);
+      })
       .catch(e=>{
         if(controller.signal.aborted)return;
         if(e.status===401)router.replace('/login');
