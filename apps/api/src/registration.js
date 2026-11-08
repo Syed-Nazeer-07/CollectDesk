@@ -74,7 +74,8 @@ export async function verifyGoogleIdToken(credential,expectedNonce,clientId,{fet
   if(typeof credential!=='string'||credential.length>12000)throw new Error('Invalid Google credential');
   const sections=credential.split('.');
   if(sections.length!==3)throw new Error('Invalid Google credential');
-  const [header,payload]=sections.map(parseJwtPart);
+  const header=parseJwtPart(sections[0]);
+  const payload=parseJwtPart(sections[1]);
   const now=Math.floor(Date.now()/1000);
   if(header.alg!=='RS256'||!header.kid ||
     !['accounts.google.com','https://accounts.google.com'].includes(payload.iss) ||
