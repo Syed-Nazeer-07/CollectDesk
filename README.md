@@ -21,6 +21,14 @@ Render hosts Next.js and Express together in one Docker container; MongoDB Atlas
 
 All accounts use the **private demo password** stored in Render's `DEMO_SEED_PASSWORD`. It is not the Atlas account password. Never commit or share credentials.
 
+## Optional account registration (new)
+
+CollectDesk now includes **email/password registration with verified email links**, **Google Sign-In**, and **new-company onboarding** for creditor accounts. These are intentionally **disabled by default on the public demo** until the necessary external email/Google provider settings have been configured and approved. Existing seeded demo logins remain unaffected.
+
+Public signup never grants Administrator or Operator privileges. Google ID tokens are verified server-side, and new companies cannot access existing creditors' records.
+
+**[Authentication setup and security constraints](docs/AUTH_SETUP.md)** explains the Render environment variables, verified sending domain and Google client configuration. Do not describe the public registration flows as enabled until the live provider tests pass.
+
 ## Implemented workflows
 
 - **Cases:** create/edit drafts, overdue-only submission, request information, accept/reject reviews, assignment, status changes (hold, resume, close) with documented reasons.
