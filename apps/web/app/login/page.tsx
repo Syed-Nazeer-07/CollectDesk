@@ -15,16 +15,26 @@ export default function Login(){
   const [password,setPassword]=useState('');
   const [show,setShow]=useState(false);
   const [loading,setLoading]=useState(false);
+  const [slow,setSlow]=useState(false);
   const [error,setError]=useState('');
   const router=useRouter();
   useEffect(()=>{api<{user:User}>('/auth/me').then(()=>router.replace('/dashboard')).catch(()=>{});},[router]);
+  useEffect(()=>{if(!loading){setSlow(false);return;}const timer=setTimeout(()=>setSlow(true),9000);return()=>clearTimeout(timer);},[loading]);
   async function login(e:React.FormEvent){
     e.preventDefault();setError('');setLoading(true);
+    let authenticated=false;
     try{
       await api('/auth/login',{method:'POST',body:JSON.stringify({email,password})});
-      router.push('/dashboard');router.refresh();
-    }catch(err:any){setError(err.message);}
-    finally{setLoading(false);}
+      authenticated=true;
+      // Verify the HTTPS browser cookie is present before changing routes.
+      // Avoid racing router.refresh() with a pending router transition.
+      await api<{user:User}>('/auth/me');
+      router.replace('/dashboard');
+    }catch(err:any){
+      setError(authenticated && err?.status===401
+        ?'Sign-in succeeded, but your session cookie was not saved. Allow cookies for this site, then try again.'
+        :err?.message||'Sign-in failed. Please try again.');
+    }finally{setLoading(false);}
   }
   return <div className="login-layout">
     <section className="login-story" aria-label="CollectDesk introduction">
@@ -57,6 +67,7 @@ export default function Login(){
           <label>Demo password<div className="password-wrap"><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your workspace password"/><button type="button" onClick={()=>setShow(v=>!v)} aria-label={show?'Hide password':'Show password'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
           {error&&<div className="message error" role="alert">{error}</div>}
           <button className="button button-primary login-submit" disabled={loading}>{loading?'Signing in…':'Sign in to workspace'}<ArrowRight size={18}/></button>
+          {slow&&<p className="login-slow-notice" role="status">The free demo server is responding slowly. It may be waking up; the request will time out rather than loading forever.</p>}
         </form>
         <div className="login-security"><LockKeyhole size={16}/> A fictional demonstration. Your workspace owner manages the demo password.</div>
       </div>
