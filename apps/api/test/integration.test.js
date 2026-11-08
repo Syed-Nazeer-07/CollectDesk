@@ -65,6 +65,14 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,201,JSON.stringify(r.data));
     const caseId = r.data.id;
     assert.ok(caseId);
+    // A creditor can edit their own draft, but never an accepted/submitted claim.
+    const editableInvoice={...invoice,description:'Corrected draft description'};
+    r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:editableInvoice});
+    assert.equal(r.status,200,'creditor should be able to edit its own draft');
+    r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:b,body:editableInvoice});
+    assert.equal(r.status,404,'another creditor cannot edit this organization’s draft');
+    r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:admin,body:editableInvoice});
+    assert.equal(r.status,403,'administrator cannot overwrite creditor invoice fields');
 
     const futureInvoice={...invoice,invoiceNo:'INV-FUTURE-TEST',issueDate:'2098-01-01',dueDate:'2099-01-01'};
     const future=await call('/cases',{method:'POST',cookie:a,body:futureInvoice});
@@ -98,10 +106,18 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
 
     r = await call(`/cases/${caseId}/submit`,{method:'POST',cookie:a});
     assert.equal(r.status,200);
+    r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:{...editableInvoice,principalPaise:99_999_999}});
+    assert.equal(r.status,409,'submitted invoices must not be editable');
+    r = await call(`/cases/${caseId}`,{cookie:a});
+    assert.equal(r.data.case.principalPaise,invoice.principalPaise,'rejected edit must not alter invoice principal');
     r = await call(`/cases/${caseId}/submit`,{method:'POST',cookie:a});
     assert.equal(r.status,409,'duplicate submission must be rejected');
     r = await call(`/cases/${caseId}/review`,{method:'POST',cookie:admin,body:{decision:'accept',reason:'Fictional invoice approved',feeRateBps:2000}});
     assert.equal(r.status,200);
+    r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:{...editableInvoice,debtorName:'Attempted accepted edit'}});
+    assert.equal(r.status,409,'accepted invoices must not be editable');
+    r = await call(`/cases/${caseId}`,{cookie:a});
+    assert.equal(r.data.case.debtorName,invoice.debtorName,'accepted invoice fields remain unchanged');
     const op = await User.findOne({role:'operator'});
     r = await call(`/cases/${caseId}/assign`,{method:'POST',cookie:admin,body:{operatorId:String(op._id)}});
     assert.equal(r.status,200);
