@@ -52,3 +52,9 @@ const pendingSignupSchema=new mongoose.Schema({
 },options);
 pendingSignupSchema.index({expiresAt:1},{expireAfterSeconds:0});
 export const PendingSignup=mongoose.model('PendingSignup',pendingSignupSchema);
+
+// Server-side one-time Google login nonces. The signed browser cookie alone
+// would otherwise permit replay within the ID token's lifetime.
+const googleNonceSchema=new mongoose.Schema({nonceHash:{type:String,required:true,unique:true},expiresAt:{type:Date,required:true}},options);
+googleNonceSchema.index({expiresAt:1},{expireAfterSeconds:0});
+export const GoogleNonce=mongoose.model('GoogleNonce',googleNonceSchema);
