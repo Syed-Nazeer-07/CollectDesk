@@ -1,6 +1,8 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import Link from 'next/link';
+import GoogleSignIn from '@/components/GoogleSignIn';
 import {ArrowRight,BriefcaseBusiness,LockKeyhole,Eye,EyeOff,Check} from 'lucide-react';
 import {api,User} from '@/lib/api';
 
@@ -18,7 +20,7 @@ export default function Login(){
   const [slow,setSlow]=useState(false);
   const [error,setError]=useState('');
   const router=useRouter();
-  useEffect(()=>{api<{user:User}>('/auth/me').then(()=>router.replace('/dashboard')).catch(()=>{});},[router]);
+  useEffect(()=>{api<{user:User}>('/auth/me').then(r=>router.replace(r.user.role==='creditor'&&!r.user.organizationId?'/onboarding':'/dashboard')).catch(()=>{});},[router]);
   useEffect(()=>{if(!loading){setSlow(false);return;}const timer=setTimeout(()=>setSlow(true),9000);return()=>clearTimeout(timer);},[loading]);
   async function login(e:React.FormEvent){
     e.preventDefault();setError('');setLoading(true);
@@ -56,6 +58,7 @@ export default function Login(){
         <span className="eyebrow">COLLECTDESK ACCESS</span>
         <h1>Sign in to your workspace</h1>
         <p>Choose a demo role, then enter the password provided for this workspace.</p>
+        <GoogleSignIn onAuthenticated={user=>router.replace(user.role==='creditor'&&!user.organizationId?'/onboarding':'/dashboard')}/>
         <div className="login-modes"><div className="login-modes-title">Demo account</div>
           <div className="account-picker">{accounts.map(acc=><button type="button" key={acc.role} aria-pressed={email===acc.email} className={`account-option ${email===acc.email?'selected':''}`} onClick={()=>{setEmail(acc.email);setError('');}}>
             <span className="account-check" aria-hidden="true">{email===acc.email&&<Check size={13}/>}</span>
@@ -69,7 +72,8 @@ export default function Login(){
           <button className="button button-primary login-submit" disabled={loading}>{loading?'Signing in…':'Sign in to workspace'}<ArrowRight size={18}/></button>
           {slow&&<p className="login-slow-notice" role="status">The free demo server is responding slowly. It may be waking up; the request will time out rather than loading forever.</p>}
         </form>
-        <div className="login-security"><LockKeyhole size={16}/> A fictional demonstration. Your workspace owner manages the demo password.</div>
+        <p className="auth-signup-link">New business? <Link href="/signup">Create a creditor account</Link></p>
+        <div className="login-security"><LockKeyhole size={16}/> This is a fictional demonstration. Admin and operator access is invite-only.</div>
       </div>
       <div className="login-copyright">© 2026 CollectDesk · Demonstration preview</div>
     </section>
