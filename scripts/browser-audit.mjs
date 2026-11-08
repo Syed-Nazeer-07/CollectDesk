@@ -166,8 +166,18 @@ try {
   assert.ok(mobileCount > 0, 'Mobile case register did not load any demo records');
   const pageOverflow = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
   assert.equal(pageOverflow, false, 'Mobile page has unintended horizontal overflow');
+  const firstMobileCard = mobile.locator('.cases-table tbody tr').first();
+  const cardBounds = await firstMobileCard.evaluate(node => {
+    const rect=node.getBoundingClientRect();
+    return { width:rect.width, right:rect.right, viewport:window.innerWidth };
+  });
+  assert.ok(cardBounds.right <= cardBounds.viewport + 2, 'Mobile case card extends beyond the viewport');
+  assert.equal(await firstMobileCard.locator('td[data-label]').count(), 6, 'Mobile case card omits key fields');
+  await firstMobileCard.getByRole('link', { name: /View case/i }).waitFor();
   await mobile.screenshot({ path: 'browser-audit-results/mobile-cases.png', fullPage: true });
-  log('Mobile navigation reaches the case register');
+  await firstMobileCard.getByRole('link', { name: /View case/i }).click();
+  await mobile.getByRole('heading', { name: 'Case details', exact: true }).waitFor();
+  log('Mobile cases show all fields as cards with a functioning View action');
   console.log('All browser audit scenarios passed. Screenshots saved in browser-audit-results/.');
 } catch (error) {
   console.error('FAIL browser audit at step "' + step + '":', error.stack || String(error));
