@@ -130,7 +130,7 @@ route.get('/cases/:id',getCase,async(req,res)=>{
   const visibleReceipts=req.user.role==='creditor'?recs.filter(r=>r.status==='verified'):recs;
   res.json({case:{...item,id:String(item._id),organizationId:String(item.organizationId),assignedTo:item.assignedTo?String(item.assignedTo):null},
     financials:calc,activities:acts.map(a=>({id:String(a._id),kind:a.kind,text:a.text,visibility:a.visibility,createdAt:a.createdAt,actor:a.actorId?.name||'Team member'})),
-    receipts:visibleReceipts.map(r=>({id:String(r._id),amountPaise:r.amountPaise,kind:r.kind,status:r.status,reference:r.reference,createdAt:r.createdAt}))});
+    receipts:visibleReceipts.map(r=>({id:String(r._id),amountPaise:r.amountPaise,kind:r.kind,status:r.status,reference:r.reference,reversedFrom:r.reversedFrom?String(r.reversedFrom):null,createdAt:r.createdAt}))});
 });
 route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canEditDraft(req.user.role,req.caseItem.status))return res.status(409).json({error:'Only draft or information-requested cases can be edited.'});
