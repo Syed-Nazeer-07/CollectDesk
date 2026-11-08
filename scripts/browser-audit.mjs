@@ -26,6 +26,31 @@ async function session(email, mobile = false) {
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   await page.goto(base + '/login', { waitUntil: 'domcontentloaded' });
+  // Catch brand/tagline collisions and undersized fields before signing in.
+  const layout = await page.evaluate(async () => {
+    await document.fonts.ready;
+    const rect = selector => {
+      const node = document.querySelector(selector);
+      if (!node) throw new Error('Missing login element: ' + selector);
+      return node.getBoundingClientRect().toJSON();
+    };
+    return {
+      brand: rect('.story-brand'),
+      tagline: rect('.story-tag'),
+      story: rect('.login-story'),
+      panel: rect('.login-panel'),
+      email: rect('.login-form input[type="email"]'),
+      horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 2
+    };
+  });
+  assert.ok(layout.brand.bottom + 6 <= layout.tagline.top, 'Brand overlaps login tagline');
+  assert.ok(layout.email.height >= 50, 'Login fields are too small to use comfortably');
+  assert.equal(layout.horizontalOverflow, false, 'Login page overflows horizontally');
+  if (!mobile) assert.ok(layout.panel.width > layout.story.width, 'Sign-in panel should be wider than branding');
+  if (!mobile && email === 'creditor@demo.collectdesk.test')
+    await page.screenshot({ path: 'browser-audit-results/desktop-login.png', fullPage: true });
+  if (mobile)
+    await page.screenshot({ path: 'browser-audit-results/mobile-login.png', fullPage: true });
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: /Sign in to workspace/i }).click();
