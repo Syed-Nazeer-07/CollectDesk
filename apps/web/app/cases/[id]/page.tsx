@@ -10,6 +10,11 @@ const [editing,setEditing]=useState(false),[editForm,setEditForm]=useState({debt
 const [submissionNotice,setSubmissionNotice]=useState(false);
 useEffect(()=>{setSubmissionNotice(new URLSearchParams(window.location.search).get('submission')==='retry');},[]);
 const [decision,setDecision]=useState('accept'),[reason,setReason]=useState(''),[rate,setRate]=useState('20'),[operator,setOperator]=useState(''),[note,setNote]=useState(''),[visibility,setVisibility]=useState('creditor'),[receiptAmount,setReceiptAmount]=useState(''),[receiptRef,setReceiptRef]=useState('');
+const [statusAction,setStatusAction]=useState<'hold'|'resume'|'close'|null>(null);
+const [statusReason,setStatusReason]=useState('');
+const [confirmClosure,setConfirmClosure]=useState(false);
+const [reverseReceiptId,setReverseReceiptId]=useState<string|null>(null);
+const [reverseReason,setReverseReason]=useState('');
 const load=useCallback(()=>api<Detail>(`/cases/${id}`).then(setData).catch(e=>{setError(e.message);throw e;}),[id]);
 useEffect(()=>{load().catch(()=>{});},[load]);
 useEffect(()=>{api<{user:User}>('/auth/me').then(r=>setUser(r.user)).catch(()=>{});},[]);
