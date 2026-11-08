@@ -5,6 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {generateKeyPairSync,sign} from 'node:crypto';
 
 const uri = process.env.TEST_MONGODB_URI;
 
@@ -200,6 +201,106 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.ok(twoVerifications.some(x=>[409,422].includes(x.status)),'conflicting verification must be rejected');
     r=await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.financials.recoveredPaise,800_000,'concurrency must not overstate recovery');
+    await t.test('verified registration creates creditor-only tenants and Google sign-in requires one-time verified credentials',async()=>{
+      const originalFetch=globalThis.fetch;
+      const originalEnv=Object.fromEntries(
+        ['PUBLIC_REGISTRATION_ENABLED','RESEND_API_KEY','AUTH_FROM_EMAIL','GOOGLE_CLIENT_ID']
+          .map(k=>[k,process.env[k]])
+      );
+      const sent=[];
+      const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
+      const jwk={...publicKey.export({format:'jwk'}),kid:'local-ci-kid',alg:'RS256',use:'sig'};
+      try{
+        process.env.PUBLIC_REGISTRATION_ENABLED='false';
+        let result=await call('/auth/options');
+        assert.equal(result.data.emailSignupEnabled,false,'self signup must default disabled');
+        assert.equal(result.data.googleEnabled,false,'Google must default disabled');
+        result=await call('/auth/register',{method:'POST',body:{}});
+        assert.equal(result.status,503,'unconfigured registration must refuse to create accounts');
+        process.env.PUBLIC_REGISTRATION_ENABLED='true';
+        process.env.RESEND_API_KEY='test-key-never-send';
+        process.env.AUTH_FROM_EMAIL='CollectDesk <ci@example.test>';
+        process.env.GOOGLE_CLIENT_ID='ci-google-client';
+        globalThis.fetch=async(url,opts)=>{
+          if(String(url)==='https://api.resend.com/emails'){
+            sent.push(JSON.parse(opts.body));
+            return new Response(JSON.stringify({id:'test-only'}),{status:200,headers:{'content-type':'application/json'}});
+          }
+          if(String(url)==='https://www.googleapis.com/oauth2/v3/certs'){
+            return new Response(JSON.stringify({keys:[jwk]}),{status:200,headers:{'content-type':'application/json'}});
+          }
+          return originalFetch(url,opts);
+        };
+        result=await call('/auth/options');
+        assert.equal(result.data.emailSignupEnabled,true);
+        assert.equal(result.data.googleEnabled,true);
+        assert.equal(result.data.googleClientId,'ci-google-client');
+        const registration={
+          name:'New Fictional Creditor',organizationName:'New Fictional Company',
+          email:'new-user@collectdesk-ci.test',password:'SecureTestPassword2026'
+        };
+        result=await call('/auth/register',{method:'POST',body:{...registration,role:'admin'}});
+        assert.equal(result.status,422,'public signup cannot accept privileged role fields');
+        result=await call('/auth/register',{method:'POST',body:registration,origin:null});
+        assert.equal(result.status,403,'signup requires allowed request Origin');
+        result=await call('/auth/register',{method:'POST',body:registration});
+        assert.equal(result.status,202);
+        assert.equal(sent.length,1,'registered email should receive a verification link');
+        assert.equal(await User.exists({email:registration.email}),null,'unverified email must not become an active user');
+        const link=sent[0].text.match(/signup\/verify\?token=([A-Za-z0-9_-]+)/);
+        assert.ok(link,'email must contain a verification token');
+        result=await call('/auth/verify-email',{method:'POST',body:{token:link[1]}});
+        assert.equal(result.status,201,JSON.stringify(result.data));
+        assert.equal(result.data.user.role,'creditor');
+        assert.ok(result.data.user.organizationId,'verified creditor gets their own company scope');
+        const registeredCookie=result.cookie;
+        result=await call('/auth/verify-email',{method:'POST',body:{token:link[1]}});
+        assert.equal(result.status,400,'email tokens are single-use');
+        result=await call('/cases',{cookie:registeredCookie});
+        assert.equal(result.status,200);
+        assert.equal(result.data.cases.length,0,'registered company must not inherit demo creditors cases');
+        result=await call('/operators',{cookie:registeredCookie});
+        assert.equal(result.status,403,'new creditor cannot view privileged staff lists');
+
+        const nonce=await call('/auth/google/nonce');
+        assert.equal(nonce.status,200,JSON.stringify(nonce.data));
+        assert.ok(nonce.cookie?.startsWith('collectdesk_google_nonce='));
+        const head=Buffer.from(JSON.stringify({alg:'RS256',typ:'JWT',kid:jwk.kid})).toString('base64url');
+        const claims=Buffer.from(JSON.stringify({
+          iss:'https://accounts.google.com',aud:'ci-google-client',sub:'ci-new-google-account',
+          email:'new-google@collectdesk-ci.test',email_verified:true,name:'Google Demo User',
+          nonce:nonce.data.nonce,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+600
+        })).toString('base64url');
+        const credential=head+'.'+claims+'.'+sign('RSA-SHA256',Buffer.from(head+'.'+claims),privateKey).toString('base64url');
+        result=await call('/auth/google',{method:'POST',cookie:nonce.cookie,body:{credential}});
+        assert.equal(result.status,200,JSON.stringify(result.data));
+        assert.equal(result.data.user.role,'creditor');
+        assert.equal(result.data.user.organizationId,null,'Google account needs explicit company onboarding');
+        const googleCookie=result.cookie;
+        result=await call('/auth/google',{method:'POST',cookie:nonce.cookie,body:{credential}});
+        assert.equal(result.status,401,'Google nonce cannot be replayed');
+        result=await call('/cases',{cookie:googleCookie});
+        assert.equal(result.status,403,'Google user cannot use case endpoints without a company');
+        result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
+          body:{organizationName:'New Google Fictional Company',role:'admin'}});
+        assert.equal(result.status,422,'company onboarding must not accept role escalation');
+        result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
+          body:{organizationName:'New Google Fictional Company'}});
+        assert.equal(result.status,200);
+        assert.ok(result.data.user.organizationId);
+        result=await call('/cases',{cookie:googleCookie});
+        assert.equal(result.status,200);
+        assert.equal(result.data.cases.length,0,'Google new company cannot see seeded records');
+        result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
+          body:{organizationName:'Duplicate organization'}});
+        assert.equal(result.status,409,'onboarding is one-time only');
+      }finally{
+        globalThis.fetch=originalFetch;
+        for(const [k,v] of Object.entries(originalEnv)){
+          if(v===undefined)delete process.env[k];else process.env[k]=v;
+        }
+      }
+    });
     await t.test('logout sends a clearing cookie', async()=>{
       const logout=await call('/auth/logout',{method:'POST',cookie:a});
       assert.equal(logout.status,200);
