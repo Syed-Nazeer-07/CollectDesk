@@ -9,7 +9,7 @@ import {z, ZodError} from 'zod';
 import mongoose from 'mongoose';
 import {User,Case,Activity,Receipt} from './models.js';
 import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRole} from './auth.js';
-import {assertAccess,canAssign,canEditDraft,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
+import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
 // Requests reach Express through the internal Next.js reverse proxy.
@@ -173,6 +173,29 @@ route.post('/cases/:id/assign',getCase,requireRole('admin'),async(req,res)=>{
   await Case.updateOne({_id:req.caseItem._id},{$set:{assignedTo:operator._id,status:'in_progress'}});
   await logEvent(req.caseItem,req.user,'assigned',`Case assigned to ${operator.name}.`);res.json({ok:true});
 });
+const transitionBody=z.object({
+  action:z.enum(['hold','resume','close']),
+  reason:z.string().trim().min(4).max(400)
+}).strict();
+route.post('/cases/:id/status',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
+  const {action,reason}=transitionBody.parse(req.body);
+  const previous=req.caseItem.status;
+  const permitted=action==='hold'?canHold(previous):action==='resume'?canResume(previous):canClose(previous);
+  if(!permitted) return res.status(409).json({error:'This case cannot be moved to the requested status. Refresh first.'});
+  // Prevent closing an open reconciliation item. Receipts remain demonstrative,
+  // but pending review must not silently disappear behind a terminal status.
+  if(action==='close'&&await Receipt.exists({caseId:req.caseItem._id,status:'recorded'})){
+    return res.status(409).json({error:'Verify or reject all pending receipts before closing this case.'});
+  }
+  const nextStatus=action==='hold'?'on_hold':action==='close'?'closed':req.caseItem.assignedTo?'in_progress':'accepted';
+  const updated=await Case.updateOne(
+    {_id:req.caseItem._id,status:previous},
+    {$set:{status:nextStatus}}
+  );
+  if(!updated.matchedCount)return res.status(409).json({error:'Case status changed. Refresh and retry.'});
+  await logEvent(req.caseItem,req.user,'status',`Case ${action==='hold'?'placed on hold':action==='resume'?'resumed':'closed'}: ${reason}`);
+  res.json({ok:true,status:nextStatus});
+}));
 const activityBody=z.object({text:z.string().trim().min(3).max(1200),visibility:z.enum(['creditor','internal'])}).strict();
 route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(req,res)=>{
   if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return res.status(409).json({error:'Case must be accepted before updates.'});
