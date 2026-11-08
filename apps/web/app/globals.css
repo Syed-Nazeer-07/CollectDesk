@@ -14,3 +14,233 @@
 .pagination-actions .button{min-height:34px;font-size:11px;padding:0 11px}
 .button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
 @media(max-width:700px){.table-bottom{align-items:flex-start;gap:12px;flex-direction:column}.pagination-actions{width:100%;justify-content:space-between}}
+
+
+/* Login layout polish v0.4: legible form and a brand header that never overlaps its tagline. */
+.login-layout{
+  grid-template-columns:minmax(0,42%) minmax(0,58%);
+}
+.login-story{
+  min-width:0;
+}
+.story-content{
+  max-width:650px;
+  min-height:100vh;
+  margin:0 auto;
+  padding:clamp(40px,5.5vh,66px) clamp(34px,4.2vw,72px);
+  justify-content:center;
+}
+.story-brand{
+  position:static;
+  align-self:flex-start;
+  margin:0 0 clamp(38px,6vh,62px);
+  font-size:25px;
+  line-height:1.2;
+}
+.story-brand>span:last-child{
+  margin-left:-10px;
+}
+.story-tag{
+  font-size:11px;
+  line-height:1.5;
+  letter-spacing:1.6px;
+  margin-bottom:20px;
+}
+.story-content h2{
+  font-size:clamp(35px,3.05vw,52px);
+  letter-spacing:-1.7px;
+  line-height:1.16;
+  margin-bottom:22px;
+}
+.story-content>p{
+  font-size:15px;
+  line-height:1.75;
+  margin-bottom:36px;
+}
+.story-feature-list{
+  gap:24px;
+}
+.story-feature-list b{
+  font-size:14px;
+}
+.story-feature-list small{
+  font-size:12px;
+  line-height:1.5;
+}
+.story-footer{
+  left:clamp(34px,4.2vw,72px);
+  bottom:24px;
+}
+.story-orb{
+  display:none;
+}
+.login-panel{
+  padding:52px clamp(28px,4.1vw,78px) 64px;
+  min-width:0;
+}
+.login-card{
+  max-width:560px;
+}
+.login-card .eyebrow{
+  font-size:11px;
+  letter-spacing:1.5px;
+}
+.login-card h1{
+  font-size:clamp(30px,2.5vw,37px);
+  line-height:1.18;
+  letter-spacing:-1.45px;
+  margin:14px 0 12px;
+}
+.login-card>p{
+  font-size:15px;
+  line-height:1.6;
+  margin-bottom:31px;
+  color:#667c86;
+}
+.login-modes{
+  margin-bottom:28px;
+}
+.login-modes-title{
+  font-size:13px;
+  margin-bottom:14px;
+}
+.account-picker{
+  gap:12px;
+}
+.account-option{
+  min-width:0;
+  min-height:112px;
+  padding:16px 13px;
+  border-radius:12px;
+  gap:12px;
+}
+.account-option strong{
+  color:#42545c;
+  font-size:12px;
+  line-height:1.35;
+}
+.account-option small{
+  color:#768991;
+  font-size:11px;
+  line-height:1.45;
+  overflow-wrap:break-word;
+}
+.account-check{
+  width:18px;
+  height:18px;
+  flex-shrink:0;
+}
+.login-form{
+  gap:21px;
+}
+.login-form label{
+  font-size:13px;
+  gap:10px;
+}
+.login-form input{
+  min-height:54px;
+  padding:14px 16px;
+  font-size:15px;
+  border-radius:11px;
+}
+.password-wrap input{
+  padding-right:56px;
+}
+.password-wrap button{
+  top:50%;
+  right:12px;
+  transform:translateY(-50%);
+  height:36px;
+  width:36px;
+}
+.login-submit{
+  min-height:54px;
+  height:auto;
+  padding:0 19px;
+  font-size:14px;
+  border-radius:11px;
+}
+.login-security{
+  margin-top:26px;
+  padding-top:20px;
+  font-size:12px;
+  color:#74878f;
+}
+.login-copyright{
+  font-size:11px;
+  bottom:22px;
+}
+@media(max-width:1020px) and (min-width:701px){
+  .login-layout{grid-template-columns:minmax(0,43%) minmax(0,57%)}
+  .story-content{padding:34px 30px}
+  .story-brand{margin-bottom:38px;font-size:22px}
+  .story-content h2{font-size:clamp(31px,3.7vw,39px)}
+  .story-content>p{font-size:14px;margin-bottom:28px}
+  .story-feature-list{gap:17px}
+  .story-footer{left:30px}
+  .login-panel{padding:36px 27px 60px}
+  .account-picker{gap:8px}
+  .account-option{padding:13px 9px}
+  .account-option strong{font-size:11px}
+  .account-option small{font-size:10px}
+}
+@media(max-width:700px){
+  .login-layout{display:flex;flex-direction:column}
+  .login-story{min-height:0;max-height:none}
+  .story-content{
+    min-height:0;
+    max-width:none;
+    padding:29px 25px 34px;
+    justify-content:flex-start;
+  }
+  .story-brand{
+    position:static;
+    margin:0 0 23px;
+    font-size:21px;
+  }
+  .story-tag{
+    font-size:10px;
+    margin-bottom:11px;
+    letter-spacing:1.2px;
+  }
+  .story-content h2{
+    font-size:clamp(25px,5.2vw,34px);
+    line-height:1.16;
+    letter-spacing:-1.1px;
+    margin:0;
+  }
+  .story-content>p{
+    font-size:13px;
+    margin:12px 0 0;
+    max-width:480px;
+    line-height:1.6;
+  }
+  .story-feature-list,.story-footer{display:none}
+  .login-panel{padding:36px 24px 70px}
+  .login-card{max-width:560px}
+  .login-card h1{font-size:clamp(25px,5vw,32px);letter-spacing:-1px}
+  .login-card>p{font-size:14px;margin-bottom:24px}
+  .account-option{min-height:100px;padding:13px 11px}
+  .account-option strong{font-size:11px}
+  .account-option small{font-size:10px}
+  .login-form input{min-height:52px;font-size:15px}
+  .login-submit{min-height:52px}
+  .login-security{font-size:11px}
+  .login-copyright{bottom:18px}
+}
+@media(max-width:460px){
+  .login-panel{padding:30px 20px 64px}
+  .account-picker{grid-template-columns:1fr;gap:9px}
+  .account-option{
+    min-height:0;
+    display:grid;
+    grid-template-columns:18px minmax(0,1fr);
+    align-items:center;
+    gap:12px;
+    padding:11px 13px;
+  }
+  .account-option strong{font-size:13px}
+  .account-option small{font-size:11px;margin-top:2px}
+  .login-modes{margin-bottom:22px}
+  .login-form{gap:17px}
+}
