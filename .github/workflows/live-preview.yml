@@ -26,5 +26,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Diagnose public network path (no credentials)
+        run: |
+          echo "DNS resolution for hosted preview"
+          getent ahosts collectdesk-preview-ah80.onrender.com | head -n 5 || true
+          echo "Sanity check against Render homepage"
+          curl --location --head --silent --show-error --connect-timeout 8 --max-time 14 https://render.com | head -n 10 || true
+          echo "Verbose public service handshake"
+          curl --head --verbose --connect-timeout 10 --max-time 22 https://collectdesk-preview-ah80.onrender.com/api/health 2>&1 | tail -n 45 || true
       - name: Check public Render HTTPS, API proxy and login origin
         run: node scripts/live-preview-check.mjs
