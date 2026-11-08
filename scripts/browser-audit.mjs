@@ -67,6 +67,30 @@ try {
   step = 'creditor login and case creation';
   const creditor = await session('creditor@demo.collectdesk.test');
   await creditor.screenshot({ path: 'browser-audit-results/creditor-dashboard.png', fullPage: true });
+
+  step = 'workspace navigation and usable demo links';
+  const demoLink = creditor.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /Demo & access/i });
+  await demoLink.click();
+  await creditor.getByRole('heading', { name: 'Demo & access', exact: true }).waitFor();
+  await creditor.getByRole('heading', { name: 'Access by role' }).waitFor();
+  assert.equal(await creditor.getByRole('button', { name: 'Sign out', exact: true }).count(), 1, 'Sign-out should be clearly labelled');
+  assert.equal(await creditor.locator('.workspace-identity').getAttribute('role'), null, 'Workspace identity must not pretend to be a control');
+  await creditor.screenshot({ path: 'browser-audit-results/demo-access.png', fullPage: true });
+  await creditor.getByRole('link', { name: /Open case register/i }).click();
+  await creditor.getByRole('heading', { name: 'All cases', exact: true }).waitFor();
+
+  await creditor.goto(base + '/dashboard', { waitUntil: 'domcontentloaded' });
+  await creditor.locator('.status-breakdown-row').first().waitFor();
+  const firstFilter = creditor.locator('.status-breakdown-row').first();
+  const targetUrl = await firstFilter.getAttribute('href');
+  assert.ok(targetUrl?.startsWith('/cases?status='), 'Status breakdown must link to a real filter');
+  const selectedStatus = new URL(targetUrl, base).searchParams.get('status');
+  await firstFilter.click();
+  await creditor.getByRole('heading', { name: 'All cases', exact: true }).waitFor();
+  await creditor.waitForFunction(s => document.querySelector('select[aria-label="Filter by status"]')?.value === s, selectedStatus);
+  log('Demo & access, explicit sign-out, case navigation, and status filters are usable');
+
+  step = 'creditor login and case creation';
   await creditor.goto(base + '/cases/new', { waitUntil: 'domcontentloaded' });
   await creditor.locator('input[name="debtorName"]').fill('Browser Audit Fictional Supplies');
   const invoiceNo = 'AUDIT-' + Date.now();
