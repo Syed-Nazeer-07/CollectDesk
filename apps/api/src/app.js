@@ -135,8 +135,15 @@ route.get('/cases/:id',getCase,async(req,res)=>{
 route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canEditDraft(req.user.role,req.caseItem.status))return res.status(409).json({error:'Only draft or information-requested cases can be edited.'});
   const input=caseBody.parse(req.body);
-  await Case.updateOne({_id:req.caseItem._id,organizationId:req.user.organizationId},{$set:input});
-  await logEvent(req.caseItem,req.user,'updated','Case details updated.');
+  // Match the editable state on the write itself. An administrator or another
+  // request could have submitted the case after getCase loaded its old status.
+  const result=await Case.updateOne({
+    _id:req.caseItem._id,
+    organizationId:req.user.organizationId,
+    status:{$in:['draft','needs_info']}
+  },{$set:input});
+  if(!result.matchedCount)return res.status(409).json({error:'This case is no longer editable. Refresh before continuing.'});
+  await logEvent(req.caseItem,req.user,'updated','Draft case details updated.');
   res.json({ok:true});
 });
 route.post('/cases/:id/submit',getCase,requireRole('creditor'),async(req,res)=>{
