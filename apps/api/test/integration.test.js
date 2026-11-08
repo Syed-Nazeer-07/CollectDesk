@@ -47,7 +47,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       if(body !== undefined) headers['content-type'] = 'application/json';
       if(origin !== null) headers.origin = origin;
       const response = await fetch(`${base}/api/v1${path}`, {method,headers,body: body===undefined?undefined:JSON.stringify(body)});
-      return {status:response.status, data:await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0]};
+      const cookies=response.headers.getSetCookie?.()||[response.headers.get('set-cookie')].filter(Boolean);
+      const chosen=cookies.find(v=>v.startsWith('collectdesk_session=')) || cookies.find(v=>v.startsWith('collectdesk_google_nonce='));
+      return {status:response.status, data:await response.json(), cookie:chosen?.split(';')[0]};
     }
     async function signIn(email) {
       const r = await call('/auth/login',{method:'POST',body:{email,password}});
