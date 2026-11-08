@@ -1,21 +1,81 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowUpRight,ArrowRight,ArrowDownLeft,FolderKanban,Wallet,Clock3,CheckCircle2,Plus,TrendingUp,ShieldCheck,Lightbulb} from 'lucide-react';
-import AppShell from '@/components/AppShell';import {CaseTable} from '@/components/Widgets';
+import {ArrowRight,ArrowUpRight,FolderKanban,Wallet,Clock3,CheckCircle2,TrendingUp} from 'lucide-react';
+import AppShell from '@/components/AppShell';
+import {CaseTable} from '@/components/Widgets';
 import {api,Dashboard,shortMoney,User,label} from '@/lib/api';
-const colors=['#2f8e82','#b4d8d1','#e3d2a0','#efb9ac','#d5d8df','#8fa3c5','#ebe7d8','#a4b0ac'];
-export default function DashboardPage(){const [data,setData]=useState<Dashboard|null>(null);const [error,setError]=useState('');const [refresh,setRefresh]=useState(0);
-useEffect(()=>{let active=true;setError('');api<Dashboard>('/dashboard/summary').then(d=>{if(active)setData(d)}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[refresh]);
-return <AppShell title="Overview" subtitle="A clear view of your collections, activity, and progress.">{(user:User)=><>
-  <div className="welcome-strip"><div><div className="welcome-kicker"><span className="sparkle">✦</span> YOUR WORKSPACE AT A GLANCE</div><h2>Good to have you here, {user.name.split(' ')[0]}.</h2><p>Stay on top of your cases and every important update.</p></div><div className="welcome-decoration"><span className="welcome-ring ring-one"/><span className="welcome-ring ring-two"/><div className="welcome-symbol">↗</div></div></div>
-  {error?<div className="message error">{error} <button onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?<div className="loading-panel"><div className="spinner"/> Loading dashboard…</div>:<>
-   <section className="metrics-grid" aria-label="Key metrics"><Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={20}/>} sub="Across your accessible workspace"/><Stat name="Active cases" value={String(data.summary.activeCases)} icon={<TrendingUp size={20}/>} sub="Accepted and being processed"/><Stat name="Outstanding balance" value={shortMoney(data.summary.totalOutstandingPaise)} icon={<Wallet size={20}/>} sub="Excludes draft and rejected cases"/><Stat name="Verified recovered" value={shortMoney(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={20}/>} sub="Verified receipts, net of reversals"/></section>
-   <div className="middle-grid"><section className="panel status-panel"><div className="panel-head"><div><h3>Case distribution</h3><p>Where your cases stand right now</p></div><span className="panel-meta">CURRENT STATUS</span></div><div className="distribution"><div className="donut" style={{background:donut(data.statusBreakdown)}}><div className="donut-inside"><b>{data.summary.totalCases}</b><small>Total cases</small></div></div><div className="legend">{data.statusBreakdown.filter(s=>s.count>0).map((s)=>{const original=['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed'].indexOf(s.status);return <div key={s.status}><i style={{background:colors[original]}}/><span>{label(s.status)}</span><b>{s.count}</b></div>})}{!data.summary.totalCases&&<p className="muted">No cases to display yet.</p>}</div></div></section>
-      <section className="panel focus-panel"><div className="panel-head"><div><h3>Attention & insights</h3><p>Items worth checking today</p></div><span className="insight-icon"><Lightbulb size={19}/></span></div><div className="focus-item"><span className="focus-icon amber"><Clock3 size={20}/></span><div><b>{data.summary.awaitingReview} awaiting review</b><p>Submitted cases needing an admin decision</p></div><Link href="/cases?status=submitted" aria-label="View submitted cases"><ArrowUpRight size={18}/></Link></div><div className="focus-item"><span className="focus-icon green"><ShieldCheck size={20}/></span><div><b>Verified financial reporting</b><p>Unverified receipts are never counted as recovered</p></div><CheckCircle2 size={18} color="#72A99F"/></div><div className="focus-summary"><div><small>Estimated service fee</small><strong>{shortMoney(data.summary.estimatedFeesPaise)}</strong></div><p>Illustrative 15–30% contract model, based on verified recoveries only.</p></div></section></div>
-    <section className="panel cases-panel"><div className="panel-head"><div><h3>Recent cases</h3><p>Your latest submitted and active invoices</p></div><Link href="/cases" className="text-link">View all cases <ArrowRight size={15}/></Link></div><CaseTable cases={data.recentCases}/></section>
-   </>}
-  </>}</AppShell>;
+
+const statusColors:Record<string,string>={
+  draft:'#94a3b8',submitted:'#d8a558',needs_info:'#bf8167',accepted:'#6d90bc',
+  in_progress:'#208879',on_hold:'#a18d69',rejected:'#ba7373',closed:'#687e9b'
+};
+
+export default function DashboardPage(){
+  const [data,setData]=useState<Dashboard|null>(null);
+  const [error,setError]=useState('');
+  const [refresh,setRefresh]=useState(0);
+  useEffect(()=>{
+    let active=true;
+    setError('');
+    api<Dashboard>('/dashboard/summary')
+      .then(d=>{if(active)setData(d);})
+      .catch(e=>{if(active)setError(e.message);});
+    return()=>{active=false;};
+  },[refresh]);
+  return <AppShell title="Overview" subtitle="Portfolio health, case progress and verified recovery.">
+    {(user:User)=><div className="dashboard-content">
+      <section className="dashboard-overview" aria-label="Workspace introduction">
+        <div><div className="eyebrow">OPERATIONS SNAPSHOT</div><h2>Your collection workspace</h2><p>Review outstanding cases, track assignments, and stay on top of verified payments.</p></div>
+        <Link href="/cases" className="button button-outline dashboard-overview-action">Open case register <ArrowUpRight size={17}/></Link>
+      </section>
+      {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
+        <div className="loading-panel"><div className="spinner"/> Loading dashboard…</div>:<>
+        <section className="metrics-grid" aria-label="Key metrics">
+          <Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={19}/>} sub="Cases you can access"/>
+          <Stat name="Active cases" value={String(data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub="Accepted, in progress or on hold"/>
+          <Stat name="Outstanding balance" value={shortMoney(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} sub="Excludes drafts and rejected cases"/>
+          <Stat name="Verified recovered" value={shortMoney(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} sub="Verified receipts less reversals"/>
+        </section>
+        <div className="middle-grid">
+          <section className="panel status-panel">
+            <div className="panel-head"><div><h3>Case status</h3><p>Choose a status to filter the register</p></div><Link href="/cases" className="text-link">All cases <ArrowRight size={15}/></Link></div>
+            <div className="status-breakdown">
+              {data.statusBreakdown.filter(s=>s.count>0).length>0
+                ? data.statusBreakdown.filter(s=>s.count>0).map(s=>{
+                    const percent=Math.round((s.count/Math.max(data.summary.totalCases,1))*100);
+                    return <Link key={s.status} className="status-breakdown-row" href={`/cases?status=${s.status}`}>
+                      <span className="status-breakdown-name"><i style={{background:statusColors[s.status]}}/>{label(s.status)}</span>
+                      <span className="status-breakdown-meter"><span style={{width:`${percent}%`,background:statusColors[s.status]}}/></span>
+                      <strong>{s.count}</strong><ArrowUpRight size={15} aria-hidden="true"/>
+                    </Link>;
+                  })
+                : <div className="dashboard-empty">No case activity yet. <Link href="/cases">Open the case register</Link>.</div>}
+            </div>
+          </section>
+          <section className="panel focus-panel">
+            <div className="panel-head"><div><h3>Next actions</h3><p>Where your attention is useful</p></div></div>
+            <Link href={user.role==='creditor'?'/cases/new':user.role==='admin'?'/cases?status=submitted':'/cases?status=in_progress'} className="action-row">
+              <span className="action-row-symbol"><Clock3 size={19}/></span>
+              <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Review assigned cases'}</strong><small>{user.role==='creditor'?'Create a fictional overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'Open cases assigned to your operator account'}</small></span>
+              <ArrowUpRight size={18} aria-hidden="true"/>
+            </Link>
+            <div className="finance-totals">
+              <span>Estimated service fees</span>
+              <strong>{shortMoney(data.summary.estimatedFeesPaise)}</strong>
+              <p>Illustrative fees on verified recoveries only. No real funds are handled.</p>
+            </div>
+          </section>
+        </div>
+        <section className="panel cases-panel">
+          <div className="panel-head"><div><h3>Recent cases</h3><p>Latest updates across your accessible cases</p></div><Link href="/cases" className="text-link">View all cases <ArrowRight size={15}/></Link></div>
+          <CaseTable cases={data.recentCases}/>
+        </section>
+      </>}
+    </div>}
+  </AppShell>;
 }
-function Stat({name,value,sub,icon}:{name:string;value:string;sub:string;icon:React.ReactNode}){return <div className="metric-card"><div className="metric-top"><span>{name}</span><div className="metric-icon">{icon}</div></div><div className="metric-value">{value}</div><p>{sub}</p></div>}
-function donut(stats:Dashboard['statusBreakdown']){const total=stats.reduce((s,x)=>s+x.count,0);if(!total)return '#eef2f3';let start=0;const segments=stats.map((s,i)=>{const width=(s.count/total)*100;const part=`${colors[i]} ${start.toFixed(2)}% ${(start+width).toFixed(2)}%`;start+=width;return part}).filter(Boolean);return `conic-gradient(${segments.join(',')})`}
+
+function Stat({name,value,sub,icon}:{name:string;value:string;sub:string;icon:React.ReactNode}){
+  return <div className="metric-card"><div className="metric-top"><span>{name}</span><span className="metric-icon">{icon}</span></div><div className="metric-value">{value}</div><p>{sub}</p></div>;
+}
