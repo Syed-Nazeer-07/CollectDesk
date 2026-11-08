@@ -116,6 +116,17 @@ try {
   await statusIs(admin, 'In Progress');
   log('Admin accepted and assigned the case');
 
+  step = 'admin hold and resume controls';
+  await admin.getByRole('button', { name: 'Place on hold' }).click();
+  await admin.getByLabel('Reason for placing on hold').fill('Waiting for fictional supporting documents');
+  await admin.getByRole('button', { name: 'Confirm hold' }).click();
+  await statusIs(admin, 'On Hold');
+  await admin.getByRole('button', { name: 'Resume case' }).click();
+  await admin.getByLabel('Reason for resuming').fill('Fictional documents received');
+  await admin.getByRole('button', { name: 'Confirm resume' }).click();
+  await statusIs(admin, 'In Progress');
+  log('Administrator held and resumed an assigned case with documented reasons');
+
   step = 'operator visibility and updates';
   const operator = await session('operator@demo.collectdesk.test');
   await operator.goto(caseUrl, { waitUntil: 'domcontentloaded' });
@@ -155,6 +166,26 @@ try {
   assert.match(figures, /50/);
   await creditor.screenshot({ path: 'browser-audit-results/verified-case.png', fullPage: true });
   log('Creditor sees public updates and verified recovery, but not internal notes');
+
+  step = 'receipt correction and case closure controls';
+  await admin.getByRole('button', { name: 'Correct receipt' }).click();
+  await admin.getByLabel('Reason for correction').fill('Correcting the fictional test receipt');
+  await admin.getByLabel('I understand this creates a separate reversing ledger entry').check();
+  await admin.getByRole('button', { name: 'Reverse verified entry' }).click();
+  await admin.locator('.receipt-row').filter({hasText:'(reversal)'}).waitFor();
+  assert.equal(await admin.getByRole('button', { name: 'Correct receipt' }).count(),0,
+    'A verified receipt must not offer a second reversal');
+  await creditor.reload();
+  assert.match(await creditor.locator('.detail-metric').nth(1).locator('b').innerText(), /0(?:\.00)?/,
+    'Creditor recovery should reflect corrected receipt');
+  await admin.getByRole('button', { name: 'Close case' }).click();
+  await admin.getByLabel('Reason for closing').fill('Fictional workflow finished with remaining outstanding principal');
+  await admin.getByLabel('I understand closure is final and may leave an outstanding balance').check();
+  await admin.getByRole('button', { name: 'Confirm closure' }).click();
+  await statusIs(admin, 'Closed');
+  await creditor.reload();
+  await statusIs(creditor, 'Closed');
+  log('Admin corrected a verified receipt and closed the case with an audit reason');
 
   step = 'mobile layout navigation';
   const mobile = await session('creditor@demo.collectdesk.test', true);
