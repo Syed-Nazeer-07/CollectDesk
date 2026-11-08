@@ -12,6 +12,10 @@ import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRol
 import {assertAccess,canAssign,canEditDraft,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
+// Requests reach Express through the internal Next.js reverse proxy.
+// Trust only loopback and Docker-private proxy addresses, never arbitrary
+// public X-Forwarded-For headers. This restores per-client rate-limit logic.
+app.set('trust proxy','loopback, uniquelocal');
 app.disable('x-powered-by');
 app.use(helmet());
 // Render exposes the public HTTPS URL; WEB_ORIGIN can override it for custom domains.
