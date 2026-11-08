@@ -5,13 +5,12 @@
  * working email sender or Google client configuration. It never grants staff
  * roles. These endpoints are for the isolated demo, not real debtors or money.
  */
-import {createHash,createPublicKey,randomBytes,verify as verifySignature,timingSafeEqual} from 'node:crypto';
+import {createHash,createPublicKey,randomBytes,verify as verifySignature} from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 import {rateLimit} from 'express-rate-limit';
 import {z} from 'zod';
-import {Organization,PendingSignup,User} from './models.js';
+import {GoogleNonce,Organization,PendingSignup,User} from './models.js';
 import {COOKIE_NAME,cookieOptions,issueSession,publicUser,requireAuth} from './auth.js';
 
 const signupLimiter=rateLimit({
@@ -151,9 +150,10 @@ export function installRegistrationRoutes(app,webOrigin){
     }
   });
 
-  app.get('/api/v1/auth/google/nonce',googleLimiter,(_req,res)=>{
+  app.get('/api/v1/auth/google/nonce',googleLimiter,async(_req,res)=>{
     if(!googleEnabled())return failClosed(res,'Google Sign-In');
     const nonce=randomBytes(24).toString('base64url');
+    await GoogleNonce.create({nonceHash:hashToken(nonce),expiresAt:new Date(Date.now()+8*60*1000)});
     const signed=jwt.sign({nonce},process.env.JWT_SECRET,{
       algorithm:'HS256',expiresIn:'8m',audience:'collectdesk-google-nonce'
     });
@@ -171,6 +171,8 @@ export function installRegistrationRoutes(app,webOrigin){
       });
     }catch{return res.status(401).json({error:'Google sign-in expired. Please try again.'});}
     res.clearCookie(nonceCookie,{...nonceCookieOpts(),maxAge:undefined});
+    const consumed=await GoogleNonce.findOneAndDelete({nonceHash:hashToken(signed.nonce),expiresAt:{$gt:new Date()}});
+    if(!consumed)return res.status(401).json({error:'This Google sign-in attempt has already been used. Try again.'});
     let identity;
     try{identity=await verifyGoogleIdToken(credential,signed.nonce,process.env.GOOGLE_CLIENT_ID);}
     catch{return res.status(401).json({error:'Google identity verification failed. Please try again.'});}
