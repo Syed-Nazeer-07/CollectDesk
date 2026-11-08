@@ -123,6 +123,29 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,200);
     r = await call(`/cases/${caseId}`,{cookie:operator});
     assert.equal(r.status,200,'assigned operator must see assigned case');
+    r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:a,body:{action:'hold',reason:'Waiting for documents'}});
+    assert.equal(r.status,403,'creditor cannot change operational case status');
+    r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'hold',reason:'Waiting for documents'}});
+    assert.equal(r.status,200,'admin can place an assigned case on hold');
+    assert.equal(r.data.status,'on_hold');
+    r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'hold',reason:'Duplicate hold'}});
+    assert.equal(r.status,409,'a case cannot be put on hold twice');
+    r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'resume',reason:'Documents now available'}});
+    assert.equal(r.status,200,'admin can resume a held case');
+    assert.equal(r.data.status,'in_progress','assigned case must resume to in_progress');
+    // A terminal closed case must be recorded as a distinct audited workflow.
+    const closing=await call('/cases',{method:'POST',cookie:a,body:{...invoice,invoiceNo:'TEST-CLOSE-002'}});
+    assert.equal(closing.status,201);
+    const closeId=closing.data.id;
+    assert.equal((await call(`/cases/${closeId}/submit`,{method:'POST',cookie:a})).status,200);
+    assert.equal((await call(`/cases/${closeId}/review`,{method:'POST',cookie:admin,body:{decision:'accept',reason:'Valid synthetic invoice'}})).status,200);
+    r = await call(`/cases/${closeId}/status`,{method:'POST',cookie:admin,body:{action:'close',reason:'Concluded without cash collection'}});
+    assert.equal(r.status,200);
+    assert.equal(r.data.status,'closed');
+    r = await call(`/cases/${closeId}/status`,{method:'POST',cookie:admin,body:{action:'resume',reason:'Invalid resume'}});
+    assert.equal(r.status,409,'closed is terminal');
+    r = await call(`/cases/${closeId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:10000,reference:'CLOSED-PAYMENT'}});
+    assert.equal(r.status,409,'cannot record a new receipt against a closed case');
     r = await call(`/cases/${caseId}/activity`,{method:'POST',cookie:operator,body:{text:'Internal review, not for creditor',visibility:'internal'}});
     assert.equal(r.status,201);
     r = await call(`/cases/${caseId}/activity`,{method:'POST',cookie:operator,body:{text:'Progress update for the creditor',visibility:'creditor'}});
@@ -136,6 +159,8 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,201,JSON.stringify(r.data));
     const receiptId = r.data.id;
+    r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'close',reason:'Close while payment pending'}});
+    assert.equal(r.status,409,'pending receipts must be reconciled before closing');
     r = await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.financials.recoveredPaise,0,'recorded payment must not count as verified');
     assert.equal(r.data.receipts.length,0,'creditor must not see unverified internal receipt references');
