@@ -6,6 +6,10 @@ if(process.env.NODE_ENV==='production' && process.env.JWT_SECRET.includes('repla
 if(!process.env.MONGODB_URI){console.error('MONGODB_URI is required.');process.exit(1);}
 try{
   await mongoose.connect(process.env.MONGODB_URI,{serverSelectionTimeoutMS:9000});
-  const server=app.listen(Number(process.env.PORT||4000),()=>console.log(`CollectDesk API listening on ${process.env.PORT||4000}`));
+  // Hosted single-container mode binds the API to loopback only, so Render
+  // detects exactly one public HTTP listener (Next.js on PORT).
+  // Local Docker Compose leaves API_LISTEN_HOST unset and still binds externally.
+  const host=process.env.API_LISTEN_HOST||'0.0.0.0';
+  const server=app.listen(Number(process.env.PORT||4000),host,()=>console.log(`CollectDesk API listening on ${host}:${process.env.PORT||4000}`));
   process.on('SIGTERM',()=>server.close(async()=>{await mongoose.disconnect();process.exit(0);}));
 } catch(e){console.error('MongoDB unavailable:',e.message);process.exit(1);}
