@@ -1,54 +1,50 @@
-# Implementation status · CollectDesk v0.3
+# CollectDesk · implementation and verification status
 
-**Status:** Working source-code prototype; **not yet verified end-to-end against a running MongoDB and Next.js build**.
+**Review date:** 8 November 2026  
+**Current stage:** hosted fictional-data MVP; **not production ready**
 
-## Implemented in source
+## Verified capabilities
 
-- Next.js App Router web UI: login, overview, case list, case creation, case detail, actions, responsive styling.
-- Express REST API with cookie-based sign-in, per-organization creditor isolation and operator assignment scope.
-- MongoDB/Mongoose schemas for users, organizations, cases, activities and receipts.
-- Seed script with two synthetic organizations and three role types.
-- Creditor: create/update draft, submit claim, view timeline, basic financial overview.
-- Admin: review (accept/reject/needs info), assign operators, create notes, record/verify receipts.
-- Operator: view assigned cases and add permissioned notes.
-- Pure domain math rules: integer paise; verified recovery only; reversals; fees.
-- Cross-origin request check, password hashing, httpOnly cookie, rate limiting, generic auth errors, input validation.
-- Creditor API now hides unverified internal receipt records; staff still see pending entries.
-- Demo ledger mutations serialized by short-lived per-case MongoDB lease (not a transaction).
-- Draft-creation UI handles a failed second-step submission without claiming the draft disappeared.
-- UI distinguishes completed action from subsequent refresh failure, reducing accidental duplicate submissions.
-- Automated unit tests and an opt-in MongoDB-backed API integration suite.
-- Local Git history and rollback tag; GitHub Actions CI configuration.
-- Server-side case search with pagination (25 items/page) and validation of filter inputs.
-- Creditors can save future-dated invoice drafts but submit only overdue invoices (Indian business date).
-- Tenant query scope fails closed for malformed accounts without a valid organization/actor ID.
-- Read-only full-stack smoke script and optional Docker Compose setup for MongoDB, API and frontend (not executed here).
+| Area | Scope |
+| --- | --- |
+| Web UI | Login, role-based navigation, dashboard, searchable/paginated case register, case details, mobile case cards |
+| Creditor | Create and edit own drafts; submit overdue invoices; resubmit after information requests; see own organization's visible progress |
+| Administrator | Review, accept/reject/request information, assign operator, hold/resume/close with a reason |
+| Operator | Access assigned cases and post public or internal progress notes |
+| Finance demo | Record and reject pending receipts, verify eligible receipts, reverse verified receipts as separate corrections, show verified net recovery and illustrative fees |
+| Security | Strict input validation, origin checks, role/organization boundaries, httpOnly signed cookies, password hashing, rate limits |
+| Storage | MongoDB Atlas fictional demo database; local MongoDB via Docker Compose |
+| Deployment | Render free web service with Next.js and Express in one container; CI-gated GitHub deployment |
 
-## Test evidence
+## Automated test evidence
 
-- **19 passing unit tests** from `node --test`, independently executable without npm packages.
-- **1 skipped API integration test**, containing many assertions; requires dependencies + disposable MongoDB to execute.
-- JavaScript syntax checks: passing. TypeScript/TSX parse checks: separate report.
-- No successful `npm install`, TypeScript typecheck, Next.js build, live-stack smoke or browser E2E execution in this environment. Docker Compose was parsed as valid YAML but not launched.
-- GitHub Actions workflow is prepared but **has not been executed**.
+- **Unit and MongoDB integration tests:** CI runs against an isolated test database. Financial concurrency, tenant access, public/internal updates, review, assignment, pending/verified/reversal logic, invalid transitions and state enforcement are exercised.
+- **Chromium browser audit:** role-by-role invoice workflow, admin actions, status transitions, receipt verification/correction, access boundaries, dashboard navigation and mobile layouts.
+- **Hosted image verification:** builds the Render Docker image and starts both application processes with CI MongoDB; checks login/session/data through the frontend proxy.
+- **Public HTTPS diagnostics:** confirms site response, database-backed health, origin checks and invalid-password rejection. The first outside-network run required multiple attempts after timeouts; the service subsequently responded normally.
+- **Local verification:** user reported nine successful authenticated Docker Compose smoke checks.
 
-## Security limitations requiring follow-up
+The precise results for the newest commit must be checked under **[GitHub Actions](https://github.com/Syed-Nazeer-07/CollectDesk/actions)**. The tests are not a substitute for an independent penetration test or a real authenticated session at the public hosted URL.
 
-- Financial lease uses a 120-second timeout, not atomic multi-document transactions. Process crashes, partial failures, or a request exceeding its lease can leave an inconsistent audit trail; a production service must use MongoDB replica-set transactions and reconciliation.
-- `Case` updates and audit logs are separate writes. Partial failures can persist a case change even if the request eventually reports an error. Do not use this for real collection or money tracking.
-- No public account registration, password reset, MFA, immutable audit store, file storage/scanning, debtor messaging, money movement, real recovery verification, legal notices or external integrations.
-- No independent penetration test, legal compliance review, production backup/recovery plan, or deployment.
-- No formal browser visual checks of the real running app.
-- **45% completion is an unapproved milestone proposed by the PRD, not a calculated or accepted percentage.**
+## Design and behavior decisions
 
-## Next checks to run when npm and MongoDB are available
+1. **Financial truth:** only verified receipts less verified corrections count as recovered. Recording a pending receipt does not affect the reported recovery.
+2. **Case status:** accepted or assigned cases may be held and resumed; closed is terminal in this demo. Closure may leave outstanding principal, but cannot proceed while a receipt is pending.
+3. **Invoice immutability:** once a creditor submits an invoice, the API refuses further edits except where the case returns to `needs_info`. The database write also checks status to prevent a concurrent submission/edit race.
+4. **Corrections:** administrators can reject incorrect pending receipts or reverse a verified receipt once, with mandatory reasons and visible audit events.
+5. **Document boundaries:** `evidenceLabel` is a text reference only. This prototype does **not** store or scan uploaded files.
 
-1. Upgrade to patched Node.js LTS; install dependencies with `npm install`.
-2. Run API unit + integration tests against `collectdesk_integration_test` (destructive test database).
-3. Run `npm run typecheck -w @collectdesk/web` and `npm run build`.
-4. Seed a **different, throwaway** demo database and run the two servers (or use the optional Docker Compose workflow).
-5. Run `npm run smoke` with both `SMOKE_EMAIL` and `SMOKE_PASSWORD`, then capture results.
-6. Execute the role-by-role checklist in `docs/DEMO_SCRIPT.md` using the browser.
-7. Fix issues surfaced in those runs, then decide repository ownership and deployment.
+## Known limitations and next stage
 
-Do not submit this as a production-ready collections platform.
+| Priority | Limitation | Required before real commercial use |
+| --- | --- | --- |
+| High | Free Render sleeps when idle; cold starts have exceeded 95 seconds during public diagnostics | Always-on service or a hosting redesign; no promise of instant availability on the free tier |
+| High | Financial lease is not multi-document ACID transactionality | MongoDB transactions, reconciliation, idempotency and event durability |
+| High | Atlas IP rule currently allows `0.0.0.0/0` for this isolated demo | Allowlist the actual Render service outbound IP ranges or use private networking |
+| High | Shared seeded demo account passwords | Identity management, per-user accounts, MFA, password reset, and access reviews |
+| Medium | Evidence label rather than a safe file upload pipeline | Private object storage, file validation, malware scanning and scoped access |
+| Medium | No real debtor communication, notifications, legal workflow or payment provider | Requirements approval, compliance review and secure integration |
+| Medium | No guaranteed backup/recovery, uptime SLA or alerting | Production monitoring, backup/restore drills and incident response |
+| Medium | Hosting lacks a verified live login using the actual secret from a browser outside CI | Authorized end-to-end hosted login test using credentials stored securely |
+
+**Not a production release:** do not use this system for actual debt collection, money movement, real debtor information, or legal notices. Its collection and recovery operations are fictional and illustrative.
