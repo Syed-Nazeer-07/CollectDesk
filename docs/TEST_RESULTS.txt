@@ -1,3 +1,21 @@
+HISTORICAL LOCAL TEST LOG — NOT CURRENT RELEASE VERIFICATION
+Recorded 7 November 2026, before MongoDB integration and hosted CI were available.
+Preserved for provenance; references to uninstalled dependencies and skipped
+integration tests below describe only that old environment.
+
+CURRENT VERIFICATION (8 November 2026)
+GitHub Actions automatically runs isolated MongoDB integration tests, TypeScript,
+Next.js builds, browser role workflows and hosted-container smoke checks.
+Passing code changes after the final fixes:
+https://github.com/Syed-Nazeer-07/CollectDesk/actions/runs/42479682145
+Review the latest run for the current main branch:
+https://github.com/Syed-Nazeer-07/CollectDesk/actions
+
+A CI success is not a production security certification.
+Do not use this demonstration with real customer or bank data.
+
+----- ARCHIVED ORIGINAL OUTPUT BELOW -----
+
 CollectDesk v0.3 · LOCAL VALIDATION
 Test run UTC: 2026-11-07 19:37:18
 -- node --
