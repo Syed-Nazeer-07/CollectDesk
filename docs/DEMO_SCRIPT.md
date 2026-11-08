@@ -1,35 +1,55 @@
-# First milestone demonstration script (proposed)
+# CollectDesk · reviewer demonstration script
 
-This walkthrough uses **fictional** data and assumes successful npm installation, MongoDB connection, and seeded accounts. Do not report it as tested until executed and screenshots are recorded.
+**Purpose:** show the fictional-data MVP to a reviewer without real invoices or payment activity. The automated browser suite exercises this workflow against an isolated CI database. A human reviewer should still verify the public deployment and login using the workspace's private demo password.
 
-## 1. Creditor — secure submission
-- Sign in as `creditor@demo.collectdesk.test` with local demo seed password.
-- Open **All cases**: see only Acme Industrial Supplies cases.
-- Click **New case**, use debtor `Test Supply Co`, invoice `TEST-0001`, dates and ₹10,000.
-- Click **Save draft**; open the case, refresh, edit notes, then submit for review.
-- Confirm status becomes **Submitted**, with a timestamped timeline event.
+## Before the meeting
 
-## 2. Administrator — review
-- Sign out; sign in as `admin@demo.collectdesk.test`.
-- Open new submitted case. Review decision **Accept**, fee **20%**, reason `Documentation reviewed for fictional prototype`.
-- Confirm status becomes **Accepted** and a timeline record appears.
-- Select Jordan Lee and **Assign case**. Confirm **In progress** status.
+1. Open the [live login](https://collectdesk-preview-ah80.onrender.com/login) in a fresh browser session.
+2. Check [API health](https://collectdesk-preview-ah80.onrender.com/api/health). Expect HTTP 200 with `{"ok":true}` once the free instance is awake. The first request may be slow or time out after inactivity.
+3. Ensure you have the **private** demo password from the Render Environment page. Do not put it in this document.
+4. Never upload or enter real debtor, banking or invoice information.
 
-## 3. Operator — activity
-- Sign in as `operator@demo.collectdesk.test`.
-- Open assigned case, add a creditor-visible update such as `Documents checked; awaiting internal follow-up`.
-- Confirm it appears in timeline.
+## Creditor — invoice submission
 
-## 4. Creditor — verification of visibility
-- Sign in as creditor again. Confirm operator update appears.
-- Open a URL to another creditor's case; **must receive 404**, not another tenant's details.
-- Confirm internal-only notes do not appear.
+1. Sign in as `creditor@demo.collectdesk.test`.
+2. Open **All cases** and inspect the statuses and search/filter controls.
+3. Create a fictional overdue invoice, save it as a draft, and edit its description if desired.
+4. Submit it for review. Confirm the timeline and `Submitted` status.
+5. Confirm that editing submitted invoice financial details is no longer allowed.
 
-## 5. Optional financial demonstration
-- Admin records a fictional ₹2,000 receipt with reference `UTR-DEMO-001`. It shows **Recorded / Awaiting verification**.
-- The recovered total must remain unchanged before verification.
-- Admin verifies it. Only then should verified recovered rise by ₹2,000, remaining principal fall by ₹2,000 and a 20% estimated fee show ₹400.
+## Administrator — review and assignment
 
-## 6. Deliverable to supervisor
-- Research PDF, PRD PDF, repository access (after ownership choice), screenshots of tested flows, and unit/integration test results.
-- Phrase as **'proposed first milestone demonstration'**; do not claim a precise 45% until the scope is agreed.
+1. Sign out explicitly and sign in as `admin@demo.collectdesk.test`.
+2. Find the submitted case, **Accept** it with a documented reason and a fictional 20% fee rate.
+3. Assign the demo operator.
+4. Place the case **On hold**, provide a reason, then **Resume** it. Observe the timeline entries.
+5. Verify that **Close case** requires a reason and explicit confirmation.
+
+## Operator — controlled updates
+
+1. Sign in as `operator@demo.collectdesk.test`.
+2. Open the assigned case and add a creditor-visible progress update.
+3. Add a second internal-only update.
+4. Confirm the operator has no admin receipt verification/closure actions.
+
+## Creditor — privacy boundary
+
+1. Sign in again as the first creditor. Confirm the public update appears but the internal update does not.
+2. A case belonging to `creditor2@demo.collectdesk.test` must not be visible or accessible by URL.
+3. Open the dashboard and verify the correct totals and case-status navigation.
+
+## Administrator — fictional receipt reconciliation
+
+1. Record a test pending receipt. Confirm the recovered amount **does not** increase yet.
+2. Demonstrate rejecting an erroneous pending receipt with a reason.
+3. Verify the valid pending receipt. Confirm recovered and estimated fee totals update.
+4. Use **Correct receipt** and document the reason. Confirm the system creates a separate verified reversal and adjusts net recovery.
+5. If no receipts remain pending, close the case with a documented reason. Closing does not mark outstanding principal as recovered.
+
+## Evidence for the reviewer
+
+- Live Render URL and GitHub repository
+- Screenshots and logs from the latest passing [GitHub Actions browser audit](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
+- The [implementation status](IMPLEMENTATION_STATUS.md) and [product requirements](Commercial_Collections_PRD_v0.1.pdf)
+
+**Scope note:** this is a prototype, not a production debt-recovery service. The evidence filename field does **not** upload documents, and receipt entries do **not** represent actual payments.
