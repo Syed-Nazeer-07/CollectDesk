@@ -523,3 +523,62 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
 @media(prefers-reduced-motion:reduce){
   a,button{transition:none}
 }
+
+
+/* Mobile case cards: no hidden columns or horizontal-scrolling discovery. */
+@media(max-width:700px){
+  .cases-full>.table-overflow{padding:0 13px 16px}
+  .cases-panel>.table-overflow{padding:12px 0 0}
+  .cases-table{
+    display:block;
+    width:100%;
+    min-width:0!important;
+    white-space:normal;
+  }
+  .cases-table thead{display:none}
+  .cases-table tbody{display:grid;gap:12px}
+  .cases-table tbody tr{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:11px 15px;
+    border:1px solid #e1e9eb;
+    border-radius:10px;
+    padding:15px;
+    background:#fff;
+  }
+  .cases-table tbody tr:hover{background:#fff}
+  .cases-table td{
+    border:0!important;
+    min-width:0;
+    padding:0!important;
+    font-size:12px;
+    white-space:normal;
+  }
+  .cases-table td::before{
+    content:attr(data-label);
+    display:block;
+    font-size:10px;
+    letter-spacing:.35px;
+    font-weight:750;
+    text-transform:uppercase;
+    color:#83949d;
+    margin-bottom:6px;
+  }
+  .cases-table td:nth-child(1){
+    grid-column:1/-1;
+    padding-bottom:11px!important;
+    border-bottom:1px solid #edf1f2!important;
+  }
+  .cases-table td:nth-child(1)::before{display:none}
+  .cases-table td:nth-child(2){grid-column:1/-1}
+  .cases-table td:nth-child(3){grid-column:1}
+  .cases-table td:nth-child(4){grid-column:2;text-align:right}
+  .cases-table td:nth-child(5){grid-column:1;align-self:end}
+  .cases-table td:nth-child(6){grid-column:2;align-self:end;text-align:right}
+  .cases-table .debtor-name{max-width:none}
+  .cases-table .table-case{font-size:13px}
+  .cases-table .table-muted{font-size:11px}
+  .cases-table .table-view{padding:8px 11px}
+  .cases-table .money-cell{font-size:14px}
+  .cases-table .status{font-size:10px}
+}
