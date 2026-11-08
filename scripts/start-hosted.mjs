@@ -48,7 +48,7 @@ if(process.env.SEED_DEMO_ON_START==='true') {
   }
 }
 
-const api=run(process.execPath,[resolve('apps/api/src/server.js')],{...process.env,PORT:'4000'});
+const api=run(process.execPath,[resolve('apps/api/src/server.js')],{...process.env,PORT:'4000',API_LISTEN_HOST:'127.0.0.1'});
 children.push(api);
 const web=run(process.execPath,[
   resolve('node_modules/next/dist/bin/next'),
