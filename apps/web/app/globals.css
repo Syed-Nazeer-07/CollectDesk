@@ -604,3 +604,36 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
 .receipt-correction-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:9px}
 .receipt-correction-actions .button{min-height:38px}
 @media(max-width:700px){.receipt-row{align-items:flex-start}.receipt-row>.status{margin-left:auto}.receipt-correction-actions .button{flex:1}}
+
+/* Verified self-service accounts and Google Identity Services. */
+.auth-page{min-height:100vh;display:grid;place-items:center;background:#f5f8f8;padding:35px 18px}
+.auth-card{width:100%;max-width:520px;background:#fff;border:1px solid #e0e8e9;border-radius:15px;box-shadow:0 12px 50px rgba(29,55,62,.065);padding:clamp(25px,5vw,42px)}
+.auth-back{display:inline-flex;align-items:center;gap:8px;color:#52706e;font-weight:700;font-size:12px;margin-bottom:31px}
+.auth-back:hover{color:#0e6158;text-decoration:underline}
+.auth-card h1{font-family:'Manrope',sans-serif;font-size:29px;letter-spacing:-.9px;line-height:1.24;margin:10px 0}
+.auth-lead{color:#6a8088;line-height:1.65;font-size:13px;margin:0 0 25px}
+.auth-form{display:flex;flex-direction:column;gap:16px}
+.auth-form label{display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:750;color:#385158}
+.auth-form input{border:1px solid #dbe5e7;background:#fff;color:#20383f;border-radius:9px;min-height:49px;padding:12px 14px;font-size:14px;width:100%}
+.auth-form input::placeholder{color:#9aaab0}
+.auth-form input:focus{border-color:#2c847a;box-shadow:0 0 0 3px rgba(30,126,112,.09)}
+.auth-form .button{min-height:49px;justify-content:center;margin-top:6px;gap:10px}
+.auth-hint{font-size:11px;color:#70858d;margin:-7px 0 -2px;line-height:1.5}
+.auth-note{font-size:12px;color:#78909a;line-height:1.65}
+.auth-error{background:#fff5f4;border:1px solid #ebc6c2;border-radius:9px;padding:11px 13px;color:#a13c35;line-height:1.6;font-size:12px;margin:10px 0}
+.auth-unavailable,.auth-success{display:flex;gap:12px;align-items:flex-start;border-radius:10px;padding:17px;margin:14px 0 22px}
+.auth-unavailable{border:1px solid #e7e3d6;background:#faf9f5;color:#7a6e48}
+.auth-success{border:1px solid #bcded4;background:#f1faf6;color:#216b5c}
+.auth-unavailable>svg,.auth-success>svg{flex-shrink:0}
+.auth-unavailable strong,.auth-success strong{font-size:13px}
+.auth-unavailable p,.auth-success p{font-size:12px;line-height:1.65;margin:6px 0 0}
+.auth-legal{font-size:11px;color:#84949b;line-height:1.65;margin:22px 0 0}
+.auth-mark{height:44px;width:44px;display:grid;place-items:center;border-radius:10px;background:#e4f1eb;color:#136f64;margin-bottom:26px}
+.auth-google{display:flex;flex-direction:column;gap:10px;margin:4px 0 23px}
+.auth-google-button{min-height:44px;display:flex;justify-content:center;align-items:center;overflow:hidden}
+.auth-divider{display:flex;gap:14px;align-items:center;color:#8a999f;font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-top:8px}
+.auth-divider:before,.auth-divider:after{content:'';height:1px;flex:1;background:#e4ebeb}
+.auth-signup-link{color:#6b8189;font-size:12px;text-align:center;margin:25px 0 3px}
+.auth-signup-link a{color:#136d63;font-weight:750}
+.auth-signup-link a:hover{text-decoration:underline}
+@media(max-width:700px){.auth-card{padding:26px 22px}.auth-card h1{font-size:25px}}
