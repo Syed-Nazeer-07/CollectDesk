@@ -21,5 +21,7 @@ services:
         generateValue: true
       - key: DEMO_SEED_PASSWORD
         sync: false
+      # The fictional dataset is seeded once during initial provisioning.
+      # Re-running seed on every free-instance cold start delays page loading.
       - key: SEED_DEMO_ON_START
-        value: 'true'
+        value: 'false'
