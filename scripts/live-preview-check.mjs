@@ -53,4 +53,13 @@ const invalid=await request('/api/v1/auth/login',{
   body:{email:'admin@demo.collectdesk.test',password:'this-is-intentionally-not-the-password'},
 });
 assert.equal(invalid.status,401,'Public login proxy must allow same-origin POST and reject wrong credentials with HTTP 401 (not 403/502)');
-console.log('PASS public HTTPS frontend, Atlas-backed API, proxy, origin checks and rejected login');
+const signup=await request('/signup');
+assert.equal(signup.status,200,'Public registration page should render even when setup is disabled');
+const options=await request('/api/v1/auth/options');
+assert.equal(options.status,200,'Public authentication configuration should be accessible');
+const providers=JSON.parse(options.body);
+assert.equal(typeof providers.emailSignupEnabled,'boolean');
+assert.equal(typeof providers.googleEnabled,'boolean');
+assert.ok(!providers.googleEnabled || typeof providers.googleClientId==='string');
+console.log('Auth provider availability:',{emailSignupEnabled:providers.emailSignupEnabled,googleEnabled:providers.googleEnabled});
+console.log('PASS public HTTPS frontend, Atlas-backed API, proxy, origin checks, signup and rejected login');
