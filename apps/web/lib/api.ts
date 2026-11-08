@@ -14,9 +14,14 @@ export async function api<T>(path:string,options:RequestInit={}):Promise<T>{
     const {headers:providedHeaders,...requestOptions}=options;
     const headers=new Headers(providedHeaders);
     if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-    response=await fetch(`${API}${path}`,{credentials:'include',cache:'no-store',...requestOptions,headers});
+    // Free hosted instances can need a cold start; keep requests bounded so the UI never spins indefinitely.
+    response=await fetch(`${API}${path}`,{credentials:'include',cache:'no-store',...requestOptions,headers,signal:requestOptions.signal ?? AbortSignal.timeout(75_000)});
   }
-  catch{throw new ApiError('Cannot connect to the server. Check that the API and MongoDB are running.',0);}
+  catch(error){
+    if(error instanceof Error && (error.name==='TimeoutError'||error.name==='AbortError'))
+      throw new ApiError('The server took too long to respond. A free demo may be waking up; please retry.',0);
+    throw new ApiError('Cannot connect to the server. Please check your connection and retry.',0);
+  }
   let data:unknown;try{data=await response.json();}catch{data={};}
   const parsed=data as {error?:string;issues?:{field:string;message:string}[]};
   if(!response.ok)throw new ApiError(parsed?.error||`Request failed (${response.status})`,response.status,parsed?.issues);
