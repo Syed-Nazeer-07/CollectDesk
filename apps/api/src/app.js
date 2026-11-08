@@ -9,6 +9,7 @@ import {z, ZodError} from 'zod';
 import mongoose from 'mongoose';
 import {User,Case,Activity,Receipt} from './models.js';
 import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRole} from './auth.js';
+import {installRegistrationRoutes} from './registration.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
@@ -42,9 +43,11 @@ app.post('/api/v1/auth/login',authLimiter,async(req,res)=>{
 });
 app.post('/api/v1/auth/logout',(_req,res)=>{res.clearCookie(COOKIE_NAME,{...cookieOptions(),maxAge:undefined});res.json({ok:true});});
 app.get('/api/v1/auth/me',requireAuth,(req,res)=>res.json({user:publicUser(req.user)}));
+installRegistrationRoutes(app,webOrigin);
 
 const route=express.Router();
 route.use(requireAuth);
+route.use((req,res,next)=>req.user.role==='creditor'&&!req.user.organizationId?res.status(403).json({error:'Complete your company setup before using the workspace.'}):next());
 const scope=scopeForUser;
 async function getCase(req,res,next) {
   if(!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({error:'Case not found.'});
