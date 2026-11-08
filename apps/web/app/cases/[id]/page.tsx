@@ -16,6 +16,8 @@ const [confirmClosure,setConfirmClosure]=useState(false);
 const [reverseReceiptId,setReverseReceiptId]=useState<string|null>(null);
 const [reverseReason,setReverseReason]=useState('');
 const [confirmReversal,setConfirmReversal]=useState(false);
+const [rejectReceiptId,setRejectReceiptId]=useState<string|null>(null);
+const [rejectReason,setRejectReason]=useState('');
 const load=useCallback(()=>api<Detail>(`/cases/${id}`).then(setData).catch(e=>{setError(e.message);throw e;}),[id]);
 useEffect(()=>{load().catch(()=>{});},[load]);
 useEffect(()=>{api<{user:User}>('/auth/me').then(r=>setUser(r.user)).catch(()=>{});},[]);
@@ -36,6 +38,11 @@ return <AppShell title="Case details" subtitle="Review the case, timeline, and v
     <div><b>{money(r.amountPaise)}{r.kind==='reversal'?' (reversal)':''}</b><small>{r.reference} · {date(r.createdAt)}</small></div>
     <span className={`status status-${r.status}`}>{r.status==='recorded'?'Awaiting verification':r.status==='verified'?'Verified':'Rejected'}</span>
     {currentUser.role==='admin'&&r.status==='recorded'&&<button type="button" className="button button-small button-primary" disabled={busy} onClick={()=>action(`/cases/${id}/receipts/${r.id}/verify`)}>Verify</button>}
+    {currentUser.role==='admin'&&r.status==='recorded'&&<button type="button" className="button button-small button-outline" disabled={busy} onClick={()=>{setRejectReceiptId(v=>v===r.id?null:r.id);setRejectReason('')}}>Reject pending</button>}
+    {currentUser.role==='admin'&&rejectReceiptId===r.id&&<form className="receipt-correction" onSubmit={e=>{e.preventDefault();const submitted=rejectReason;action(`/cases/${id}/receipts/${r.id}/reject`,{reason:submitted}).then(ok=>{if(ok){setRejectReceiptId(null);setRejectReason('')}})}}>
+      <label className="field">Reason for rejecting pending receipt<textarea required minLength={4} maxLength={400} rows={2} value={rejectReason} onChange={e=>setRejectReason(e.target.value)} placeholder="Explain why the fictional pending reference is invalid"/></label>
+      <div className="receipt-correction-actions"><button type="button" className="button button-muted" onClick={()=>setRejectReceiptId(null)}>Cancel</button><button type="submit" className="button button-outline" disabled={busy}>Confirm pending rejection</button></div>
+    </form>}
     {currentUser.role==='admin'&&r.kind==='receipt'&&r.status==='verified'&&!data.receipts.some(other=>other.kind==='reversal'&&other.status==='verified'&&other.reversedFrom===r.id)&&
       <button type="button" className="button button-small button-outline" disabled={busy} onClick={()=>{setReverseReceiptId(v=>v===r.id?null:r.id);setReverseReason('');setConfirmReversal(false)}}>Correct receipt</button>}
     {currentUser.role==='admin'&&reverseReceiptId===r.id&&<form className="receipt-correction" onSubmit={e=>{e.preventDefault();if(!confirmReversal)return;const submitted=reverseReason;action(`/cases/${id}/receipts/${r.id}/reverse`,{reason:submitted}).then(ok=>{if(ok){setReverseReceiptId(null);setReverseReason('');setConfirmReversal(false)}})}}>
