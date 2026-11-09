@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-export default function GoogleSignIn({onAuthenticated}:{onAuthenticated:(user:User)=>void}){
+export default function GoogleSignIn({onAuthenticated,showDivider=true}:{onAuthenticated:(user:User)=>void;showDivider?:boolean}){
   const [options,setOptions]=useState<Options|null>(null);
   const [scriptReady,setScriptReady]=useState(false);
   const [error,setError]=useState('');
@@ -61,6 +61,6 @@ export default function GoogleSignIn({onAuthenticated}:{onAuthenticated:(user:Us
     <div ref={target} className="auth-google-button" aria-label="Google sign-in"/>
     {busy&&<p className="auth-note">Verifying Google account…</p>}
     {error&&<div role="alert" className="auth-error">{error} <button type="button" className="auth-retry-link" onClick={()=>{setError('');setAttempt(n=>n+1)}}>Try Google again</button></div>}
-    <div className="auth-divider"><span>or continue with email</span></div>
+    {showDivider&&<div className="auth-divider"><span>or continue with email</span></div>}
   </div>;
 }
