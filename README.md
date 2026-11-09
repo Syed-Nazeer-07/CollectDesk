@@ -55,6 +55,14 @@ Their password is configured **privately** through `DEMO_SEED_PASSWORD` in Rende
 
 Email signup, verification, Google Sign-In and new-company onboarding are implemented **but disabled on the public preview unless its owner has configured and enabled the relevant providers**. Public registration never creates administrator or operator accounts.
 
+**Enable public creditor registration:** Set `PUBLIC_REGISTRATION_ENABLED=true` in your host's private environment variables, then configure at least one provider:
+
+- **Google Sign-In:** `GOOGLE_CLIENT_ID` from an OAuth web client with the deployed site set as an authorized JavaScript origin.
+- **Email verification (Render Free):** Use HTTPS transactional email via `RESEND_API_KEY` + `AUTH_FROM_EMAIL` (verified domain), **or** `BREVO_API_KEY` + `BREVO_FROM_EMAIL` (registered verified sender). Emails can be sent to Gmail and other addresses. Signups become active only when the recipient follows the one-time, 30-minute email link.
+- **Gmail SMTP (local or SMTP-capable hosting only):** `GMAIL_SMTP_USER` + `GMAIL_SMTP_APP_PASSWORD`, using a Google App Password. Render Free blocks outgoing SMTP ports 465 and 587, so Gmail SMTP is deliberately not advertised as available on Render without an explicit paid-host override (`ALLOW_SMTP_ON_RENDER=true`). **Do not set this override on Render Free.**
+
+Store every API key or app password only in the hosting provider's secret settings. A Google OAuth Client ID is not a Gmail SMTP password. If no working sender is configured, the registration page stays disabled rather than creating unverifiable accounts.
+
 ## Run locally
 
 **Requirements:** Docker Desktop (Linux containers), Node.js/npm, and a locally configured `.env.compose`.
