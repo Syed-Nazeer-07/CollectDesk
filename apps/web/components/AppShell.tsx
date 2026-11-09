@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {LayoutDashboard,FolderKanban,Plus,ShieldCheck,LogOut,Menu,X,BriefcaseBusiness,ArrowUpRight} from 'lucide-react';
+import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness} from 'lucide-react';
 import {api,User} from '@/lib/api';
 
 type Props={children:(user:User)=>React.ReactNode;title:string;subtitle?:string;action?:boolean};
@@ -62,7 +62,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
       </div>
       <div className="workspace-identity" aria-label="Current workspace">
         <span className="workspace-avatar">CD</span>
-        <span className="workspace-name"><strong>CollectDesk Demo</strong><small>Fictional workspace</small></span>
+        <span className="workspace-name"><strong>CollectDesk</strong><small>{displayRole} workspace</small></span>
         <span className="workspace-indicator" aria-hidden="true"/>
       </div>
       <nav className="sidebar-nav" aria-label="Main navigation">
@@ -70,11 +70,11 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/dashboard'?'active':''}`} aria-current={pathname==='/dashboard'?'page':undefined} href="/dashboard"><LayoutDashboard size={18}/> Overview</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname.startsWith('/cases')&&pathname!=='/cases/new'?'active':''}`} aria-current={pathname.startsWith('/cases')&&pathname!=='/cases/new'?'page':undefined} href="/cases"><FolderKanban size={18}/> All cases</Link>
         {user?.role==='creditor'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/cases/new'?'active':''}`} aria-current={pathname==='/cases/new'?'page':undefined} href="/cases/new"><Plus size={18}/> Create case</Link>}
-        <span className="nav-caption nav-caption-second">INFORMATION</span>
-        <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/demo'?'active':''}`} aria-current={pathname==='/demo'?'page':undefined} href="/demo"><ShieldCheck size={18}/> Demo & access</Link>
+        <span className="nav-caption nav-caption-second">ACCOUNT</span>
+        <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/account'?'active':''}`} aria-current={pathname==='/account'?'page':undefined} href="/account"><UserRound size={18}/> Account & access</Link>
       </nav>
       <div className="sidebar-bottom">
-        <div className="safety-note"><span className="safety-dot"/><strong>Demonstration only</strong><p>Fictional invoices and payments. No funds are moved through this application.</p><Link href="/demo">How this demo works <ArrowUpRight size={13}/></Link></div>
+        <p className="sidebar-data-note">Sample records only · No payments processed</p>
         <div className="sidebar-account"><span className="user-avatar">{initials}</span><span className="user-meta"><strong>{user?.name||'Your account'}</strong><small>{displayRole}</small></span></div>
         <button className="sidebar-signout" type="button" onClick={logout}><LogOut size={16}/> Sign out</button>
       </div>
@@ -82,12 +82,12 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     <main className="main">
       <header className="topbar">
         <div className="topbar-left"><button type="button" className="icon-button hide-desktop" aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <b>{title}</b></span></div>
-        <div className="topbar-right"><span className="topbar-demo"><span className="safety-dot"/> Demo environment</span><Link href="/demo" className="top-avatar-link" aria-label="View account permissions and demo information" title="Demo & access"><span className="top-avatar">{initials}</span></Link></div>
+        <div className="topbar-right"><Link href="/account" className="top-avatar-link" aria-label="View account and permissions" title="Account & access"><span className="top-avatar">{initials}</span></Link></div>
       </header>
       <div className="main-content">
         <div className="page-heading"><div><div className="eyebrow">COLLECTDESK / WORKSPACE</div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
         {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user)}
-        <footer className="app-footer"><span>CollectDesk · Fictional demo data</span><span>No actual collection activity or payments</span></footer>
+        <footer className="app-footer"><span>CollectDesk · Case management</span><span>Sample records only · No real payments</span></footer>
       </div>
     </main>
   </div>;
