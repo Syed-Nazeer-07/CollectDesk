@@ -22,8 +22,8 @@ export async function sendVerificationEmail(email,url,{
 }={}){
   const provider=emailDeliveryProvider(env);
   if(!provider)throw new Error('No verification email provider configured');
-  const subject='Verify your CollectDesk demo account';
-  const text='Verify your email to activate your fictional CollectDesk creditor account:\n'+url+
+  const subject='Verify your CollectDesk account';
+  const text='Confirm your email to activate your CollectDesk creditor workspace (sample-data preview):\n'+url+
     '\n\nThis link expires in 30 minutes. If you did not request an account, ignore this email.';
 
   if(provider==='resend'){
