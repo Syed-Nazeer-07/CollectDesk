@@ -17,14 +17,25 @@ export function emailDeliveryProvider(env=process.env){
   return null;
 }
 
-export async function sendVerificationEmail(email,url,{
+export async function sendVerificationEmail(email,url,options={}){
+  return sendAccountEmail(email,url,'verification',options);
+}
+
+export async function sendPasswordResetEmail(email,url,options={}){
+  return sendAccountEmail(email,url,'password-reset',options);
+}
+
+async function sendAccountEmail(email,url,kind,{
   env=process.env,httpFetch=fetch,createTransport=nodemailer.createTransport
 }={}){
   const provider=emailDeliveryProvider(env);
-  if(!provider)throw new Error('No verification email provider configured');
-  const subject='Verify your CollectDesk account';
-  const text='Confirm your email to activate your CollectDesk creditor workspace (sample-data preview):\n'+url+
-    '\n\nThis link expires in 30 minutes. If you did not request an account, ignore this email.';
+  if(!provider)throw new Error('No account email provider configured');
+  const passwordReset=kind==='password-reset';
+  const subject=passwordReset?'Reset your CollectDesk password':'Verify your CollectDesk account';
+  const text=(passwordReset
+    ?'Someone requested a password reset for your CollectDesk account. Use this link to set a new password:\n'
+    :'Confirm your email to activate your CollectDesk creditor workspace (sample-data preview):\n')+url+
+    '\n\nThis link expires in 30 minutes and can be used once. If you did not request this, ignore this email.';
 
   if(provider==='resend'){
     const response=await httpFetch('https://api.resend.com/emails',{
