@@ -640,19 +640,26 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
 
 .auth-retry-link{border:0;background:transparent;color:#8c3b35;font-size:12px;font-weight:750;text-decoration:underline;padding:3px 0;display:block;margin-top:6px}
 
-
-/* Normal authentication comes first; demo account shortcuts are optional. */
-.demo-access{margin-top:25px;border-top:1px solid #edf1f2;padding-top:17px}
-.demo-access>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;color:#42766e;font-size:12px;font-weight:750;padding:8px 2px;border-radius:8px}
-.demo-access>summary::-webkit-details-marker{display:none}
-.demo-access>summary:focus-visible{outline:2px solid #2b9184;outline-offset:3px}
-.demo-access>summary svg{transition:transform .18s ease}
-.demo-access[open]>summary svg{transform:rotate(180deg)}
-.demo-access-body{padding:12px 0 0}
-.demo-access-body>p{font-size:11px;line-height:1.7;color:#728991;margin:0 0 15px}
-.demo-access .account-picker{margin-bottom:12px}
-.demo-access .account-option{min-height:91px;cursor:pointer;transition:border-color .15s ease,background .15s ease}
-.demo-access .account-option:hover{border-color:#9bcac1;background:#f8fcfa}
-.demo-access .account-option:focus-visible{outline:2px solid #2b9184;outline-offset:2px}
-.demo-access-body .demo-access-note{margin-bottom:0;color:#96a4a9;font-size:10px}
-@media(max-width:420px){.demo-access .account-picker{grid-template-columns:1fr}.demo-access .account-option{min-height:56px;flex-direction:row;align-items:center}}
+/* One auth screen with a sign-in / registration switch. */
+.auth-unified-card{max-width:485px}
+.auth-mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;border:1px solid #e1e9e9;border-radius:11px;background:#f5f8f7;margin-bottom:28px}
+.auth-mode-switch button{border:0;border-radius:8px;min-height:43px;padding:9px 12px;background:transparent;color:#78909a;font-size:13px;font-weight:800;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
+.auth-mode-switch button.active{background:#fff;color:#186e65;box-shadow:0 2px 7px rgba(20,48,54,.09)}
+.auth-mode-switch button:focus-visible,.auth-account-toggle button:focus-visible{outline:2px solid #278f83;outline-offset:2px}
+.auth-mode-switch button:disabled{cursor:wait;opacity:.7}
+.auth-unified-card .auth-panel-lead{color:#687f88;font-size:13px;line-height:1.65;margin:0 0 24px}
+.auth-unified-card .login-form{gap:17px}
+.auth-unified-card .auth-inline-form{gap:13px}
+.auth-unified-card .auth-inline-form label{gap:6px;font-size:12px}
+.auth-unified-card .auth-inline-form input{min-height:45px}
+.auth-unified-card .auth-inline-form .button{width:100%;min-height:49px;justify-content:space-between;margin-top:3px;font-size:13px}
+.auth-unified-card .auth-inline-form .auth-hint{margin:-7px 0 0;font-size:10.5px}
+.auth-unified-card .auth-inline-form .auth-verification-caption{margin:1px 0 0;line-height:1.6}
+.auth-unified-card .auth-google{margin-bottom:20px}
+.auth-account-toggle{margin:23px 0 0!important;text-align:center;color:#73858c!important;font-size:12px!important}
+.auth-account-toggle button{border:0;background:transparent;padding:3px;color:#15786c;font-weight:800;cursor:pointer}
+.auth-account-toggle button:hover{text-decoration:underline}
+.auth-unified-card .login-security{margin-top:20px}
+.auth-unified-card .auth-success{margin-top:4px}
+.auth-unified-card .auth-unavailable{margin-top:4px}
+@media(max-width:700px){.auth-mode-switch{margin-bottom:23px}.auth-unified-card .auth-inline-form{gap:13px}.auth-unified-card .login-security{font-size:10.5px}}
