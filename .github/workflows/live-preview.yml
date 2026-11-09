@@ -19,6 +19,10 @@ jobs:
   verify-external-preview:
     runs-on: ubuntu-22.04
     timeout-minutes: 9
+    env:
+      # Set the LIVE_PREVIEW_URL repository variable only once Render assigns
+      # and serves the requested public hostname.
+      LIVE_PREVIEW_URL: ${{ vars.LIVE_PREVIEW_URL || 'https://collectdesk-preview-ah80.onrender.com' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,10 +33,12 @@ jobs:
       - name: Diagnose public network path (no credentials)
         run: |
           echo "DNS resolution for hosted preview"
-          getent ahosts collectdesk-preview-ah80.onrender.com | head -n 5 || true
+          host="${LIVE_PREVIEW_URL#https://}"
+          host="${host%%/*}"
+          getent ahosts "$host" | head -n 5 || true
           echo "Sanity check against Render homepage"
           curl --location --head --silent --show-error --connect-timeout 8 --max-time 14 https://render.com | head -n 10 || true
           echo "Verbose public service handshake"
-          curl --head --verbose --connect-timeout 10 --max-time 22 https://collectdesk-preview-ah80.onrender.com/api/health 2>&1 | tail -n 45 || true
+          curl --head --verbose --connect-timeout 10 --max-time 22 "${LIVE_PREVIEW_URL%/}/api/health" 2>&1 | tail -n 45 || true
       - name: Check public Render HTTPS, API proxy and login origin
         run: node scripts/live-preview-check.mjs
