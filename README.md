@@ -6,7 +6,7 @@
 
 A focused full-stack B2B prototype for tracking overdue invoice cases, coordinating collection teams, and reporting **verified** recoveries.
 
-[**Live preview**](https://collectdesk-preview-ah80.onrender.com/login) · [**Service health**](https://collectdesk-preview-ah80.onrender.com/api/health) · [**CI results**](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
+[**Customer landing page**](https://collectdesk-preview-ah80.onrender.com/) · [**Sign in**](https://collectdesk-preview-ah80.onrender.com/login) · [**Service health**](https://collectdesk-preview-ah80.onrender.com/api/health) · [**CI results**](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
 
 </div>
 
@@ -14,6 +14,10 @@ A focused full-stack B2B prototype for tracking overdue invoice cases, coordinat
 
 > [!IMPORTANT]
 > **Sample-data MVP for technical evaluation.** This application does not collect money, contact debtors, store uploaded evidence, or process real invoices. Render's free instance sleeps when idle; a cold start can be slow.
+
+## Customer onboarding
+
+The public home page (`/`) introduces CollectDesk, explains the core workflow and staff roles, and links directly into **Create account** (`/login?mode=signup`) or **Sign in** (`/login`). Both authentication modes share one right-side panel. Registration continues through Google Sign-In plus company setup, or verified email registration where configured. The landing-page preview metrics are illustrative, not live operational data.
 
 ## The product
 
@@ -75,7 +79,7 @@ docker compose --env-file .env.compose --profile seed run --rm seed
 docker compose --env-file .env.compose up -d database api web
 ```
 
-Open **http://localhost:3000/login**. The database volume preserves local fictional records across normal restarts.
+Open **http://localhost:3000/** for the customer landing page or **http://localhost:3000/login** to sign in. The database volume preserves local fictional records across normal restarts.
 
 ```bash
 npm test
