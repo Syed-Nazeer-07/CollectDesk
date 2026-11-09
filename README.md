@@ -6,7 +6,7 @@
 
 A focused full-stack B2B prototype for tracking overdue invoice cases, coordinating collection teams, and reporting **verified** recoveries.
 
-[**Customer landing page**](https://collectdesk-preview-ah80.onrender.com/) · [**Sign in**](https://collectdesk-preview-ah80.onrender.com/login) · [**Service health**](https://collectdesk-preview-ah80.onrender.com/api/health) · [**CI results**](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
+[**Customer landing page**](https://collectdesk.onrender.com/) · [**Sign in**](https://collectdesk.onrender.com/login) · [**Service health**](https://collectdesk.onrender.com/api/health) · [**CI results**](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
 
 </div>
 
@@ -15,9 +15,9 @@ A focused full-stack B2B prototype for tracking overdue invoice cases, coordinat
 > [!IMPORTANT]
 > **Sample-data MVP for technical evaluation.** This application does not collect money, contact debtors, store uploaded evidence, or process real invoices. Render's free instance sleeps when idle; a cold start can be slow.
 
-**Deployment URL:** The Render service is named `collectdesk`, but its currently assigned hostname is `https://collectdesk-preview-ah80.onrender.com`. `https://collectdesk.onrender.com` is a *requested* address, not yet confirmed as attached to this service. Keep using the linked live preview until Render shows the new address as the service URL.
+**Deployment URL:** Render has assigned `https://collectdesk.onrender.com` to the new CollectDesk web service. Deployment readiness and sign-in must be verified before sharing credentials or treating the site as a working demo. The previous preview remains available as a fallback until the cutover is tested.
 
-**Hostname cutover checklist:** Once a new address is assigned and `/api/health` responds, set `WEB_ORIGIN` in Render to the new HTTPS origin (or remove an old override so `RENDER_EXTERNAL_URL` is used), update the Google OAuth **Authorized JavaScript origins**, and set the GitHub Actions repository variable `LIVE_PREVIEW_URL` to the new base URL. Then update the links above and any shared presentation. Do not put API keys in repository variables.
+**Deployment setup:** The new Render web service must build from `./Dockerfile.render` (not `./Dockerfile`) and run `node scripts/start-hosted.mjs`, with `MONGODB_URI` and `JWT_SECRET` configured privately. Set `WEB_ORIGIN=https://collectdesk.onrender.com`. Update the Google OAuth **Authorized JavaScript origins** to include this HTTPS origin; for email signups, configure an authorized sender. Keep keys out of Git. GitHub live checks now target the new URL by default.
 
 ## Customer onboarding
 
