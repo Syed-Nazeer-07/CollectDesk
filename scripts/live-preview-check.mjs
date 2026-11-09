@@ -43,6 +43,10 @@ for(let attempt=1;attempt<=3;attempt++){
 }
 assert.equal(health?.status,200,'Public API health did not return HTTP 200');
 assert.deepEqual(JSON.parse(health.body),{ok:true},'Public API and database readiness check failed');
+const landing=await request('/');
+assert.equal(landing.status,200,'Public customer onboarding page failed');
+assert.match(landing.body,/Every overdue invoice deserves/i,
+  'Public homepage is missing the customer onboarding landing page');
 const login=await request('/login');
 assert.equal(login.status,200,'Public login page failed');
 assert.match(login.body,/(collectdesk|Sign in to your workspace)/i,'Login page content missing');
@@ -63,4 +67,4 @@ assert.equal(typeof providers.emailSignupEnabled,'boolean');
 assert.equal(typeof providers.googleEnabled,'boolean');
 assert.ok(!providers.googleEnabled || typeof providers.googleClientId==='string');
 console.log('Auth provider availability:',{emailSignupEnabled:providers.emailSignupEnabled,googleEnabled:providers.googleEnabled});
-console.log('PASS public HTTPS frontend, Atlas-backed API, proxy, origin checks, signup and rejected login');
+console.log('PASS public customer landing page, HTTPS frontend, Atlas-backed API, proxy, origin checks, signup and rejected login');
