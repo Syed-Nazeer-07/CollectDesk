@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import GoogleSignIn from '@/components/GoogleSignIn';
-import {ArrowRight,BriefcaseBusiness,LockKeyhole,Eye,EyeOff,Check} from 'lucide-react';
+import {ArrowRight,BriefcaseBusiness,LockKeyhole,Eye,EyeOff,Check,ChevronDown} from 'lucide-react';
 import {api,User} from '@/lib/api';
 
 const accounts=[
@@ -13,7 +13,8 @@ const accounts=[
 ];
 
 export default function Login(){
-  const [email,setEmail]=useState(accounts[0].email);
+  const [email,setEmail]=useState('');
+  const [selectedDemo,setSelectedDemo]=useState<string|null>(null);
   const [password,setPassword]=useState('');
   const [show,setShow]=useState(false);
   const [loading,setLoading]=useState(false);
@@ -30,8 +31,8 @@ export default function Login(){
       authenticated=true;
       // Verify the HTTPS browser cookie is present before changing routes.
       // Avoid racing router.refresh() with a pending router transition.
-      await api<{user:User}>('/auth/me');
-      router.replace('/dashboard');
+      const {user}=await api<{user:User}>('/auth/me');
+      router.replace(user.role==='creditor'&&!user.organizationId?'/onboarding':'/dashboard');
     }catch(err:any){
       setError(authenticated && err?.status===401
         ?'Sign-in succeeded, but your session cookie was not saved. Allow cookies for this site, then try again.'
@@ -57,22 +58,30 @@ export default function Login(){
       <div className="login-card">
         <span className="eyebrow">COLLECTDESK ACCESS</span>
         <h1>Sign in to your workspace</h1>
-        <p>Choose a demo role, then enter the password provided for this workspace.</p>
+        <p>Access your workspace securely with your email and password, or continue with Google.</p>
         <GoogleSignIn onAuthenticated={user=>router.replace(user.role==='creditor'&&!user.organizationId?'/onboarding':'/dashboard')}/>
-        <div className="login-modes"><div className="login-modes-title">Demo account</div>
-          <div className="account-picker">{accounts.map(acc=><button type="button" key={acc.role} aria-pressed={email===acc.email} className={`account-option ${email===acc.email?'selected':''}`} onClick={()=>{setEmail(acc.email);setError('');}}>
-            <span className="account-check" aria-hidden="true">{email===acc.email&&<Check size={13}/>}</span>
-            <span><strong>{acc.role}</strong><small>{acc.desc}</small></span>
-          </button>)}</div>
-        </div>
         <form className="form login-form" onSubmit={login}>
-          <label>Email address<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></label>
-          <label>Demo password<div className="password-wrap"><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your workspace password"/><button type="button" onClick={()=>setShow(v=>!v)} aria-label={show?'Hide password':'Show password'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
+          <label>Email address<input type="email" autoComplete="username" required value={email} onChange={e=>{setEmail(e.target.value);setSelectedDemo(null);}} placeholder="name@company.com"/></label>
+          <label>Password<div className="password-wrap"><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password"/><button type="button" onClick={()=>setShow(v=>!v)} aria-label={show?'Hide password':'Show password'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
           {error&&<div className="message error" role="alert">{error}</div>}
           <button className="button button-primary login-submit" disabled={loading}>{loading?'Signing in…':'Sign in to workspace'}<ArrowRight size={18}/></button>
           {slow&&<p className="login-slow-notice" role="status">The free demo server is responding slowly. It may be waking up; the request will time out rather than loading forever.</p>}
         </form>
-        <p className="auth-signup-link">New business? <Link href="/signup">Create a creditor account</Link></p>
+        <p className="auth-signup-link">New business? <Link href="/signup">Create an account</Link></p>
+        <details className="demo-access">
+          <summary>Explore demo workspaces <ChevronDown size={16} aria-hidden="true"/></summary>
+          <div className="demo-access-body">
+            <p>Preview the different workspaces using a demo account. Choose one to fill its email, then enter the demo password provided to you.</p>
+            <div className="account-picker">{accounts.map(acc=><button type="button" key={acc.role}
+              aria-pressed={selectedDemo===acc.email}
+              className={`account-option ${selectedDemo===acc.email?'selected':''}`}
+              onClick={()=>{setEmail(acc.email);setSelectedDemo(acc.email);setPassword('');setError('');}}>
+              <span className="account-check" aria-hidden="true">{selectedDemo===acc.email&&<Check size={13}/>}</span>
+              <span><strong>{acc.role}</strong><small>{acc.desc}</small></span>
+            </button>)}</div>
+            <p className="demo-access-note">These are pre-existing demonstration accounts, not selectable permissions. Your access is always determined by your authenticated account.</p>
+          </div>
+        </details>
         <div className="login-security"><LockKeyhole size={16}/> This is a fictional demonstration. Admin and operator access is invite-only.</div>
       </div>
       <div className="login-copyright">© 2026 CollectDesk · Demonstration preview</div>
