@@ -82,6 +82,13 @@ async function session(email, mobile = false) {
       'Legacy signup URL should redirect into the unified auth page');
     await page.getByRole('tab', { name: 'Sign in' }).click();
     await page.locator('.login-form input[type="email"]').waitFor();
+    await page.getByRole('link', { name: 'Forgot password?' }).click();
+    await page.getByRole('heading', { name: 'Forgot your password?' }).waitFor();
+    await page.goto(base + '/reset-password?token=ci-bogus-token-value-only-for-layout-test');
+    await page.getByRole('heading', { name: 'Set a new password' }).waitFor();
+    await page.locator('input[autocomplete="new-password"]').first().waitFor();
+    await page.goto(base + '/login', {waitUntil:'domcontentloaded'});
+    await page.locator('.login-form input[type="email"]').waitFor();
   }
   if (mobile)
     await page.screenshot({ path: 'browser-audit-results/mobile-login.png', fullPage: true });
