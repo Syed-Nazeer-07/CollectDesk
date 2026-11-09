@@ -9,6 +9,15 @@ test('verification sender is disabled until all credentials for a provider are p
   assert.equal(emailDeliveryProvider({RESEND_API_KEY:'key'}),null);
   assert.equal(emailDeliveryProvider({GMAIL_SMTP_USER:'owner@gmail.com',GMAIL_SMTP_APP_PASSWORD:'test'}),'gmail');
   assert.equal(emailDeliveryProvider({RESEND_API_KEY:'key',AUTH_FROM_EMAIL:'verify@example.org'}),'resend');
+  assert.equal(emailDeliveryProvider({BREVO_API_KEY:'key',BREVO_FROM_EMAIL:'verify@example.org'}),'brevo');
+  assert.equal(emailDeliveryProvider({
+    RENDER:'true',GMAIL_SMTP_USER:'owner@gmail.com',GMAIL_SMTP_APP_PASSWORD:'test'
+  }),null,'Render must not expose a signup path that depends on blocked SMTP');
+  assert.equal(emailDeliveryProvider({
+    RENDER:'true',ALLOW_SMTP_ON_RENDER:'true',
+    GMAIL_SMTP_USER:'owner@gmail.com',GMAIL_SMTP_APP_PASSWORD:'test'
+  }),'gmail','Paid Render instances can explicitly allow SMTP');
+
   assert.equal(emailDeliveryProvider({
     GMAIL_SMTP_USER:'owner@gmail.com',GMAIL_SMTP_APP_PASSWORD:'test',
     RESEND_API_KEY:'key',AUTH_FROM_EMAIL:'verify@example.org'
@@ -62,4 +71,21 @@ test('Resend delivery remains supported without Gmail configuration',async()=>{
   });
   assert.equal(payload.from,'verify@example.org');
   assert.deepEqual(payload.to,['newuser@example.org']);
+});
+
+test('Brevo HTTPS email delivery supports Gmail recipient addresses',async()=>{
+  let url,payload;
+  await sendVerificationEmail('newuser@gmail.com','https://example.org/signup/verify?token=demo',{
+    env:{BREVO_API_KEY:'test-key',BREVO_FROM_EMAIL:'verified@example.org',RENDER:'true'},
+    httpFetch:async (target,opts)=>{
+      url=target;
+      assert.equal(opts.headers['api-key'],'test-key');
+      payload=JSON.parse(opts.body);
+      return {ok:true};
+    }
+  });
+  assert.equal(url,'https://api.brevo.com/v3/smtp/email');
+  assert.equal(payload.sender.email,'verified@example.org');
+  assert.deepEqual(payload.to,[{email:'newuser@gmail.com'}]);
+  assert.match(payload.textContent,/signup\/verify\?token=demo/);
 });
