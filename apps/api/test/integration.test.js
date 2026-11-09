@@ -264,6 +264,46 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         result=await call('/operators',{cookie:registeredCookie});
         assert.equal(result.status,403,'new creditor cannot view privileged staff lists');
 
+        // Password recovery must never disclose whether an email is registered.
+        let recover=await call('/auth/password/options');
+        assert.equal(recover.status,200);
+        assert.equal(recover.data.enabled,true);
+        const sentBeforeReset=sent.length;
+        recover=await call('/auth/password/forgot',{
+          method:'POST',body:{email:'no-such-user@collectdesk-ci.test'}
+        });
+        assert.equal(recover.status,202);
+        assert.equal(sent.length,sentBeforeReset,'unknown accounts must not receive email');
+        recover=await call('/auth/password/forgot',{
+          method:'POST',body:{email:registration.email}
+        });
+        assert.equal(recover.status,202);
+        assert.equal(sent.length,sentBeforeReset+1,'existing account must receive reset link');
+        const resetLink=sent.at(-1).text.match(/reset-password\?token=([A-Za-z0-9_-]+)/);
+        assert.ok(resetLink,'reset email should contain a unique token');
+        const token=resetLink[1];
+        assert.equal((await call('/auth/password/reset',{
+          method:'POST',body:{token,password:'weak'}
+        })).status,422,'weak reset passwords must be rejected');
+        recover=await call('/auth/password/reset',{
+          method:'POST',body:{token,password:'NewSecurePassword2026!'}
+        });
+        assert.equal(recover.status,200,JSON.stringify(recover.data));
+        assert.equal((await call('/auth/me',{cookie:registeredCookie})).status,401,
+          'password reset must invalidate previously signed sessions');
+        assert.equal((await call('/auth/password/reset',{
+          method:'POST',body:{token,password:'AnotherPassword2026!'}
+        })).status,400,'recovery links must be single-use');
+        assert.equal((await call('/auth/login',{method:'POST',body:{
+          email:registration.email,password:registration.password
+        }})).status,401,'the previous password must stop working');
+        const freshLogin=await call('/auth/login',{method:'POST',body:{
+          email:registration.email,password:'NewSecurePassword2026!'
+        }});
+        assert.equal(freshLogin.status,200,'reset password must permit sign-in');
+        assert.equal((await call('/auth/me',{cookie:freshLogin.cookie})).status,200);
+        assert.equal(freshLogin.data.user.role,'creditor','recovery must never alter roles');
+
         const nonce=await call('/auth/google/nonce');
         assert.equal(nonce.status,200,JSON.stringify(nonce.data));
         assert.ok(nonce.cookie?.startsWith('collectdesk_google_nonce='));
