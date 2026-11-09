@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emailDeliveryProvider,sendVerificationEmail} from '../src/email-delivery.js';
+import {emailDeliveryProvider,sendVerificationEmail,sendPasswordResetEmail} from '../src/email-delivery.js';
 
 test('verification sender is disabled until all credentials for a provider are present',()=>{
   assert.equal(emailDeliveryProvider({}),null);
@@ -88,4 +88,21 @@ test('Brevo HTTPS email delivery supports Gmail recipient addresses',async()=>{
   assert.equal(payload.sender.email,'verified@example.org');
   assert.deepEqual(payload.to,[{email:'newuser@gmail.com'}]);
   assert.match(payload.textContent,/signup\/verify\?token=demo/);
+});
+
+
+test('password recovery emails use separate copy and retain HTTPS verified delivery',async()=>{
+  let payload;
+  await sendPasswordResetEmail('existing@gmail.com','https://collectdesk.example/reset-password?token=ci-reset',{
+    env:{BREVO_API_KEY:'key-test',BREVO_FROM_EMAIL:'sender@example.org',RENDER:'true'},
+    httpFetch:async (_,options)=>{
+      payload=JSON.parse(options.body);
+      return {ok:true};
+    }
+  });
+  assert.equal(payload.subject,'Reset your CollectDesk password');
+  assert.match(payload.textContent,/reset-password\?token=ci-reset/);
+  assert.match(payload.textContent,/30 minutes/);
+  assert.match(payload.textContent,/If you did not request this, ignore this email/);
+  assert.deepEqual(payload.to,[{email:'existing@gmail.com'}]);
 });
