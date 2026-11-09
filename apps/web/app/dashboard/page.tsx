@@ -57,7 +57,7 @@ export default function DashboardPage(){
             <div className="panel-head"><div><h3>Next actions</h3><p>Where your attention is useful</p></div></div>
             <Link href={user.role==='creditor'?'/cases/new':user.role==='admin'?'/cases?status=submitted':'/cases?status=in_progress'} className="action-row">
               <span className="action-row-symbol"><Clock3 size={19}/></span>
-              <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Review assigned cases'}</strong><small>{user.role==='creditor'?'Create a fictional overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'Open cases assigned to your operator account'}</small></span>
+              <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Review assigned cases'}</strong><small>{user.role==='creditor'?'Prepare a sample overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'Open cases assigned to your operator account'}</small></span>
               <ArrowUpRight size={18} aria-hidden="true"/>
             </Link>
             <div className="finance-totals">
