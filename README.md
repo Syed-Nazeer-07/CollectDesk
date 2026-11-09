@@ -63,6 +63,8 @@ Their passwords are configured **privately** through `DEMO_SEED_PASSWORD` in Ren
 
 Sign-in and account creation share one page. Email signup, verification, Google Sign-In and company onboarding are available **only when the corresponding providers have been configured by the deployment owner**. Public registration grants Creditor access only. Administrator and Operator identities must be provisioned separately, and the Account & access page displays the signed-in role without offering a role selector.
 
+**Password recovery:** Existing users can open `/forgot-password` from sign-in. When an email provider is configured, a valid account receives a single-use reset link expiring in 30 minutes. Recovery does not disclose whether an email address exists, does not change account roles, and invalidates old sessions after resetting. `/reset-password?token=...` refuses reused or expired tokens. Recovery remains available to existing accounts even when new registrations are disabled. The reset URL is removed from browser history after loading and its responses use no-referrer/no-store headers.
+
 **Enable public creditor registration:** Set `PUBLIC_REGISTRATION_ENABLED=true` in your host's private environment variables, then configure at least one provider:
 
 - **Google Sign-In:** `GOOGLE_CLIENT_ID` from an OAuth web client with the deployed site set as an authorized JavaScript origin.
@@ -99,7 +101,7 @@ GitHub Actions also tests the complete role workflows and browser UI against an 
 
 ## Scope and limitations
 
-This project is intended for demonstration and technical evaluation. It does **not** provide production-grade payment processing, business identity verification, secure document upload, password recovery, or multi-document financial transactions. A real commercial deployment would require independent security review, transactional reconciliation, monitoring, backups, and a reliable always-on hosting service.
+This project is intended for demonstration and technical evaluation. It does **not** provide production-grade payment processing, business identity verification, secure document upload, administrator-managed password recovery support, or multi-document financial transactions. A real commercial deployment would require independent security review, transactional reconciliation, monitoring, backups, and a reliable always-on hosting service.
 
 **Cold-start note:** Render Free may show its own loading screen before Next.js starts. A green deployment and successful automated test cannot remove free-tier sleep delays.
 
