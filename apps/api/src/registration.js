@@ -12,6 +12,7 @@ import {rateLimit} from 'express-rate-limit';
 import {z} from 'zod';
 import {GoogleNonce,Organization,PendingSignup,User} from './models.js';
 import {COOKIE_NAME,cookieOptions,issueSession,publicUser,requireAuth} from './auth.js';
+import {emailDeliveryProvider,sendVerificationEmail} from './email-delivery.js';
 
 const signupLimiter=rateLimit({
   windowMs:60*60*1000,limit:5,standardHeaders:'draft-8',legacyHeaders:false,
@@ -38,26 +39,10 @@ const registrationSchema=z.object({
 }).strict();
 const hashToken=value=>createHash('sha256').update(value).digest('hex');
 const enabled=()=>process.env.PUBLIC_REGISTRATION_ENABLED==='true';
-const emailEnabled=()=>enabled()&&!!(process.env.RESEND_API_KEY&&process.env.AUTH_FROM_EMAIL);
+const emailEnabled=()=>enabled()&&emailDeliveryProvider()!==null;
 const googleEnabled=()=>enabled()&&!!process.env.GOOGLE_CLIENT_ID;
 const nonceCookie='collectdesk_google_nonce';
 const nonceCookieOpts=()=>({...cookieOptions(),path:'/api/v1/auth',maxAge:8*60*1000});
-
-async function sendVerificationEmail(email,url){
-  const response=await fetch('https://api.resend.com/emails',{
-    method:'POST',
-    headers:{authorization:'Bearer '+process.env.RESEND_API_KEY,'content-type':'application/json','user-agent':'CollectDesk-Demo/1.0'},
-    body:JSON.stringify({
-      from:process.env.AUTH_FROM_EMAIL,
-      to:[email],
-      subject:'Verify your CollectDesk demo account',
-      text:'Verify your email to activate your fictional CollectDesk creditor account:\n'+url+
-        '\n\nThis link expires in 30 minutes. If you did not request an account, ignore this email.'
-    }),
-    signal:AbortSignal.timeout(10000)
-  });
-  if(!response.ok)throw new Error('Email provider refused the verification message');
-}
 
 function failClosed(res,method){
   return res.status(503).json({error:method+' is not available yet. The workspace owner must configure its identity provider.'});
