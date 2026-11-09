@@ -47,13 +47,26 @@ async function session(email, mobile = false) {
   assert.ok(layout.email.height >= 50, 'Login fields are too small to use comfortably');
   assert.equal(layout.horizontalOverflow, false, 'Login page overflows horizontally');
   if (!mobile) assert.ok(layout.panel.width > layout.story.width, 'Sign-in panel should be wider than branding');
-  if (!mobile && email === 'creditor@demo.collectdesk.test')
+  if (!mobile && email === 'creditor@demo.collectdesk.test') {
     await page.screenshot({ path: 'browser-audit-results/desktop-login.png', fullPage: true });
+    assert.equal(await page.locator('.demo-access, .account-picker').count(), 0,
+      'The login page must not expose demo-account selectors');
+    await page.getByRole('tab', { name: 'Create account' }).click();
+    await page.getByRole('heading', { name: 'Create your account' }).waitFor();
+    assert.match(page.url(), /\/login\?mode=signup$/,
+      'Create account should open in the same right-hand panel');
+    await page.goto(base + '/signup', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Create your account' }).waitFor();
+    assert.match(page.url(), /\/login\?mode=signup$/,
+      'Legacy signup URL should redirect into the unified auth page');
+    await page.getByRole('tab', { name: 'Sign in' }).click();
+    await page.locator('.login-form input[type="email"]').waitFor();
+  }
   if (mobile)
     await page.screenshot({ path: 'browser-audit-results/mobile-login.png', fullPage: true });
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
-  await page.getByRole('button', { name: /Sign in to workspace/i }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL(/\/dashboard(?:\?.*)?$/);
   await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor();
   await page.locator('.metrics-grid').waitFor();
