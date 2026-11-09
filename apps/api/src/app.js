@@ -10,6 +10,7 @@ import mongoose from 'mongoose';
 import {User,Case,Activity,Receipt} from './models.js';
 import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRole} from './auth.js';
 import {installRegistrationRoutes} from './registration.js';
+import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
@@ -44,6 +45,7 @@ app.post('/api/v1/auth/login',authLimiter,async(req,res)=>{
 app.post('/api/v1/auth/logout',(_req,res)=>{res.clearCookie(COOKIE_NAME,{...cookieOptions(),maxAge:undefined});res.json({ok:true});});
 app.get('/api/v1/auth/me',requireAuth,(req,res)=>res.json({user:publicUser(req.user)}));
 installRegistrationRoutes(app,webOrigin);
+installPasswordRecoveryRoutes(app,webOrigin);
 
 const route=express.Router();
 route.use(requireAuth);
