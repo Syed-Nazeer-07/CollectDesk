@@ -26,7 +26,12 @@ export default function DashboardPage(){
   return <AppShell title="Overview" subtitle="Portfolio health, case progress and verified recovery.">
     {(user:User)=><div className="dashboard-content">
       <section className="dashboard-overview" aria-label="Workspace introduction">
-        <div><div className="eyebrow">OPERATIONS SNAPSHOT</div><h2>Your collection workspace</h2><p>Review outstanding cases, track assignments, and stay on top of verified payments.</p></div>
+        <div><div className="eyebrow">OPERATIONS SNAPSHOT</div>
+          <h2>{user.role==='creditor'?'Your company case overview':user.role==='admin'?'Collections operations overview':'Your assigned case overview'}</h2>
+          <p>{user.role==='creditor'?'Follow your submitted invoices, case activity, and verified recoveries.':
+            user.role==='admin'?'Review incoming cases, coordinate operators, and oversee verified receipts.':
+            'Stay on top of assigned cases, operational updates, and next actions.'}</p>
+        </div>
         <Link href="/cases" className="button button-outline dashboard-overview-action">Open case register <ArrowUpRight size={17}/></Link>
       </section>
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
@@ -55,9 +60,9 @@ export default function DashboardPage(){
           </section>
           <section className="panel focus-panel">
             <div className="panel-head"><div><h3>Next actions</h3><p>Where your attention is useful</p></div></div>
-            <Link href={user.role==='creditor'?'/cases/new':user.role==='admin'?'/cases?status=submitted':'/cases?status=in_progress'} className="action-row">
+            <Link href={user.role==='creditor'?'/cases/new':user.role==='admin'?'/cases?status=submitted':'/cases'} className="action-row">
               <span className="action-row-symbol"><Clock3 size={19}/></span>
-              <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Review assigned cases'}</strong><small>{user.role==='creditor'?'Prepare a sample overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'Open cases assigned to your operator account'}</small></span>
+              <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Open assigned cases'}</strong><small>{user.role==='creditor'?'Prepare a sample overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'See all cases assigned to your operator account'}</small></span>
               <ArrowUpRight size={18} aria-hidden="true"/>
             </Link>
             <div className="finance-totals">
