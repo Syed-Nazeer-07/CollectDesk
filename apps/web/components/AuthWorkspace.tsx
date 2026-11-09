@@ -53,6 +53,9 @@ export default function AuthWorkspace({initialMode}:{initialMode:AuthMode}){
     setMode(next);
     setError('');
     setSlow(false);
+    setPassword('');
+    setConfirmPassword('');
+    setSignupSuccess(false);
     // Keep both modes on the same page without navigating away.
     window.history.replaceState(null,'',next==='signup'?'/login?mode=signup':'/login');
   }
