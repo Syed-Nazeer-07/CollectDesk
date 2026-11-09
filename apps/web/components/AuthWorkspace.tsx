@@ -56,6 +56,7 @@ export default function AuthWorkspace({initialMode}:{initialMode:AuthMode}){
     setSlow(false);
     setPassword('');
     setConfirmPassword('');
+    setShowPassword(false);
     setSignupSuccess(false);
     // Keep both modes on the same page without navigating away.
     window.history.replaceState(null,'',next==='signup'?'/login?mode=signup':'/login');
@@ -85,6 +86,9 @@ export default function AuthWorkspace({initialMode}:{initialMode:AuthMode}){
   async function register(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();setError('');
     if(password!==confirmPassword){setError('Passwords do not match.');return;}
+    if(password.length<12||!/[a-z]/.test(password)||!/[A-Z]/.test(password)||!/[0-9]/.test(password)){
+      setError('Use at least 12 characters, including uppercase and lowercase letters and a number.');return;
+    }
     setLoading(true);
     try{
       await api('/auth/register',{method:'POST',body:JSON.stringify({
@@ -177,10 +181,19 @@ export default function AuthWorkspace({initialMode}:{initialMode:AuthMode}){
                   placeholder="Your company name" value={company} onChange={e=>setCompany(e.target.value)}/></label>
                 <label>Email address<input autoComplete="email" type="email" required placeholder="you@gmail.com"
                   value={email} onChange={e=>setEmail(e.target.value)}/></label>
-                <label>Password<input autoComplete="new-password" type="password" required minLength={12} maxLength={128}
-                  placeholder="At least 12 characters" value={password} onChange={e=>setPassword(e.target.value)}/></label>
-                <p className="auth-hint">Use uppercase and lowercase letters and a number.</p>
-                <label>Confirm password<input autoComplete="new-password" type="password" required minLength={12} maxLength={128}
+                <label>Password
+                  <div className="password-wrap">
+                    <input autoComplete="new-password" type={showPassword?'text':'password'} required minLength={12} maxLength={128}
+                      aria-describedby="signup-password-hint" placeholder="At least 12 characters"
+                      value={password} onChange={e=>setPassword(e.target.value)}/>
+                    <button type="button" onClick={()=>setShowPassword(v=>!v)}
+                      aria-label={showPassword?'Hide passwords':'Show passwords'}>
+                      {showPassword?<EyeOff size={18}/>:<Eye size={18}/>}
+                    </button>
+                  </div>
+                </label>
+                <p className="auth-hint" id="signup-password-hint">Use 12+ characters, uppercase and lowercase letters, and a number.</p>
+                <label>Confirm password<input autoComplete="new-password" type={showPassword?'text':'password'} required minLength={12} maxLength={128}
                   placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)}/></label>
                 {error&&<p role="alert" className="auth-error">{error}</p>}
                 <button className="button button-primary" type="submit" disabled={loading}>
