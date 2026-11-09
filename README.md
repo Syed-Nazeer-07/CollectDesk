@@ -6,14 +6,14 @@
 
 A focused full-stack B2B prototype for tracking overdue invoice cases, coordinating collection teams, and reporting **verified** recoveries.
 
-[**Live demo**](https://collectdesk-preview-ah80.onrender.com/login) · [**Service health**](https://collectdesk-preview-ah80.onrender.com/api/health) · [**CI results**](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
+[**Live preview**](https://collectdesk-preview-ah80.onrender.com/login) · [**Service health**](https://collectdesk-preview-ah80.onrender.com/api/health) · [**CI results**](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
 
 </div>
 
 ---
 
 > [!IMPORTANT]
-> **Fictional-data internship MVP.** This application does not collect money, contact debtors, store uploaded evidence, or process real invoices. Render's free instance sleeps when idle; a cold start can be slow.
+> **Sample-data MVP for technical evaluation.** This application does not collect money, contact debtors, store uploaded evidence, or process real invoices. Render's free instance sleeps when idle; a cold start can be slow.
 
 ## The product
 
@@ -43,7 +43,7 @@ Every case stays scoped to its creditor organization. Pending receipts do not co
 
 ### Authentication
 
-The live demonstration retains these seeded accounts:
+The preview includes these pre-provisioned reviewer identities (sign-in roles are assigned, not user-selectable):
 
 | Role | Email |
 | --- | --- |
@@ -51,9 +51,9 @@ The live demonstration retains these seeded accounts:
 | Creditor | `creditor@demo.collectdesk.test` |
 | Case operator | `operator@demo.collectdesk.test` |
 
-Their password is configured **privately** through `DEMO_SEED_PASSWORD` in Render. It is not included in this repository.
+Their passwords are configured **privately** through `DEMO_SEED_PASSWORD` in Render. They are not included in this repository. Share reviewer credentials securely, outside the public repository.
 
-Email signup, verification, Google Sign-In and new-company onboarding are implemented **but disabled on the public preview unless its owner has configured and enabled the relevant providers**. Public registration never creates administrator or operator accounts.
+Sign-in and account creation share one page. Email signup, verification, Google Sign-In and company onboarding are available **only when the corresponding providers have been configured by the deployment owner**. Public registration grants Creditor access only. Administrator and Operator identities must be provisioned separately, and the Account & access page displays the signed-in role without offering a role selector.
 
 **Enable public creditor registration:** Set `PUBLIC_REGISTRATION_ENABLED=true` in your host's private environment variables, then configure at least one provider:
 
