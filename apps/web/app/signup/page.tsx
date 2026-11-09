@@ -54,7 +54,8 @@ export default function Signup(){
             emailEnabled?<form onSubmit={submit} className="auth-form">
               <label>Full name<input autoComplete="name" required minLength={2} maxLength={90} placeholder="Your full name" value={name} onChange={e=>setName(e.target.value)}/></label>
               <label>Company name<input autoComplete="organization" required minLength={3} maxLength={140} placeholder="Your business name" value={organizationName} onChange={e=>setOrganizationName(e.target.value)}/></label>
-              <label>Business email<input autoComplete="email" type="email" required placeholder="name@business.com" value={email} onChange={e=>setEmail(e.target.value)}/></label>
+              <label>Email address<input autoComplete="email" type="email" required placeholder="you@gmail.com" value={email} onChange={e=>setEmail(e.target.value)}/></label>
+              <p className="auth-hint">We will email you a verification link. Gmail and other valid inboxes are supported.</p>
               <label>Password<input autoComplete="new-password" type="password" required minLength={12} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 12 characters"/></label>
               <p className="auth-hint">Use 12+ characters, with uppercase, lowercase and a number.</p>
               <label>Confirm password<input autoComplete="new-password" type="password" required minLength={12} maxLength={128} value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="Repeat your password"/></label>
