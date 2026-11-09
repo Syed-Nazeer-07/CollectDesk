@@ -27,16 +27,16 @@ export default function Onboarding(){
   }
   return <main className="auth-page"><section className="auth-card">
     <span className="auth-mark"><Building2 size={22}/></span>
-    <div className="eyebrow">GOOGLE ACCOUNT VERIFIED</div>
+    <div className="eyebrow">COMPANY SETUP</div>
     <h1>Set up your company</h1>
     {loading?<p className="auth-note">Checking your session…</p>:<>
-      <p className="auth-lead">Welcome{user?.name?', '+user.name:''}. Google sign-in is complete. Add a company name before entering your creditor workspace.</p>
+      <p className="auth-lead">Welcome{user?.name?', '+user.name:''}. Your account is ready. Add a company name before entering your creditor workspace.</p>
       <form onSubmit={submit} className="auth-form">
         <label>Company name<input value={company} onChange={e=>setCompany(e.target.value)} required minLength={3} maxLength={140} autoComplete="organization" placeholder="Your business name"/></label>
         {error&&<p role="alert" className="auth-error">{error}</p>}
         <button type="submit" disabled={busy} className="button button-primary">{busy?'Creating workspace…':'Create company workspace'}<CheckCircle2 size={17}/></button>
       </form>
-      <p className="auth-legal">Your role is Creditor. Administrator and Operator access cannot be selected during registration. Use fictional data only.</p>
+      <p className="auth-legal">New public accounts receive Creditor access. Staff permissions are provisioned separately. Use sample data only.</p>
     </>}
   </section></main>;
 }
