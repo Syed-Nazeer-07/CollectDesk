@@ -15,6 +15,10 @@ A focused full-stack B2B prototype for tracking overdue invoice cases, coordinat
 > [!IMPORTANT]
 > **Sample-data MVP for technical evaluation.** This application does not collect money, contact debtors, store uploaded evidence, or process real invoices. Render's free instance sleeps when idle; a cold start can be slow.
 
+**Deployment URL:** The Render service is named `collectdesk`, but its currently assigned hostname is `https://collectdesk-preview-ah80.onrender.com`. `https://collectdesk.onrender.com` is a *requested* address, not yet confirmed as attached to this service. Keep using the linked live preview until Render shows the new address as the service URL.
+
+**Hostname cutover checklist:** Once a new address is assigned and `/api/health` responds, set `WEB_ORIGIN` in Render to the new HTTPS origin (or remove an old override so `RENDER_EXTERNAL_URL` is used), update the Google OAuth **Authorized JavaScript origins**, and set the GitHub Actions repository variable `LIVE_PREVIEW_URL` to the new base URL. Then update the links above and any shared presentation. Do not put API keys in repository variables.
+
 ## Customer onboarding
 
 The public home page (`/`) introduces CollectDesk, explains the core workflow and staff roles, and links directly into **Create account** (`/login?mode=signup`) or **Sign in** (`/login`). Both authentication modes share one right-side panel. Registration continues through Google Sign-In plus company setup, or verified email registration where configured. The landing-page preview metrics are illustrative, not live operational data.
