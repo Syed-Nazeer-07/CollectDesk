@@ -23,7 +23,7 @@ export default function VerifyEmail({token}:{token:string}){
     <Link className="auth-back" href="/login"><ArrowLeft size={16}/> Back to sign in</Link>
     <div className="eyebrow">ACCOUNT VERIFICATION</div>
     <h1>Confirm your email</h1>
-    <p className="auth-lead">Finish setting up your fictional creditor workspace. Verification links expire after 30 minutes and work only once.</p>
+    <p className="auth-lead">Finish setting up your creditor workspace using sample information. Verification links expire after 30 minutes and work only once.</p>
     {error&&<div role="alert" className="auth-error">{error}</div>}
     {finished?<div className="auth-success"><CheckCircle2 size={24}/> Your email was verified. Opening the workspace…</div>:
       <button type="button" className="button button-primary" onClick={verify} disabled={busy||!token}>{busy?'Verifying…':'Verify email and continue'}</button>}
