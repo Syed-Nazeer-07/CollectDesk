@@ -6,7 +6,8 @@ export const Organization = mongoose.model('Organization', new mongoose.Schema({
 export const User = mongoose.model('User', new mongoose.Schema({
   name: {type: String, required: true}, email: {type: String, required: true, lowercase: true, unique: true},
   passwordHash: {type: String, required: true, select: false}, googleSub: {type:String,unique:true,sparse:true,select:false}, role: {type: String, enum: ['creditor','operator','admin'], required: true},
-  organizationId: {...id, ref: 'Organization'}, active: {type: Boolean, default: true}
+  organizationId: {...id, ref: 'Organization'}, active: {type: Boolean, default: true},
+  sessionVersion: {type:Number,default:0,min:0}
 }, options));
 const caseSchema = new mongoose.Schema({
   caseCode: {type: String, required: true, unique: true}, organizationId: {...id, ref: 'Organization', required: true, index: true},
@@ -58,3 +59,14 @@ export const PendingSignup=mongoose.model('PendingSignup',pendingSignupSchema);
 const googleNonceSchema=new mongoose.Schema({nonceHash:{type:String,required:true,unique:true},expiresAt:{type:Date,required:true}},options);
 googleNonceSchema.index({expiresAt:1},{expireAfterSeconds:0});
 export const GoogleNonce=mongoose.model('GoogleNonce',googleNonceSchema);
+
+
+// One-time password recovery tokens: only hashes are stored, never raw links.
+// Expired records are removed by MongoDB TTL asynchronously and also checked on use.
+const passwordResetSchema=new mongoose.Schema({
+  userId:{...id,ref:'User',required:true,index:true},
+  tokenHash:{type:String,required:true,unique:true},
+  expiresAt:{type:Date,required:true}
+},options);
+passwordResetSchema.index({expiresAt:1},{expireAfterSeconds:0});
+export const PasswordReset=mongoose.model('PasswordReset',passwordResetSchema);
