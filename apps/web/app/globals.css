@@ -879,3 +879,26 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
 @media(prefers-reduced-motion:reduce){
  .cdl-button,.cdl-nav-links a{transition:none}
 }
+
+
+/* Audit polish: clear filter state and responsive forms. */
+.case-reset-filters{border-color:#d9e9e4;background:#f5faf8;color:#25796d;gap:6px}
+.case-reset-filters:hover:not(:disabled){background:#e8f5f0}
+.cases-empty-filter{min-height:290px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:11px;padding:35px 18px}
+.cases-empty-icon{width:47px;height:47px;display:grid;place-items:center;background:#eef8f4;color:#237e73;border-radius:13px;margin-bottom:3px}
+.cases-empty-filter strong{font-family:'Manrope',sans-serif;font-size:15px;color:#365157}
+.cases-empty-filter p{font-size:12px;color:#84979c;margin:0 0 7px;line-height:1.6}
+.cases-empty-filter .button{min-height:39px}
+.auth-unified-card .auth-inline-form .password-wrap{position:relative}
+.auth-unified-card .auth-inline-form .password-wrap input{width:100%;padding-right:51px}
+.auth-unified-card .auth-inline-form .password-wrap button{top:6px;right:7px;height:34px;width:35px}
+@media(max-width:900px){
+ .case-tools{flex-wrap:wrap}
+ .case-reset-filters{order:3}
+}
+@media(max-width:490px){
+ .case-tools{gap:9px}
+ .case-reset-filters{flex:1}
+ .case-tools>.button[aria-label="Refresh cases"]{min-width:42px}
+ .cases-empty-filter{min-height:250px}
+}
