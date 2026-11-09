@@ -5,9 +5,8 @@
  */
 import assert from 'node:assert/strict';
 
-// Default to the hostname still assigned by Render. Switch using the GitHub
-// Actions LIVE_PREVIEW_URL variable only after the new public URL is active.
-const base = (process.env.LIVE_PREVIEW_URL || 'https://collectdesk-preview-ah80.onrender.com').replace(/\/+$/, '');
+// New Render service hostname; override with LIVE_PREVIEW_URL when needed.
+const base = (process.env.LIVE_PREVIEW_URL || 'https://collectdesk.onrender.com').replace(/\/+$/, '');
 const origin = new URL(base).origin;
 const timeoutMs=95_000;
 const sleep=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
