@@ -122,7 +122,16 @@ try {
   await firstFilter.click();
   await creditor.getByRole('heading', { name: 'All cases', exact: true }).waitFor();
   await creditor.waitForFunction(s => document.querySelector('select[aria-label="Filter by status"]')?.value === s, selectedStatus);
-  log('Account & access, explicit sign-out, case navigation, and status filters are usable');
+  // URL-driven filters must update after client-side changes and browser history navigation.
+  await creditor.getByLabel('Filter by status').selectOption('draft');
+  await creditor.waitForURL(/\/cases\?status=draft$/);
+  await creditor.getByRole('button', { name: 'Clear filters' }).first().click();
+  await creditor.waitForURL(/\/cases$/);
+  assert.equal(await creditor.getByLabel('Filter by status').inputValue(),'all');
+  await creditor.goto(base + '/cases?status=submitted', { waitUntil: 'domcontentloaded' });
+  await creditor.getByLabel('Filter by status').waitFor();
+  assert.equal(await creditor.getByLabel('Filter by status').inputValue(),'submitted');
+  log('Account access and URL-synchronized case filtering work across navigation');
 
   step = 'creditor login and case creation';
   await creditor.goto(base + '/cases/new', { waitUntil: 'domcontentloaded' });
@@ -130,6 +139,11 @@ try {
   const invoiceNo = 'AUDIT-' + Date.now();
   await creditor.locator('input[name="invoiceNo"]').fill(invoiceNo);
   await creditor.locator('input[name="issueDate"]').fill('2026-01-01');
+  await creditor.locator('input[name="dueDate"]').fill('2099-12-31');
+  await creditor.locator('input[name="amount"]').fill('1000.00');
+  await creditor.getByRole('button', { name: /Submit for review/i }).click();
+  await creditor.getByRole('alert').getByText(/Only overdue invoices can be submitted/i).waitFor();
+  assert.match(creditor.url(), /\/cases\/new$/, 'Rejected future-due invoice must not create a case');
   await creditor.locator('input[name="dueDate"]').fill('2026-02-01');
   await creditor.locator('input[name="amount"]').fill('1000.00');
   await creditor.locator('textarea[name="description"]').fill('Fictional QA record; do not contact a real debtor.');
