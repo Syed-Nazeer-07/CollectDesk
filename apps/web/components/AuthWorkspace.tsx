@@ -151,6 +151,7 @@ export default function AuthWorkspace({initialMode}:{initialMode:AuthMode}){
                   </button>
                 </div>
               </label>
+              <div className="auth-login-help"><Link href="/forgot-password">Forgot password?</Link></div>
               {error&&<div className="message error" role="alert">{error}</div>}
               <button className="button button-primary login-submit" type="submit" disabled={loading}>
                 {loading?'Signing in…':'Sign in'}<ArrowRight size={18}/>
