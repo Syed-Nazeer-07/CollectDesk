@@ -25,6 +25,27 @@ async function session(email, mobile = false) {
   sessions.push(context);
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
+  if (email === 'creditor@demo.collectdesk.test') {
+    // Public customer onboarding must be accessible at the main URL on desktop and mobile.
+    await page.goto(base + '/', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: /Every overdue invoice deserves/i }).waitFor();
+    const startLink = page.getByRole('link', { name: /Create a creditor account/i });
+    assert.equal(await startLink.getAttribute('href'), '/login?mode=signup',
+      'Landing page account creation must open the existing registration flow');
+    assert.equal(await page.locator('.cdl-feature').count(), 4,
+      'Landing page should explain the core product capabilities');
+    assert.equal(await page.locator('.cdl-step').count(), 3,
+      'Customer onboarding should clearly explain each step');
+    const overflowing = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+    assert.equal(overflowing, false, 'Landing page must not overflow the viewport');
+    await page.screenshot({
+      path: mobile ? 'browser-audit-results/mobile-landing.png' : 'browser-audit-results/desktop-landing.png',
+      fullPage: true
+    });
+    await startLink.click();
+    await page.waitForURL(/\/login\?mode=signup(?:&.*)?$/);
+    await page.getByRole('heading', { name: 'Create your account' }).waitFor();
+  }
   await page.goto(base + '/login', { waitUntil: 'domcontentloaded' });
   // Catch brand/tagline collisions and undersized fields before signing in.
   const layout = await page.evaluate(async () => {
