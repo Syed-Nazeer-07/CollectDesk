@@ -902,3 +902,16 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
  .case-tools>.button[aria-label="Refresh cases"]{min-width:42px}
  .cases-empty-filter{min-height:250px}
 }
+
+
+/* Account recovery screens and sign-in affordances. */
+.auth-login-help{display:flex;justify-content:flex-end;margin-top:-5px}
+.auth-login-help a{color:#26796e;font-size:12px;font-weight:750}
+.auth-login-help a:hover,.auth-recovery-link:hover{text-decoration:underline}
+.auth-recovery-link{display:inline-flex;align-items:center;gap:7px;padding:7px 0;border:0;background:none;color:#187467;cursor:pointer;font-size:12px;font-weight:800;text-decoration:none;margin-top:10px}
+.auth-card .password-wrap{position:relative}
+.auth-card .password-wrap input{padding-right:51px}
+.auth-card .password-wrap button{border:0;background:transparent;color:#84989d;position:absolute;right:6px;top:50%;transform:translateY(-50%);height:37px;width:38px;display:grid;place-items:center;border-radius:7px}
+.auth-card .password-wrap button:hover{color:#167b6d;background:#eff7f4}
+.auth-card .password-wrap button:focus-visible{outline:2px solid #258c7f}
+.auth-card .auth-hint{line-height:1.65}
