@@ -663,3 +663,18 @@ a,button{transition:background-color .16s ease,border-color .16s ease,color .16s
 .auth-unified-card .auth-success{margin-top:4px}
 .auth-unified-card .auth-unavailable{margin-top:4px}
 @media(max-width:700px){.auth-mode-switch{margin-bottom:23px}.auth-unified-card .auth-inline-form{gap:13px}.auth-unified-card .login-security{font-size:10.5px}}
+
+/* Account and access: read-only permissions, never a role selector. */
+.sidebar-data-note{font-size:10px;line-height:1.6;color:#899aa3;padding:8px 10px 16px;margin:0}
+.account-role-panel{display:flex;align-items:flex-start;gap:13px;background:#f3faf7;border:1px solid #dcece6;border-radius:11px;padding:18px;margin-top:24px}
+.account-role-icon{display:grid;place-items:center;background:#e4f1ec;color:#267c6e;border-radius:9px;height:38px;width:38px;flex-shrink:0}
+.account-role-panel strong{color:#284a46;font-size:14px}
+.account-role-panel p{font-size:12px;line-height:1.6;color:#5c7972;margin:6px 0 0}
+.account-permissions{display:flex;flex-direction:column;gap:13px}
+.account-permissions>div{display:flex;align-items:flex-start;gap:10px;color:#405e61;font-size:12px}
+.account-permissions svg{color:#278b78;flex-shrink:0}
+.account-permission-note{display:flex;gap:10px;align-items:flex-start;background:#f8faf9;color:#728990;border:1px solid #e5eded;padding:14px;border-radius:9px;margin-top:20px}
+.account-permission-note svg{flex-shrink:0}
+.account-permission-note p{margin:0;font-size:11px;line-height:1.65}
+.operator-load-note{font-size:11px;color:#8a6b3c;line-height:1.5;margin:3px 0 0}
+.operator-load-note button{border:none;padding:0;background:transparent;color:#15786c;text-decoration:underline;font-weight:700;cursor:pointer}
