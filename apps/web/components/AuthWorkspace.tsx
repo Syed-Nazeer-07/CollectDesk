@@ -2,6 +2,7 @@
 
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import Link from 'next/link';
 import GoogleSignIn from '@/components/GoogleSignIn';
 import {ArrowRight,BriefcaseBusiness,CheckCircle2,Eye,EyeOff,LockKeyhole} from 'lucide-react';
 import {api,User} from '@/lib/api';
@@ -102,7 +103,7 @@ export default function AuthWorkspace({initialMode}:{initialMode:AuthMode}){
   return <div className="login-layout">
     <section className="login-story" aria-label="CollectDesk introduction">
       <div className="story-content">
-        <div className="story-brand"><span className="brand-mark light"><BriefcaseBusiness size={22}/></span><span>collect<span>desk</span></span></div>
+        <Link className="story-brand" href="/" aria-label="CollectDesk home"><span className="brand-mark light"><BriefcaseBusiness size={22}/></span><span>collect<span>desk</span></span></Link>
         <div className="story-tag">COMMERCIAL COLLECTIONS · CASE MANAGEMENT</div>
         <h2>From overdue invoice<br/>to <em>clear resolution.</em></h2>
         <p>One focused place to review cases, coordinate next steps, and track verified recoveries.</p>
