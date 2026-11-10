@@ -252,7 +252,9 @@ try {
   await incoming.locator('.support-pill-resolved').waitFor();
   await creditor.goto(base+'/support',{waitUntil:'domcontentloaded'});
   const tracked=creditor.locator('.support-ticket').filter({hasText:supportSubject});
-  await tracked.getByText('The team verified the sample request and provided a resolution.').waitFor();
+  await tracked.locator('.support-resolution p').waitFor();
+  assert.equal(await tracked.locator('.support-resolution p').innerText(),
+    'The team verified the sample request and provided a resolution.');
   // Return to the case before subsequent receipt/privacy assertions.
   await creditor.goto(caseUrl,{waitUntil:'domcontentloaded'});
   await statusIs(creditor,'Submitted');
