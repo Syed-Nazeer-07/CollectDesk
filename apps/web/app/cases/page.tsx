@@ -2,7 +2,6 @@
 
 import {Suspense,useEffect,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
-import Link from 'next/link';
 import {Search,SlidersHorizontal,RefreshCw,ChevronLeft,ChevronRight,X} from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import {CaseTable} from '@/components/Widgets';
@@ -95,8 +94,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
           <span className="cases-empty-icon" aria-hidden="true"><Search size={23}/></span>
           <h4>{filtered?'No matching cases':'No cases yet'}</h4>
           <p>{filtered?'Try another search or reset the status filter.':canCreate?'Create your first sample invoice case to start tracking progress.':'Accessible cases will appear here once they are assigned or submitted.'}</p>
-          {filtered?<button className="button button-outline" type="button" onClick={resetFilters}>Clear filters</button>:
-            canCreate?<Link className="button button-primary" href="/cases/new">Create your first case</Link>:null}
+          {filtered&&<button className="button button-outline" type="button" onClick={resetFilters}>Clear filters</button>}
         </div>:
       !error?<CaseTable cases={cases}/>:null}
     <div className="table-bottom">
