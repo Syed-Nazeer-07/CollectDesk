@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy} from 'lucide-react';
+import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus} from 'lucide-react';
 import {api,User} from '@/lib/api';
 import {ThemeToggle} from '@/components/ThemeProvider';
 import BrandMark from '@/components/BrandMark';
@@ -75,6 +75,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         <span className="nav-caption nav-caption-second">ACCOUNT</span>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/account'?'active':''}`} aria-current={pathname==='/account'?'page':undefined} href="/account"><UserRound size={18}/> Account & access</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/support'?'active':''}`} aria-current={pathname==='/support'?'page':undefined} href="/support"><LifeBuoy size={18}/> Help & support</Link>
+        {user?.role==='admin'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/staff'?'active':''}`} aria-current={pathname==='/staff'?'page':undefined} href="/staff"><UserPlus size={18}/> Staff invitations</Link>}
       </nav>
       <div className="sidebar-bottom">
         <p className="sidebar-data-note">Sample records only · No payments processed</p>
