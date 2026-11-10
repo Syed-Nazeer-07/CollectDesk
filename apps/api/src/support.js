@@ -31,6 +31,7 @@ function serialize(item){
   return {
     id:String(item._id),category:item.category,subject:item.subject,message:item.message,
     status:item.status,resolutionNote:item.resolutionNote||'',
+    history:(item.history||[]).map(h=>({status:h.status,note:h.note||'',at:h.at})),
     createdAt:item.createdAt,updatedAt:item.updatedAt,resolvedAt:item.resolvedAt,
     reporter:reporter && typeof reporter==='object' && reporter.name
       ? {name:reporter.name,email:reporter.email}
@@ -75,7 +76,9 @@ export function installSupportRoutes(route){
       handledBy:req.user._id
     };
     const updated=await SupportRequest.findOneAndUpdate(
-      {_id:req.params.id},{$set:changes},{new:true}
+      {_id:req.params.id},{$set:changes,$push:{history:{
+        status:input.status,note:input.resolutionNote||'',by:req.user._id,at:new Date()
+      }}},{new:true}
     );
     if(!updated)return res.status(404).json({error:'Support request not found.'});
     res.set('Cache-Control','no-store');
