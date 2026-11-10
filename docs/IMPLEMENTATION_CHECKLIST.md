@@ -1,13 +1,15 @@
 # CollectDesk — remaining implementation checklist
 
+Last updated: **2026-11-11**. The GitHub CI suite has passed for the staff-invitation and private synthetic-evidence changes; external provider and sponsor checks remain open.
+
 This is an engineering execution checklist, not an assertion that the platform has been approved for real-money use. Preserve the existing demo workflows and design. Each checkbox requires implementation evidence, test results and live verification.
 
 ## Phase 1 — Staff access and identity
-- [ ] Backend: one-time administrator-issued **operator** invitations (no public role escalation or arbitrary admin self-service)
-- [ ] Reusable verified email delivery for invitations; fail closed if no live email provider is configured
-- [ ] Invite acceptance with secure password, expiry, replay protection and session validation
-- [ ] Staff-management interface accessible only to administrators
-- [ ] Integration tests: cross-role 403s, expiration, token reuse, existing-account conflicts, no secrets returned
+- [x] Backend: one-time administrator-issued **operator** invitations (no public role escalation or arbitrary admin self-service)
+- [x] Reusable verified email delivery for invitations; fail closed if no live email provider is configured
+- [x] Invite acceptance with secure password, expiry, replay protection and session validation
+- [x] Staff-management interface accessible only to administrators
+- [x] Integration tests: cross-role 403s, expiration, token reuse, existing-account conflicts, no secrets returned
 - [ ] Verify actual email delivery and account sign-in on deployed Render (needs sender configuration)
 
 ## Phase 2 — Collections integrity
@@ -17,14 +19,16 @@ This is an engineering execution checklist, not an assertion that the platform h
 - [ ] Independent multi-document transaction/reconciliation assessment for any real financial use
 
 ## Phase 3 — Evidence/document security
+- [x] Implement **feature-flagged synthetic-only MongoDB GridFS PDF** storage (1 MiB/file, three per case), with private download and case-scoped permissions — CI verified, production scanner/retention NOT approved
 - [ ] Decide private storage provider and object retention policy; approve access/tenant isolation
-- [ ] Implement file upload/download/delete with server-side authorization, strict size/content checks and storage quotas
+- [x] Implement synthetic file upload/download/delete with server-side authorization, size/content checks and case file count limit (production acceptance still blocked)
 - [ ] Integrate malware scanning or hold/untrusted-file quarantine; validate retention/deletion
-- [ ] Add isolated tenant tests and demonstrate real authorized retrieval
+- [x] Add CI isolated tenant tests and demonstrate authorized private retrieval in CI (live deployment verification still pending)
 - [ ] Keep **real financial documents prohibited** until security and privacy reviews pass
 
 ## Phase 4 — Reliability & operational readiness
-- [ ] Versioned release identifier in health/status endpoint (avoid exposing secrets)
+- [x] Versioned release identifier in health/status endpoint (avoid exposing secrets)
+- [x] Add daily no-credentials public HTTPS health, signup, login and API smoke check via GitHub Actions (baseline synthetic check only)
 - [ ] Production monitoring/error alert routing and designated operator
 - [ ] MongoDB Atlas backup policy + verified restore drill (must configure on actual provider)
 - [ ] Confirm Render deployed SHA matches GitHub; test Google origin and transactional email
