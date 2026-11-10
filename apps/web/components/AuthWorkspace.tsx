@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { api, User } from '@/lib/api';
 import { ThemeToggle } from '@/components/ThemeProvider';
+import BrandMark from '@/components/BrandMark';
 
 type AuthMode = 'login' | 'signup';
 type AuthOptions = { emailSignupEnabled: boolean; googleEnabled: boolean; googleClientId: string | null };
@@ -185,12 +186,8 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
       {/* Left Showcase Panel */}
       <section className="login-story" aria-label="CollectDesk introduction">
         <Link className="story-brand" href="/" aria-label="CollectDesk home">
-          <span className="brand-mark light">
-            <BriefcaseBusiness size={22} />
-          </span>
-          <span>
-            collect<span>desk</span>
-          </span>
+          <BrandMark className="brand-mark light"/>
+          <span>collect<span>Desk</span></span>
         </Link>
 
         <div className="story-content">
