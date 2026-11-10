@@ -53,6 +53,12 @@ async function session(email, mobile = false) {
         assert.equal(await page.locator('.lp-nav-link.lp-active').count(),1,
           'Exactly one landing section should be highlighted');
       }
+      await page.evaluate(()=>document.getElementById('roles')?.scrollIntoView({behavior:'instant',block:'start'}));
+      await page.waitForFunction(()=>
+        document.querySelector('.lp-nav-link[href="#roles"]')?.getAttribute('aria-current')==='location'
+      );
+      await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+      await page.waitForFunction(()=>window.scrollY<5);
     }
     assert.ok(await page.locator('link[rel="icon"][href*="icon.svg"]').count() > 0,
       'Website favicon should be present in the browser tab');
