@@ -34,6 +34,17 @@ app.use((req,res,next)=>{
   next();
 });
 app.get('/health',(_req,res)=>res.json({ok:true, database: mongoose.connection.readyState===1 ? 'connected':'unavailable'}));
+/** Non-sensitive version metadata for external deployment verification. */
+app.get('/api/v1/meta/release',(_req,res)=>{
+  const sha=process.env.RENDER_GIT_COMMIT||process.env.GITHUB_SHA||'';
+  res.set('Cache-Control','no-store');
+  res.json({
+    product:'CollectDesk',version:'0.3',
+    commit:/^[a-f0-9]{40}$/i.test(sha)?sha.slice(0,12):null,
+    environment:process.env.NODE_ENV==='production'?'production':'development',
+    database:mongoose.connection.readyState===1?'connected':'unavailable'
+  });
+});
 const authLimiter=rateLimit({windowMs:15*60*1000,limit:12,standardHeaders:'draft-8',legacyHeaders:false,message:{error:'Too many attempts. Try again later.'}});
 const loginBody=z.object({email:z.email(),password:z.string().min(1).max(256)}).strict();
 app.post('/api/v1/auth/login',authLimiter,async(req,res)=>{
