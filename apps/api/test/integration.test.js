@@ -174,7 +174,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(r.status,201,JSON.stringify(r.data));
         assert.equal(sent.length,1,'operator invite email should be dispatched');
         assert.match(sent[0].textContent,/case operator/i);
-        const match=sent[0].textContent.match(/\/staff\/activate\?token=([A-Za-z0-9_-]+)/);
+        const match=sent[0].textContent.match(/\/staff\/activate#token=([A-Za-z0-9_-]+)/);
         assert.ok(match,'email must contain a one-time invitation link');
         const token=match[1];
         assert.ok(token.length>35);
@@ -187,7 +187,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         r=await call('/staff/invitations',{method:'POST',cookie:admin,
           body:{role:'operator',email:'new.operator@test.collectdesk.local'}});
         assert.equal(r.status,409,'do not resend active invitation indefinitely');
-        r=await call('/auth/staff-invite?token='+token);
+        r=await call('/auth/staff-invite/inspect',{method:'POST',body:{token}});
         assert.equal(r.status,200,JSON.stringify(r.data));
         assert.equal(r.data.role,'operator');
         r=await call('/auth/staff-invite/accept',{method:'POST',
@@ -213,23 +213,23 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         r=await call('/auth/staff-invite/accept',{method:'POST',
           body:{token,name:'Invited Operator Again',password:'StrongTestPassword2026!'}});
         assert.equal(r.status,400,'used tokens must never be accepted twice');
-        r=await call('/auth/staff-invite?token='+token);
+        r=await call('/auth/staff-invite/inspect',{method:'POST',body:{token}});
         assert.equal(r.status,404,'used invite token must not be visible');
         r=await call('/staff/invitations',{method:'POST',cookie:admin,
           body:{role:'operator',email:'revoked.operator@test.collectdesk.local'}});
         assert.equal(r.status,201);
-        const revokedToken=sent[1].textContent.match(/\/staff\/activate\?token=([A-Za-z0-9_-]+)/)[1];
+        const revokedToken=sent[1].textContent.match(/\/staff\/activate#token=([A-Za-z0-9_-]+)/)[1];
         r=await call('/staff/invitations/'+r.data.id+'/revoke',{method:'POST',cookie:a});
         assert.equal(r.status,403);
         const revokedId=(await StaffInvite.findOne({email:'revoked.operator@test.collectdesk.local'}))._id;
         r=await call('/staff/invitations/'+revokedId+'/revoke',{method:'POST',cookie:admin});
         assert.equal(r.status,200);
-        r=await call('/auth/staff-invite?token='+revokedToken);
+        r=await call('/auth/staff-invite/inspect',{method:'POST',body:{token:revokedToken}});
         assert.equal(r.status,404,'revoked links must be unusable');
         r=await call('/staff/invitations',{method:'POST',cookie:admin,
           body:{role:'operator',email:'expired.operator@test.collectdesk.local'}});
         assert.equal(r.status,201);
-        const expiredToken=sent[2].textContent.match(/\/staff\/activate\?token=([A-Za-z0-9_-]+)/)[1];
+        const expiredToken=sent[2].textContent.match(/\/staff\/activate#token=([A-Za-z0-9_-]+)/)[1];
         await StaffInvite.updateOne({email:'expired.operator@test.collectdesk.local'},
           {$set:{expiresAt:new Date(Date.now()-1000)}});
         r=await call('/auth/staff-invite/accept',{method:'POST',
