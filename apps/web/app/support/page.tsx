@@ -10,6 +10,7 @@ type Category='onboarding'|'case'|'account'|'technical'|'other';
 type Ticket={
   id:string;category:Category;subject:string;message:string;status:TicketStatus;
   resolutionNote:string;createdAt:string;updatedAt:string;
+  history:{status:TicketStatus;note:string;at:string}[];
   reporter:{name:string;email:string}|null
 };
 type ListResponse={requests:Ticket[];pagination:{page:number;pageSize:number;total:number;hasMore:boolean}};
@@ -157,6 +158,13 @@ function TicketCard({ticket,admin,onUpdate}:{ticket:Ticket;admin:boolean;onUpdat
     {admin&&ticket.reporter&&<p className="support-ticket-reporter">From {ticket.reporter.name} · {ticket.reporter.email}</p>}
     {ticket.status==='resolved'&&ticket.resolutionNote&&
       <div className="support-resolution"><strong>Resolution</strong><p>{ticket.resolutionNote}</p></div>}
+    {ticket.history?.length>0&&<details className="support-history">
+      <summary>Decision history ({ticket.history.length})</summary>
+      <ol>{ticket.history.map((event,i)=><li key={i}>
+        <span>{labelStatus(event.status)} · {safeDate(event.at)}</span>
+        {event.note&&<p>{event.note}</p>}
+      </li>)}</ol>
+    </details>}
     {admin&&<div className="support-admin-actions">
       <label className="field">Update status
         <select value={status} onChange={e=>setStatus(e.target.value as TicketStatus)}>
