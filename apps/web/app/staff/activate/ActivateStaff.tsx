@@ -18,12 +18,16 @@ export default function ActivateStaff(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   useEffect(()=>{
-    const value=new URLSearchParams(window.location.search).get('token')||'';
+    const fragment=window.location.hash.startsWith('#token=')?window.location.hash.slice(7):'';
+    let value='';
+    try{value=decodeURIComponent(fragment);}catch{}
+    // Keep compatibility with older query-string invitations.
+    if(!value)value=new URLSearchParams(window.location.search).get('token')||'';
     // Remove the one-time token from browser history immediately.
     window.history.replaceState(window.history.state,'','/staff/activate');
     if(!value){setError('An invitation link is required. Ask your administrator to send a new one.');setLoading(false);return;}
     setToken(value);
-    api<InvitationInfo>('/auth/staff-invite?token='+encodeURIComponent(value))
+    api<InvitationInfo>('/auth/staff-invite/inspect',{method:'POST',body:JSON.stringify({token:value})})
       .then(r=>setInvitation(r))
       .catch(e=>setError(e instanceof Error?e.message:'This invitation is no longer valid.'))
       .finally(()=>setLoading(false));
