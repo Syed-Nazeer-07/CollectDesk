@@ -5,7 +5,7 @@ import {ThemeToggle} from '../components/ThemeProvider';
 import './landing.css';
 
 export const metadata:Metadata={
-  title:'CollectDesk | Commercial Collections Case Management',
+  title:'collectDesk',
   description:'A clearer workspace for overdue invoice intake, case review, operator coordination, and verified recovery tracking. Explore CollectDesk and create a creditor workspace.'
 };
 
@@ -131,7 +131,6 @@ export default function LandingPage(){
           </div>
 
           <div className="lp-hero-stage" aria-label="Illustrative CollectDesk workspace with sample cases">
-            <div className="lp-float lp-f1 lp-f-orange"><div className="lp-badge-orb lp-orb-orange"><Ic n="brief"/></div></div>
             <div className="lp-float lp-f2 lp-f-bars lp-gcard"><small>Active cases</small><strong>08</strong><div className="lp-bars" aria-hidden="true"><i/><i/><i/><i/><i/></div></div>
             <div className="lp-float lp-f3 lp-f-line lp-gcard">
               <small>Verified recovery</small><strong>₹3.5L</strong>
@@ -143,7 +142,6 @@ export default function LandingPage(){
               </svg>
               <span className="lp-tag-sample">SAMPLE</span>
             </div>
-            <div className="lp-float lp-f4 lp-f-sky"><div className="lp-badge-orb lp-orb-sky"><Ic n="shield"/>Verified</div></div>
 
             <div className="lp-dash">
               <div className="lp-dash-top"><span className="lp-dots" aria-hidden="true"><i/><i/><i/></span><span>Workspace overview</span><span className="lp-sample">ILLUSTRATIVE</span></div>
@@ -174,11 +172,11 @@ export default function LandingPage(){
           <span className="lp-kicker">The ledger rule</span>
           <h2 id="orbit-title">Introducing verified recovery.</h2>
           <p className="lp-lead">Seven stages carry every case from draft to closure. Only receipts an administrator has verified ever reach your recovery total.</p>
-          <div className="lp-orbit" id="orbit" role="img" aria-label="The seven case stages orbiting a verified recovery coin">
+          <div className="lp-orbit" id="orbit" aria-label="Navigate the seven case stages">
             <div className="lp-orbit-ring" aria-hidden="true"/>
             <div className="lp-coin-shadow" aria-hidden="true"/>
             <div className="lp-coin" aria-hidden="true"><div className="lp-coin-face"><Ic n="tick"/></div></div>
-            {orbitChips.map(c=><span key={c.name} className="lp-chip" style={{'--c':c.color} as React.CSSProperties}>{c.name}</span>)}
+            {orbitChips.map((c,i)=><a key={c.name} className="lp-chip" href={`#stage-${i}`} title={`Explore ${c.name} stage`} style={{'--c':c.color} as React.CSSProperties}>{c.name}</a>)}
           </div>
           <div className="lp-orbit-note">
             <span><Ic n="check"/>Pending receipts never count</span>
@@ -210,11 +208,11 @@ export default function LandingPage(){
           </div>
           <div className="cdl-feature-grid">
             {capabilities.map(item=>(
-              <article className="cdl-feature" key={item.title}>
+              <a className="cdl-feature" key={item.title} href="#stages" aria-label={`Explore ${item.title} in the case lifecycle`}>
                 <span className="cdl-feature-icon"><Ic n={item.icon} size={22}/></span>
                 <h3>{item.title}</h3>
                 <p>{item.copy}</p>
-              </article>
+              </a>
             ))}
           </div>
         </div>
@@ -250,7 +248,7 @@ export default function LandingPage(){
           </div>
           <div className="lp-stages">
             <div className="lp-steps">
-              {stages.map((s,i)=><div key={s.title} className={i===0?'lp-step lp-on':'lp-step'} data-i={i}>
+              {stages.map((s,i)=><div key={s.title} id={`stage-${i}`} className={i===0?'lp-step lp-on':'lp-step'} data-i={i}>
                 <span className="lp-no">STAGE {i+1} OF {stages.length}</span><h3>{s.title}</h3><p>{s.copy}</p>
                 <span className="lp-who"><Ic n={s.icon}/>{s.who}</span>
               </div>)}
@@ -319,10 +317,10 @@ export default function LandingPage(){
           <div><Brand footer/><p>Commercial collections case management for creditors, administrators, and operators.</p></div>
           <div><h5>Product</h5><a href="#stages">How it works</a><a href="#roles">Roles</a><a href="#faq">FAQ</a></div>
           <div><h5>Access</h5><Link href="/login?mode=signup">Create account</Link><Link href="/login">Sign in</Link><Link href="/forgot-password">Reset password</Link></div>
-          <div><h5>Project</h5><a href="https://github.com/Syed-Nazeer-07/CollectDesk" target="_blank" rel="noopener noreferrer">GitHub</a><a href="/api/health">Service health</a></div>
+          <div><h5>Project</h5><a href="https://github.com/Syed-Nazeer-07/CollectDesk" target="_blank" rel="noopener noreferrer">GitHub</a><a href="#faq">Preview information</a></div>
         </div>
         <div className="lp-mega" aria-hidden="true">collect<i>desk</i></div>
-        <div className="lp-foot-note"><span>© 2026 CollectDesk · Commercial Collections MVP</span><span>Sample data only. No real payments are processed.</span></div>
+        <div className="lp-foot-note"><span>© 2026 collectDesk · Commercial collections case management</span><span>Sample data only. No real payments are processed.</span></div>
       </div>
     </footer>
   </div>;
