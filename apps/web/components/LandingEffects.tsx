@@ -20,6 +20,51 @@ export default function LandingEffects(){
     const onScrollNav=()=>nav?.classList.toggle('lp-scrolled',window.scrollY>24);
     onScrollNav();on('scroll',onScrollNav,{passive:true});
 
+    // Keep primary navigation synchronized with the section in view.
+    // The active state is a location indicator, not a separate route.
+    const navLinks=Array.from(root.querySelectorAll<HTMLAnchorElement>('.lp-nav-link[href^="#"]'));
+    const navTargets=navLinks.map(link=>({
+      link,id:(link.getAttribute('href')||'').slice(1)
+    })).filter(item=>item.id.length>0);
+    let activeSection:string|null=null;
+    const setActiveSection=(id:string)=>{
+      if(id===activeSection)return;
+      activeSection=id;
+      navTargets.forEach(({link,id:target})=>{
+        const active=target===id;
+        link.classList.toggle('lp-active',active);
+        if(active)link.setAttribute('aria-current','location');
+        else link.removeAttribute('aria-current');
+      });
+    };
+    const syncActiveSection=()=>{
+      const scanLine=Math.min(270,window.innerHeight*.35);
+      let id='';
+      navTargets.forEach(({id:target})=>{
+        const section=document.getElementById(target);
+        if(section&&section.getBoundingClientRect().top<=scanLine)id=target;
+      });
+      setActiveSection(id);
+    };
+    let navFrame=0;
+    const queueActiveSection=()=>{
+      if(navFrame)return;
+      navFrame=requestAnimationFrame(()=>{
+        navFrame=0;
+        syncActiveSection();
+      });
+    };
+    navTargets.forEach(({link,id})=>{
+      const handleClick=()=>setActiveSection(id);
+      link.addEventListener('click',handleClick);
+      cleanups.push(()=>link.removeEventListener('click',handleClick));
+    });
+    syncActiveSection();
+    on('scroll',queueActiveSection,{passive:true});
+    on('resize',queueActiveSection);
+    on('hashchange',queueActiveSection);
+    cleanups.push(()=>cancelAnimationFrame(navFrame));
+
     // Reveal on scroll.
     const reveals=root.querySelectorAll<HTMLElement>('.lp-rv');
     if(hasIO&&!reduce){
