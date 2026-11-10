@@ -51,7 +51,19 @@ export default function GoogleSignIn({onAuthenticated,showDivider=true}:{onAuthe
           }
         });
         target.current.replaceChildren();
-        window.google.accounts.id.renderButton(target.current,{type:'standard',theme:theme==='dark'?'filled_black':'outline',size:'large',text:'continue_with',shape:'rectangular',width:Math.min(360,Math.max(220,Math.floor(target.current.getBoundingClientRect().width)))});
+        // GIS renders a personalized button inside an iframe. An inherited dark
+        // color-scheme can give its iframe an unintended white surround.
+        // Keep the iframe's native color-scheme while selecting Google's
+        // officially supported dark/light button themes.
+        target.current.style.colorScheme='normal';
+        window.google.accounts.id.renderButton(target.current,{
+          type:'standard',
+          theme:theme==='dark'?'outline_dark':'outline',
+          size:'large',
+          text:'continue_with',
+          shape:'rectangular',
+          width:Math.min(400,Math.max(220,Math.floor(target.current.getBoundingClientRect().width)))
+        });
       }catch(e){if(!cancelled)setError(e instanceof Error?e.message:'Google is unavailable.');}
     }
     setup();
