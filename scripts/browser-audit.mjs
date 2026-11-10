@@ -64,7 +64,9 @@ async function session(email, mobile = false) {
       horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 2
     };
   });
-  assert.ok(layout.brand.bottom + 6 <= layout.tagline.top, 'Brand overlaps login tagline');
+  // The branding story is intentionally hidden at mobile widths, so both
+  // elements have zero-sized boxes there and cannot overlap.
+  if (!mobile) assert.ok(layout.brand.bottom + 6 <= layout.tagline.top, 'Brand overlaps login tagline');
   assert.ok(layout.email.height >= 50, 'Login fields are too small to use comfortably');
   assert.equal(layout.horizontalOverflow, false, 'Login page overflows horizontally');
   if (!mobile) assert.ok(layout.panel.width > layout.story.width, 'Sign-in panel should be wider than branding');

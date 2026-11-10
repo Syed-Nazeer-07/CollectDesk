@@ -2558,4 +2558,57 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .account-picker {
     grid-template-columns: 1fr;
   }
+  .table-overflow {
+    overflow: visible;
+  }
+  .cases-table,
+  .cases-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .cases-table thead {
+    display: none;
+  }
+  .cases-table tbody tr {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 10px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--panel);
+  }
+  .cases-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+  .cases-table td,
+  .cases-table tr:last-child td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+  }
+  .cases-table td::before {
+    content: attr(data-label);
+    flex: 0 0 36%;
+    color: var(--fg-faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .cases-table td:first-child {
+    display: block;
+  }
+  .cases-table td:last-child {
+    border-bottom: 0;
+  }
 }
