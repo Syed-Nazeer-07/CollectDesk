@@ -46,12 +46,12 @@ async function session(email, mobile = false) {
         ['Features','features'],['Lifecycle','stages'],['Roles','roles'],['FAQ','faq']
       ]){
         await nav.getByRole('link',{name,exact:true}).click();
-        await page.waitForFunction(id=>
-          document.querySelector('.lp-nav-link[href="#'+id+'"]')?.getAttribute('aria-current')==='location',
-          target
-        );
-        assert.equal(await page.locator('.lp-nav-link.lp-active').count(),1,
-          'Exactly one landing section should be highlighted');
+        await page.waitForFunction(id=>{
+          const link=document.querySelector('.lp-nav-link[href="#'+id+'"]');
+          return link?.getAttribute('aria-current')==='location' &&
+            link.classList.contains('lp-active') &&
+            document.querySelectorAll('.lp-nav-link.lp-active').length===1;
+        },target);
       }
       await page.evaluate(()=>document.getElementById('roles')?.scrollIntoView({behavior:'instant',block:'start'}));
       await page.waitForFunction(()=>
