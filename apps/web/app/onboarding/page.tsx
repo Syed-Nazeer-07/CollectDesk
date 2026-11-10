@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import Link from 'next/link';
 import {Building2,CheckCircle2} from 'lucide-react';
 import BrandLockup from '@/components/BrandLockup';
 import {api,User} from '@/lib/api';
@@ -38,7 +39,7 @@ export default function Onboarding(){
         {error&&<p role="alert" className="auth-error">{error}</p>}
         <button type="submit" disabled={busy} className="button button-primary">{busy?'Creating workspace…':'Create company workspace'}<CheckCircle2 size={17}/></button>
       </form>
-      <p className="auth-legal">New public accounts receive Creditor access. Staff permissions are provisioned separately. Use sample data only.</p>
+      <p className="auth-legal">New public accounts receive Creditor access. Staff permissions are provisioned separately. Use sample data only. Need help? <Link href="/support">Contact support</Link>.</p>
     </>}
   </section></main>;
 }
