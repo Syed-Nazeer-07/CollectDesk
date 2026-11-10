@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import Link from 'next/link';
 import LandingEffects from '../components/LandingEffects';
+import BrandMark from '../components/BrandMark';
 import {ThemeToggle} from '../components/ThemeProvider';
 import './landing.css';
 
@@ -32,7 +33,7 @@ function Ic({n,size}:{n:string;size?:number}){
 }
 function Brand({footer}:{footer?:boolean}){
   return <Link className="lp-brand" href="/" aria-label="CollectDesk home" style={footer?{padding:0,height:'auto'}:undefined}>
-    <span className="lp-brand-mark"><Ic n="brief"/></span><span className="lp-bn">collect<i>desk</i></span>
+    <BrandMark className="lp-brand-mark"/><span className="lp-bn">collect<i>Desk</i></span>
   </Link>;
 }
 
