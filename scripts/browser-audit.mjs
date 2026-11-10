@@ -36,6 +36,19 @@ async function session(email, mobile = false) {
       'Landing page should explain the core product capabilities');
     assert.equal(await page.locator('.cdl-step').count(), 3,
       'Customer onboarding should clearly explain each step');
+    assert.equal(await page.title(), 'collectDesk',
+      'Browser tab should use the short collectDesk brand name');
+    assert.ok(await page.locator('link[rel="icon"][href*="icon.svg"]').count() > 0,
+      'Website favicon should be present in the browser tab');
+    assert.equal(await page.locator('.lp-f-orange, .lp-f-sky').count(),0,
+      'Unnecessary circular floating graphics must not be displayed');
+    assert.equal(await page.locator('.cdl-feature[href="#stages"]').count(),4,
+      'Feature cards should be real links into the case lifecycle');
+    assert.equal(await page.locator('.lp-chip[href^="#stage-"]').count(),7,
+      'Rotating lifecycle labels should link to their stages');
+    const roleColor=await page.locator('#roles h2').evaluate(el=>getComputedStyle(el).color);
+    assert.notEqual(roleColor,'rgb(244, 238, 221)',
+      'Roles heading must remain readable on the cream-colored section');
     const overflowing = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     assert.equal(overflowing, false, 'Landing page must not overflow the viewport');
     await page.screenshot({
