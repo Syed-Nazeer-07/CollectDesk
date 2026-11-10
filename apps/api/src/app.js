@@ -12,6 +12,7 @@ import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRol
 import {installRegistrationRoutes} from './registration.js';
 import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
+import {installStaffRoutes} from './staff-invites.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
@@ -47,6 +48,7 @@ app.post('/api/v1/auth/logout',(_req,res)=>{res.clearCookie(COOKIE_NAME,{...cook
 app.get('/api/v1/auth/me',requireAuth,(req,res)=>res.json({user:publicUser(req.user)}));
 installRegistrationRoutes(app,webOrigin);
 installPasswordRecoveryRoutes(app,webOrigin);
+installStaffRoutes(app,webOrigin);
 
 const route=express.Router();
 route.use(requireAuth);
