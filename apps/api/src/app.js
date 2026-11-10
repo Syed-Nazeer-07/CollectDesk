@@ -50,9 +50,10 @@ installPasswordRecoveryRoutes(app,webOrigin);
 
 const route=express.Router();
 route.use(requireAuth);
+// Help requests remain available while a new creditor completes company setup.
+installSupportRoutes(route);
 route.use((req,res,next)=>req.user.role==='creditor'&&!req.user.organizationId?res.status(403).json({error:'Complete your company setup before using the workspace.'}):next());
 const scope=scopeForUser;
-installSupportRoutes(route);
 async function getCase(req,res,next) {
   if(!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({error:'Case not found.'});
   const item=await Case.findOne({_id:req.params.id,...scope(req.user)}).lean();
