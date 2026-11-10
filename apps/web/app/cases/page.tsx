@@ -2,6 +2,7 @@
 
 import {Suspense,useEffect,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
+import Link from 'next/link';
 import {Search,SlidersHorizontal,RefreshCw,ChevronLeft,ChevronRight,X} from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import {CaseTable} from '@/components/Widgets';
@@ -14,13 +15,13 @@ type StatusFilter=typeof STATUSES[number];
 
 export default function CasesPage(){
   return <AppShell title="All cases" subtitle="Track, review, and manage your collection cases.">
-    {()=> <Suspense fallback={<div className="loading-panel" role="status"><div className="spinner"/> Loading case register…</div>}>
-      <CaseRegister/>
+    {(user)=> <Suspense fallback={<div className="loading-panel" role="status"><div className="spinner"/> Loading case register…</div>}>
+      <CaseRegister canCreate={user.role==='creditor'}/>
     </Suspense>}
   </AppShell>;
 }
 
-function CaseRegister(){
+function CaseRegister({canCreate}:{canCreate:boolean}){
   const router=useRouter();
   const searchParams=useSearchParams();
   // The URL owns the filter, keeping dashboard links and browser history in sync.
@@ -89,12 +90,13 @@ function CaseRegister(){
     </div>
     {error&&<div className="message error" role="alert">{error} <button type="button" onClick={()=>setReload(v=>v+1)}>Try again</button></div>}
     {loading?<div className="loading-panel" role="status"><div className="spinner"/> Loading cases…</div>:
-      !error&&cases.length===0&&filtered?
+      !error&&cases.length===0?
         <div className="cases-empty-filter">
           <span className="cases-empty-icon"><Search size={20}/></span>
-          <strong>No matching cases</strong>
-          <p>Try another search or reset the status filter.</p>
-          <button className="button button-outline" type="button" onClick={resetFilters}>Clear filters</button>
+          <strong>{filtered?'No matching cases':'No cases yet'}</strong>
+          <p>{filtered?'Try another search or reset the status filter.':canCreate?'Create your first sample invoice case to start tracking progress.':'Accessible cases will appear here once they are assigned or submitted.'}</p>
+          {filtered?<button className="button button-outline" type="button" onClick={resetFilters}>Clear filters</button>:
+            canCreate?<Link className="button button-primary" href="/cases/new">Create your first case</Link>:null}
         </div>:
       !error?<CaseTable cases={cases}/>:null}
     <div className="table-bottom">
