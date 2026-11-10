@@ -3,7 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
 export const metadata: Metadata = {
-  title: { default: 'collectDesk', template: '%s | collectDesk' },
+  title: 'collectDesk',
   icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }] },
   description:
     'Commercial case tracking, review workflows, and verified recovery reporting. Clear, transparent case management from intake to closure.',
