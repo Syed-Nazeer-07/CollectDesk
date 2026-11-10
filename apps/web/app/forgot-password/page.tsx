@@ -3,6 +3,7 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowLeft,ArrowRight,CheckCircle2,KeyRound,Mail} from 'lucide-react';
+import BrandLockup from '@/components/BrandLockup';
 import {api} from '@/lib/api';
 
 export default function ForgotPassword(){
@@ -32,6 +33,7 @@ export default function ForgotPassword(){
   }
 
   return <main className="auth-page"><section className="auth-card">
+    <BrandLockup/>
     <Link className="auth-back" href="/login"><ArrowLeft size={16}/> Back to sign in</Link>
     <span className="auth-mark"><Mail size={22}/></span>
     <div className="eyebrow">ACCOUNT RECOVERY</div>
