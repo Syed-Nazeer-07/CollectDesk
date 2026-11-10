@@ -81,6 +81,9 @@ const supportRequestSchema=new mongoose.Schema({
   message:{type:String,required:true,maxlength:2000},
   status:{type:String,enum:['open','in_progress','resolved'],default:'open'},
   resolutionNote:{type:String,default:'',maxlength:2000},
+  // Append-only decision trail; reopening cannot erase a previous resolution.
+  history:[{status:{type:String,enum:['open','in_progress','resolved'],required:true},
+    note:{type:String,default:'',maxlength:2000},by:{...id,ref:'User',required:true},at:{type:Date,required:true}}],
   handledBy:{...id,ref:'User',default:null},
   resolvedAt:{type:Date,default:null}
 },options);
