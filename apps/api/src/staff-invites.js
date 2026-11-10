@@ -63,7 +63,7 @@ export function installStaffRoutes(app,webOrigin) {
       expiresAt:new Date(Date.now()+24*60*60*1000)
     });
     try{
-      await sendStaffInviteEmail(email,webOrigin+'/staff/activate?token='+encodeURIComponent(token));
+      await sendStaffInviteEmail(email,webOrigin+'/staff/activate#token='+encodeURIComponent(token));
     }catch{
       await StaffInvite.deleteOne({_id:pending._id,status:'pending'});
       return res.status(503).json({error:'Invitation email could not be delivered. Check sender settings and retry.'});
@@ -82,8 +82,9 @@ export function installStaffRoutes(app,webOrigin) {
   });
 
   // A high-entropy token may be looked up without exposing the token via listing.
-  app.get('/api/v1/auth/staff-invite',acceptLimiter,async(req,res)=>{
-    const {token}=z.object({token:z.string().min(35).max(150)}).strict().parse(req.query);
+  // Use a same-origin POST so one-time tokens are never transmitted in API URLs.
+  app.post('/api/v1/auth/staff-invite/inspect',acceptLimiter,async(req,res)=>{
+    const {token}=z.object({token:z.string().min(35).max(150)}).strict().parse(req.body);
     const row=await StaffInvite.findOne({
       tokenHash:hash(token),status:'pending',expiresAt:{$gt:new Date()}
     }).select('email role expiresAt').lean();
