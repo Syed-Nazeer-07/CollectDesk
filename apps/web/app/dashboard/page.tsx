@@ -36,6 +36,7 @@ export default function DashboardPage(){
       </section>
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel"><div className="spinner"/> Loading dashboard…</div>:<>
+        {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={19}/>} sub="Cases you can access"/>
           <Stat name="Active cases" value={String(data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub="Accepted, in progress or on hold"/>
@@ -83,4 +84,44 @@ export default function DashboardPage(){
 
 function Stat({name,value,sub,icon}:{name:string;value:string;sub:string;icon:React.ReactNode}){
   return <div className="metric-card"><div className="metric-top"><span>{name}</span><span className="metric-icon">{icon}</span></div><div className="metric-value">{value}</div><p>{sub}</p></div>;
+}
+
+
+/** Source-driven onboarding: progress is calculated from real scoped case data,
+ * not localStorage or fabricated completion flags. */
+function GettingStarted({user,dashboard}:{user:User;dashboard:Dashboard}){
+  const statuses=dashboard.statusBreakdown;
+  const hasSubmitted=statuses.some(s=>s.count>0&&s.status!=='draft');
+  const hasDecision=statuses.some(s=>s.count>0&&
+    ['needs_info','rejected','accepted','in_progress','on_hold','closed'].includes(s.status));
+  const steps=[
+    {title:'Company workspace',detail:'Your account is connected to its company.',done:Boolean(user.organizationId),href:'/account'},
+    {title:'Create your first case',detail:'Save a fictional invoice as a draft.',done:dashboard.summary.totalCases>0,href:'/cases/new'},
+    {title:'Submit for review',detail:'Send an overdue sample invoice.',done:hasSubmitted,href:'/cases?status=draft'},
+    {title:'Follow the decision',detail:'See review updates and the case timeline.',done:hasDecision,href:'/cases'}
+  ];
+  const done=steps.filter(s=>s.done).length;
+  if(done===steps.length)return null;
+  return <section className="onboarding-panel" aria-labelledby="onboarding-title">
+    <div className="onboarding-panel-top">
+      <div><div className="eyebrow">GETTING STARTED</div>
+        <h3 id="onboarding-title">Set up your collection workflow</h3>
+        <p>Follow these steps using sample records. Need help? <Link href="/support" className="text-link">Contact support <ArrowUpRight size={13}/></Link></p>
+      </div>
+      <span className="onboarding-progress">{done} of {steps.length} completed</span>
+    </div>
+    <div className="onboarding-progress-track" role="progressbar"
+      aria-label="Getting started progress" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done}>
+      <span style={{width:`${done/steps.length*100}%`}}/>
+    </div>
+    <div className="onboarding-steps">
+      {steps.map((step,i)=>{
+        const inner=<><CheckCircle2 size={19} aria-hidden="true"/>
+          <strong>{i+1}. {step.title}</strong><span>{step.detail}</span></>;
+        return step.done?
+          <div key={step.title} className="onboarding-step onboarding-step-done" aria-label={step.title+' completed'}>{inner}</div>:
+          <Link key={step.title} className="onboarding-step" href={step.href} aria-label={step.title}>{inner}</Link>;
+      })}
+    </div>
+  </section>;
 }
