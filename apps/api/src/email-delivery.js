@@ -47,7 +47,7 @@ async function sendAccountEmail(email,url,kind,{
     ?'Someone requested a password reset for your CollectDesk account. Use this link to set a new password:\n'
     :'Confirm your email to activate your CollectDesk creditor workspace (sample-data preview):\n')+url+
     '\n\nThis link expires in '+(staffInvite?'24 hours':'30 minutes')+
-    ' and can be used once. If you did not request or expect this message, ignore it.';
+    ' and can be used once. If you did not request this, ignore this email.';
 
   if(provider==='resend'){
     const response=await httpFetch('https://api.resend.com/emails',{
