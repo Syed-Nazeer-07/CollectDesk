@@ -61,6 +61,57 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const b = await signIn('creditorb@test.collectdesk.local');
     const admin = await signIn('admin@test.collectdesk.local');
     const operator = await signIn('operator@test.collectdesk.local');
+
+    await t.test('support request privacy, validation and administrator resolution',async()=>{
+      let response=await call('/support/requests');
+      assert.equal(response.status,401,'support requires authentication');
+      response=await call('/support/requests',{method:'POST',cookie:a,origin:null,
+        body:{category:'technical',subject:'Test issue',message:'An example problem for QA only.'}});
+      assert.equal(response.status,403,'support intake must enforce origin checks');
+      response=await call('/support/requests',{method:'POST',cookie:a,
+        body:{category:'technical',subject:'Test issue',message:'An example problem for QA only.',role:'admin'}});
+      assert.equal(response.status,422,'clients cannot inject privileged support fields');
+      const ticketA=await call('/support/requests',{method:'POST',cookie:a,
+        body:{category:'case',subject:'Missing case update',message:'This is a fictional case workflow question.'}});
+      assert.equal(ticketA.status,201,JSON.stringify(ticketA.data));
+      const ticketB=await call('/support/requests',{method:'POST',cookie:b,
+        body:{category:'onboarding',subject:'Workspace help',message:'This fictional company needs workspace guidance.'}});
+      assert.equal(ticketB.status,201);
+      const aList=await call('/support/requests',{cookie:a});
+      assert.equal(aList.status,200);
+      assert.deepEqual(aList.data.requests.map(x=>x.id),[ticketA.data.id],
+        'creditor A must not see another creditor’s support requests');
+      const bList=await call('/support/requests',{cookie:b});
+      assert.equal(bList.status,200);
+      assert.deepEqual(bList.data.requests.map(x=>x.id),[ticketB.data.id]);
+      const opList=await call('/support/requests',{cookie:operator});
+      assert.equal(opList.status,200);
+      assert.equal(opList.data.requests.length,0,'operators must not see other users’ tickets');
+      const admins=await call('/support/requests',{cookie:admin});
+      assert.equal(admins.status,200);
+      assert.equal(admins.data.requests.length,2,'administrators can triage all support requests');
+      assert.ok(admins.data.requests.every(x=>x.reporter?.email));
+      response=await call('/support/requests?status=nope',{cookie:admin});
+      assert.equal(response.status,422,'support status filter must be validated');
+      response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:a,
+        body:{status:'resolved',resolutionNote:'The issue has been checked and resolved.'}});
+      assert.equal(response.status,403,'creditors cannot resolve tickets');
+      response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:operator,
+        body:{status:'resolved',resolutionNote:'The issue has been checked and resolved.'}});
+      assert.equal(response.status,403,'operators cannot change support queue status');
+      response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
+        body:{status:'resolved',resolutionNote:'Too short'}});
+      assert.equal(response.status,422,'resolutions need a meaningful note');
+      response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
+        body:{status:'resolved',resolutionNote:'We corrected the case settings and verified the outcome.'}});
+      assert.equal(response.status,200);
+      const resolved=await call('/support/requests?status=resolved',{cookie:a});
+      assert.equal(resolved.data.requests.length,1);
+      assert.match(resolved.data.requests[0].resolutionNote,/verified the outcome/);
+      const otherResolved=await call('/support/requests?status=resolved',{cookie:b});
+      assert.equal(otherResolved.data.requests.length,0);
+    });
+
     let r = await call('/cases',{method:'POST',cookie:a,origin:null,body:{}});
     assert.equal(r.status,403,'writes without trusted origin must be denied');
     const invoice = {debtorName:'Demo Industrial Ltd', invoiceNo:'TEST-001', issueDate:'2026-09-01', dueDate:'2026-10-01', principalPaise:1_000_000, description:'Synthetic invoice only', disputed:false, evidenceLabel:''};
