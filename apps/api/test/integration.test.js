@@ -123,6 +123,115 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       assert.equal(reopened.data.requests[0].history[1].status,'in_progress');
     });
 
+
+    await t.test('operator invitations: admin-only, private tokens, email activation and replay protection',async()=>{
+      const {StaffInvite}=await import('../src/models.js');
+      const priorEnv={BREVO_API_KEY:process.env.BREVO_API_KEY,BREVO_FROM_EMAIL:process.env.BREVO_FROM_EMAIL,
+        RESEND_API_KEY:process.env.RESEND_API_KEY,AUTH_FROM_EMAIL:process.env.AUTH_FROM_EMAIL,
+        PUBLIC_REGISTRATION_ENABLED:process.env.PUBLIC_REGISTRATION_ENABLED};
+      const originalFetch=globalThis.fetch;
+      const sent=[];
+      process.env.BREVO_API_KEY='ci-invitation-key';
+      process.env.BREVO_FROM_EMAIL='collectdesk-test@example.test';
+      delete process.env.RESEND_API_KEY;delete process.env.AUTH_FROM_EMAIL;
+      globalThis.fetch=async (url,options)=>{
+        if(typeof url==='string'&&url==='https://api.brevo.com/v3/smtp/email'){
+          sent.push(JSON.parse(options.body));
+          return new Response(JSON.stringify({messageId:'ci-only'}),{status:201,headers:{'content-type':'application/json'}});
+        }
+        return originalFetch(url,options);
+      };
+      try{
+        let r=await call('/staff/invitations');
+        assert.equal(r.status,401,'anonymous users cannot list staff invitations');
+        r=await call('/staff/invitations',{cookie:a});
+        assert.equal(r.status,403,'creditors cannot list operator invitations');
+        r=await call('/staff/invitations',{cookie:operator});
+        assert.equal(r.status,403,'operators cannot manage invitations');
+        r=await call('/staff/invitations',{method:'POST',cookie:a,
+          body:{role:'operator',email:'new.operator@test.collectdesk.local'}});
+        assert.equal(r.status,403,'creditors cannot invite staff');
+        r=await call('/staff/invitations',{method:'POST',cookie:admin,
+          body:{role:'admin',email:'new.operator@test.collectdesk.local'}});
+        assert.equal(r.status,422,'admin invitations cannot create additional administrators');
+        r=await call('/staff/invitations',{method:'POST',cookie:admin,
+          body:{role:'operator',email:'creditora@test.collectdesk.local'}});
+        assert.equal(r.status,409,'existing users cannot be re-invited');
+        r=await call('/staff/invitations',{method:'POST',cookie:admin,origin:null,
+          body:{role:'operator',email:'new.operator@test.collectdesk.local'}});
+        assert.equal(r.status,403,'invites must enforce CSRF origin');
+        r=await call('/staff/invitations',{method:'POST',cookie:admin,
+          body:{role:'operator',email:'new.operator@test.collectdesk.local'}});
+        assert.equal(r.status,201,JSON.stringify(r.data));
+        assert.equal(sent.length,1,'operator invite email should be dispatched');
+        assert.match(sent[0].textContent,/case operator/i);
+        const match=sent[0].textContent.match(/\/staff\/activate\?token=([A-Za-z0-9_-]+)/);
+        assert.ok(match,'email must contain a one-time invitation link');
+        const token=match[1];
+        assert.ok(token.length>35);
+        r=await call('/staff/invitations',{cookie:admin});
+        assert.equal(r.status,200);
+        assert.equal(r.data.invitations.length,1);
+        assert.equal(r.data.invitations[0].role,'operator');
+        assert.equal(JSON.stringify(r.data).includes(token),false,'token must never appear in listing');
+        assert.equal(JSON.stringify(r.data).includes('tokenHash'),false,'token hash must not be disclosed');
+        r=await call('/staff/invitations',{method:'POST',cookie:admin,
+          body:{role:'operator',email:'new.operator@test.collectdesk.local'}});
+        assert.equal(r.status,409,'do not resend active invitation indefinitely');
+        r=await call('/auth/staff-invite?token='+token);
+        assert.equal(r.status,200,JSON.stringify(r.data));
+        assert.equal(r.data.role,'operator');
+        r=await call('/auth/staff-invite/accept',{method:'POST',
+          body:{token,name:'Invited Person',password:'short'}});
+        assert.equal(r.status,422,'operator passwords must be strong');
+        r=await call('/auth/staff-invite/accept',{method:'POST',
+          body:{token,name:'Invited Person',password:'StrongTestPassword2026!',role:'admin'}});
+        assert.equal(r.status,422,'roles cannot be added to activation payload');
+        r=await call('/auth/staff-invite/accept',{method:'POST',
+          body:{token,name:'Invited Operator',password:'StrongTestPassword2026!'}});
+        assert.equal(r.status,201,JSON.stringify(r.data));
+        assert.equal(r.data.user.role,'operator');
+        const newOperatorCookie=r.cookie;
+        assert.ok(newOperatorCookie,'activation should sign in the invited operator');
+        r=await call('/auth/me',{cookie:newOperatorCookie});
+        assert.equal(r.status,200);
+        assert.equal(r.data.user.role,'operator');
+        r=await call('/cases',{cookie:newOperatorCookie});
+        assert.equal(r.status,200);
+        assert.equal(r.data.cases.length,0,'new operator cannot view unassigned cases');
+        r=await call('/staff/invitations',{cookie:newOperatorCookie});
+        assert.equal(r.status,403,'new operator still cannot manage staff');
+        r=await call('/auth/staff-invite/accept',{method:'POST',
+          body:{token,name:'Invited Operator Again',password:'StrongTestPassword2026!'}});
+        assert.equal(r.status,400,'used tokens must never be accepted twice');
+        r=await call('/auth/staff-invite?token='+token);
+        assert.equal(r.status,404,'used invite token must not be visible');
+        r=await call('/staff/invitations',{method:'POST',cookie:admin,
+          body:{role:'operator',email:'revoked.operator@test.collectdesk.local'}});
+        assert.equal(r.status,201);
+        const revokedToken=sent[1].textContent.match(/\/staff\/activate\?token=([A-Za-z0-9_-]+)/)[1];
+        r=await call('/staff/invitations/'+r.data.id+'/revoke',{method:'POST',cookie:a});
+        assert.equal(r.status,403);
+        const revokedId=(await StaffInvite.findOne({email:'revoked.operator@test.collectdesk.local'}))._id;
+        r=await call('/staff/invitations/'+revokedId+'/revoke',{method:'POST',cookie:admin});
+        assert.equal(r.status,200);
+        r=await call('/auth/staff-invite?token='+revokedToken);
+        assert.equal(r.status,404,'revoked links must be unusable');
+        r=await call('/staff/invitations',{method:'POST',cookie:admin,
+          body:{role:'operator',email:'expired.operator@test.collectdesk.local'}});
+        assert.equal(r.status,201);
+        const expiredToken=sent[2].textContent.match(/\/staff\/activate\?token=([A-Za-z0-9_-]+)/)[1];
+        await StaffInvite.updateOne({email:'expired.operator@test.collectdesk.local'},
+          {$set:{expiresAt:new Date(Date.now()-1000)}});
+        r=await call('/auth/staff-invite/accept',{method:'POST',
+          body:{token:expiredToken,name:'Expired Invite',password:'StrongTestPassword2026!'}});
+        assert.equal(r.status,400,'expired links must be rejected');
+      }finally{
+        globalThis.fetch=originalFetch;
+        for(const [k,v] of Object.entries(priorEnv))if(v===undefined)delete process.env[k];else process.env[k]=v;
+      }
+    });
+
     let r = await call('/cases',{method:'POST',cookie:a,origin:null,body:{}});
     assert.equal(r.status,403,'writes without trusted origin must be denied');
     const invoice = {debtorName:'Demo Industrial Ltd', invoiceNo:'TEST-001', issueDate:'2026-09-01', dueDate:'2026-10-01', principalPaise:1_000_000, description:'Synthetic invoice only', disputed:false, evidenceLabel:''};
