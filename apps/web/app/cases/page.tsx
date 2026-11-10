@@ -91,9 +91,9 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
     {error&&<div className="message error" role="alert">{error} <button type="button" onClick={()=>setReload(v=>v+1)}>Try again</button></div>}
     {loading?<div className="loading-panel" role="status"><div className="spinner"/> Loading cases…</div>:
       !error&&cases.length===0?
-        <div className="cases-empty-filter">
-          <span className="cases-empty-icon"><Search size={20}/></span>
-          <strong>{filtered?'No matching cases':'No cases yet'}</strong>
+        <div className="cases-empty-filter" role="status">
+          <span className="cases-empty-icon" aria-hidden="true"><Search size={23}/></span>
+          <h4>{filtered?'No matching cases':'No cases yet'}</h4>
           <p>{filtered?'Try another search or reset the status filter.':canCreate?'Create your first sample invoice case to start tracking progress.':'Accessible cases will appear here once they are assigned or submitted.'}</p>
           {filtered?<button className="button button-outline" type="button" onClick={resetFilters}>Clear filters</button>:
             canCreate?<Link className="button button-primary" href="/cases/new">Create your first case</Link>:null}
