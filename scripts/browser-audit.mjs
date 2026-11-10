@@ -337,6 +337,16 @@ try {
 
   step = 'admin review and assignment';
   const admin = await session('admin@demo.collectdesk.test');
+  step='administrator staff-invitation workspace';
+  await admin.goto(base+'/staff',{waitUntil:'domcontentloaded'});
+  await admin.getByRole('heading',{name:'Staff invitations',exact:true}).waitFor();
+  await admin.getByRole('heading',{name:'Invite an operator'}).waitFor();
+  await admin.getByRole('button',{name:'Send operator invitation'}).waitFor();
+  assert.equal(await admin.getByRole('link',{name:'Staff invitations'}).count(),1,
+    'Administrator should have exactly one staff-management navigation link');
+  assert.equal(await creditor.getByRole('link',{name:'Staff invitations'}).count(),0,
+    'Creditor sidebar must not show staff invitation management');
+  log('Only administrators see staff invitation management in the workspace');
   step='administrator support triage';
   await admin.goto(base+'/support',{waitUntil:'domcontentloaded'});
   const incoming=admin.locator('.support-ticket').filter({hasText:supportSubject});
