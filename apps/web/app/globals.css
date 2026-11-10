@@ -2791,3 +2791,38 @@ svg.brand-mark {
   outline-offset: 4px;
   border-radius: 7px;
 }
+
+
+/* Google Identity Services: keep the vendor-rendered button intact while
+   preventing inherited dark-mode color-scheme and inline iframe whitespace
+   from creating the white rectangular surround on personalized buttons. */
+.auth-google-button {
+  width: min(100%, 400px);
+  max-width: 400px;
+  min-height: 44px;
+  margin-inline: auto;
+  padding: 0;
+  color-scheme: normal;
+  background: transparent;
+  border-radius: 9px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-google-button > div {
+  max-width: 100%;
+  color-scheme: normal;
+}
+.auth-google-button iframe {
+  display: block;
+  max-width: 100%;
+  border: 0;
+  color-scheme: normal !important;
+  background: transparent;
+  vertical-align: top;
+}
+.auth-google {
+  width: 100%;
+  min-width: 0;
+}
