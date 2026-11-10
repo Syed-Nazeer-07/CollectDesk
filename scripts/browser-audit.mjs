@@ -175,6 +175,20 @@ try {
   const creditor = await session('creditor@demo.collectdesk.test');
   await creditor.screenshot({ path: 'browser-audit-results/creditor-dashboard.png', fullPage: true });
 
+  step = 'support request intake and navigation';
+  const supportSubject='Browser audit request '+Date.now();
+  await creditor.getByRole('navigation',{name:'Main navigation'})
+    .getByRole('link',{name:'Help & support'}).click();
+  await creditor.getByRole('heading',{name:'Help & support',exact:true}).waitFor();
+  await creditor.getByLabel('Subject').fill(supportSubject);
+  await creditor.getByLabel('Describe the issue')
+    .fill('This is a fictional browser audit request. No real customer data is involved.');
+  await creditor.getByRole('button',{name:'Send support request'}).click();
+  await creditor.getByRole('heading',{name:supportSubject}).waitFor();
+  await creditor.screenshot({path:'browser-audit-results/creditor-support.png',fullPage:true});
+  await creditor.goto(base+'/dashboard',{waitUntil:'domcontentloaded'});
+  log('Creditors can submit and track private support requests');
+
   step = 'workspace navigation and account permissions';
   const accountLink = creditor.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /Account & access/i });
   await accountLink.click();
@@ -228,6 +242,19 @@ try {
 
   step = 'admin review and assignment';
   const admin = await session('admin@demo.collectdesk.test');
+  step='administrator support triage';
+  await admin.goto(base+'/support',{waitUntil:'domcontentloaded'});
+  const incoming=admin.locator('.support-ticket').filter({hasText:supportSubject});
+  await incoming.getByRole('heading',{name:supportSubject}).waitFor();
+  await incoming.locator('select').selectOption('resolved');
+  await incoming.locator('textarea').fill('The team verified the sample request and provided a resolution.');
+  await incoming.getByRole('button',{name:'Save update'}).click();
+  await incoming.locator('.support-pill-resolved').waitFor();
+  await creditor.goto(base+'/support',{waitUntil:'domcontentloaded'});
+  const tracked=creditor.locator('.support-ticket').filter({hasText:supportSubject});
+  await tracked.getByText('The team verified the sample request and provided a resolution.').waitFor();
+  log('Admin resolution is visible to the original requester');
+  step = 'admin review and assignment';
   await admin.goto(caseUrl, { waitUntil: 'domcontentloaded' });
   await statusIs(admin, 'Submitted');
   await admin.locator('.actions-panel textarea').first().fill('Approved fictional claim for UI audit.');
