@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {Building2,CheckCircle2} from 'lucide-react';
+import BrandLockup from '@/components/BrandLockup';
 import {api,User} from '@/lib/api';
 
 export default function Onboarding(){
@@ -26,6 +27,7 @@ export default function Onboarding(){
     finally{setBusy(false);}
   }
   return <main className="auth-page"><section className="auth-card">
+    <BrandLockup/>
     <span className="auth-mark"><Building2 size={22}/></span>
     <div className="eyebrow">COMPANY SETUP</div>
     <h1>Set up your company</h1>
