@@ -70,3 +70,20 @@ const passwordResetSchema=new mongoose.Schema({
 },options);
 passwordResetSchema.index({expiresAt:1},{expireAfterSeconds:0});
 export const PasswordReset=mongoose.model('PasswordReset',passwordResetSchema);
+
+// Support requests are deliberately separate from collection case activity:
+// only their creator and administrators can view them.
+const supportRequestSchema=new mongoose.Schema({
+  createdBy:{...id,ref:'User',required:true,index:true},
+  organizationId:{...id,ref:'Organization',default:null},
+  category:{type:String,enum:['onboarding','case','account','technical','other'],required:true},
+  subject:{type:String,required:true,maxlength:120},
+  message:{type:String,required:true,maxlength:2000},
+  status:{type:String,enum:['open','in_progress','resolved'],default:'open'},
+  resolutionNote:{type:String,default:'',maxlength:2000},
+  handledBy:{...id,ref:'User',default:null},
+  resolvedAt:{type:Date,default:null}
+},options);
+supportRequestSchema.index({status:1,createdAt:-1});
+supportRequestSchema.index({createdBy:1,createdAt:-1});
+export const SupportRequest=mongoose.model('SupportRequest',supportRequestSchema);
