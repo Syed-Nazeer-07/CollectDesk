@@ -17,6 +17,30 @@ const browser = await chromium.launch({ headless: true });
 const sessions = [];
 let step = 'initialization';
 
+
+// Primary actions use white text and a sufficiently dark orange background.
+// Calculate contrast from the browser's computed colors, not hard-coded tokens.
+async function assertPrimaryContrast(page,selector){
+  const {textColor,background}=await page.locator(selector).first().evaluate(node=>{
+    const style=getComputedStyle(node);
+    return {textColor:style.color,background:style.backgroundColor};
+  });
+  function luminance(color){
+    const parts=color.match(/[\d.]+/g)?.slice(0,3).map(Number);
+    assert.ok(parts?.length===3,'Expected an RGB color for '+selector+': '+color);
+    const linear=parts.map(n=>{
+      const v=n/255;
+      return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;
+    });
+    return linear[0]*0.2126+linear[1]*0.7152+linear[2]*0.0722;
+  }
+  const fg=luminance(textColor),bg=luminance(background);
+  const ratio=(Math.max(fg,bg)+0.05)/(Math.min(fg,bg)+0.05);
+  assert.ok(ratio>=4.5,
+    selector+' contrast below WCAG AA: '+ratio.toFixed(2)+' ('+textColor+' on '+background+')');
+  assert.ok(fg>bg,'Primary action should use light text on orange.');
+}
+
 async function session(email, mobile = false) {
   const context = await browser.newContext({
     viewport: mobile ? { width: 390, height: 844 } : { width: 1365, height: 900 },
@@ -77,6 +101,7 @@ async function session(email, mobile = false) {
       path: mobile ? 'browser-audit-results/mobile-landing.png' : 'browser-audit-results/desktop-landing.png',
       fullPage: true
     });
+    await assertPrimaryContrast(page,'.lp .lp-btn-accent');
     await startLink.click();
     await page.waitForURL(/\/login\?mode=signup(?:&.*)?$/);
     await page.getByRole('heading', { name: 'Create your account' }).waitFor();
@@ -129,6 +154,13 @@ async function session(email, mobile = false) {
   assert.equal(googleFrameStyle.overflow,'hidden','Google button should clip external iframe gutters');
   assert.equal(googleFrameStyle.display,'block','Google iframe must not create inline baseline gaps');
   assert.ok(layout.email.height >= 50, 'Login fields are too small to use comfortably');
+  await assertPrimaryContrast(page,'.login-submit');
+  if(!mobile && email==='creditor@demo.collectdesk.test'){
+    // Verify both dark and light primary actions, then restore the original theme.
+    await page.locator('.theme-toggle-btn').click();
+    await assertPrimaryContrast(page,'.login-submit');
+    await page.locator('.theme-toggle-btn').click();
+  }
   assert.equal(layout.horizontalOverflow, false, 'Login page overflows horizontally');
   if (!mobile) assert.ok(layout.panel.width > layout.story.width, 'Sign-in panel should be wider than branding');
   if (!mobile && email === 'creditor@demo.collectdesk.test') {
@@ -164,6 +196,16 @@ async function session(email, mobile = false) {
     'Workspace sidebar should use the same logo mark');
 
   await page.locator('.metrics-grid').waitFor();
+  const topbarColor=await page.locator('.topbar').evaluate(node=>getComputedStyle(node).backgroundColor);
+  assert.notEqual(topbarColor,'rgba(0, 0, 0, 0)','Sticky workspace toolbar needs an opaque theme background');
+  assert.notEqual(topbarColor,'transparent','Sticky workspace toolbar must not be transparent');
+  if(email==='creditor@demo.collectdesk.test'){
+    await assertPrimaryContrast(page,'.page-heading .button-primary');
+    await assertPrimaryContrast(page,'.action-row-symbol');
+  }
+  const horizontalOverflow=await page.evaluate(()=>
+    document.documentElement.scrollWidth>window.innerWidth+2);
+  assert.equal(horizontalOverflow,false,'Dashboard must fit its viewport');
   return page;
 }
 async function statusIs(page, status) {
