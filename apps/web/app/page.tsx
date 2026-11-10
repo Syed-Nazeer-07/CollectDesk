@@ -319,7 +319,6 @@ export default function LandingPage(){
           <div><h5>Access</h5><Link href="/login?mode=signup">Create account</Link><Link href="/login">Sign in</Link><Link href="/forgot-password">Reset password</Link></div>
           <div><h5>Project</h5><a href="https://github.com/Syed-Nazeer-07/CollectDesk" target="_blank" rel="noopener noreferrer">GitHub</a><a href="#faq">Preview information</a></div>
         </div>
-        <div className="lp-mega" aria-hidden="true">collect<i>desk</i></div>
         <div className="lp-foot-note"><span>© 2026 collectDesk · Commercial collections case management</span><span>Sample data only. No real payments are processed.</span></div>
       </div>
     </footer>
