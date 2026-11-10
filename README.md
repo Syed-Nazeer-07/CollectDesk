@@ -23,6 +23,8 @@ A focused full-stack B2B prototype for tracking overdue invoice cases, coordinat
 
 The public home page (`/`) introduces CollectDesk, explains the core workflow and staff roles, and links directly into **Create account** (`/login?mode=signup`) or **Sign in** (`/login`). Both authentication modes share one right-side panel. Registration continues through Google Sign-In plus company setup, or verified email registration where configured. The landing-page preview metrics are illustrative, not live operational data.
 
+New creditor dashboards include a **getting-started checklist** driven by actual accessible cases (company setup, first draft, submission, review outcome), rather than manually checked or invented progress. A **Help & support** workspace (`/support`) allows authenticated users, including users still completing company setup, to submit categorized requests and view their own outcomes. Administrators can triage and resolve requests with recorded notes. Support is in-app only; no automated email delivery or service-level guarantee is implied.
+
 ## The product
 
 | Workspace | Capabilities |
@@ -31,6 +33,7 @@ The public home page (`/`) introduces CollectDesk, explains the core workflow an
 | **Administrator** | Review requests, assign operators, manage lifecycle, verify/reject/reverse demonstration receipts |
 | **Case operator** | Manage assigned cases and share public or internal activity |
 | **Dashboard** | Outstanding balance, net verified recovery, illustrative fees, case-status filters and recent activity |
+| **Help & support** | Private support ticket intake, status/history, and administrator-only resolution workflow |
 
 **Core flow**
 
@@ -98,10 +101,11 @@ GitHub Actions also tests the complete role workflows and browser UI against an 
 
 - [Product requirements document](docs/Commercial_Collections_PRD_v0.1.pdf)
 - [Competitor research](docs/Commercial_Collections_Competitor_Research_Enhanced.pdf)
+- [Playbook-aligned release readiness & QA gates](docs/RELEASE_READINESS.md)
 
 ## Scope and limitations
 
-This project is intended for demonstration and technical evaluation. It does **not** provide production-grade payment processing, business identity verification, secure document upload, administrator-managed password recovery support, or multi-document financial transactions. A real commercial deployment would require independent security review, transactional reconciliation, monitoring, backups, and a reliable always-on hosting service.
+This project is intended for demonstration and technical evaluation. It does **not** provide production-grade payment processing, business identity verification, secure document upload, administrator-issued staff invitations, or multi-document financial transactions. In-app support tickets are not live chat or a staffed service agreement. A real commercial deployment would require independent security review, transactional reconciliation, monitoring, backups, and a reliable always-on hosting service.
 
 **Cold-start note:** Render Free may show its own loading screen before Next.js starts. A green deployment and successful automated test cannot remove free-tier sleep delays.
 
