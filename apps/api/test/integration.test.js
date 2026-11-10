@@ -248,6 +248,66 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,201,JSON.stringify(r.data));
     const caseId = r.data.id;
     assert.ok(caseId);
+    await t.test('private synthetic PDF evidence is strictly scoped and guarded',async()=>{
+      const previous=process.env.SAMPLE_EVIDENCE_ENABLED;
+      const sample=Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n');
+      const path='/cases/'+caseId+'/evidence';
+      const send=async(cookie,data=sample)=>{
+        const response=await fetch(base+'/api/v1'+path,{
+          method:'POST',headers:{cookie,origin:'http://localhost:3000',
+            'content-type':'application/pdf','x-file-name':'fictional-invoice.pdf'},
+          body:data
+        });
+        const body=await response.json();
+        return {status:response.status,data:body};
+      };
+      try{
+        delete process.env.SAMPLE_EVIDENCE_ENABLED;
+        let response=await call(path,{cookie:a});
+        assert.equal(response.status,200);
+        assert.equal(response.data.enabled,false,'evidence feature must default to disabled');
+        process.env.SAMPLE_EVIDENCE_ENABLED='true';
+        response=await send(a,Buffer.from('not a PDF'));
+        assert.equal(response.status,422,'unsupported file bytes must be rejected');
+        response=await send(a,Buffer.alloc(1024*1024+5,0x41));
+        assert.equal(response.status,413,'oversized PDF must be rejected before persistence');
+        response=await send(b);
+        assert.equal(response.status,404,'other creditor cannot upload against this case');
+        response=await send(operator);
+        assert.equal(response.status,404,'unassigned operator must not upload');
+        response=await send(a);
+        assert.equal(response.status,201,JSON.stringify(response.data));
+        const fileId=response.data.id;
+        assert.ok(fileId,'upload should return a private file identifier');
+        let listing=await call(path,{cookie:a});
+        assert.equal(listing.status,200);
+        assert.equal(listing.data.enabled,true);
+        assert.equal(listing.data.files.length,1);
+        assert.equal(listing.data.files[0].name,'fictional-invoice.pdf');
+        listing=await call(path,{cookie:admin});
+        assert.equal(listing.data.files.length,1,'admins may inspect attached synthetic evidence');
+        listing=await call(path,{cookie:b});
+        assert.equal(listing.status,404,'tenant B cannot list tenant A files');
+        let download=await fetch(base+'/api/v1'+path+'/'+fileId,{headers:{cookie:admin}});
+        assert.equal(download.status,200);
+        assert.match(download.headers.get('content-disposition')||'',/attachment/);
+        assert.equal(download.headers.get('content-type'),'application/octet-stream');
+        assert.equal(Buffer.compare(Buffer.from(await download.arrayBuffer()),sample),0);
+        download=await fetch(base+'/api/v1'+path+'/'+fileId,{headers:{cookie:b}});
+        assert.equal(download.status,404,'cross-tenant evidence download must be blocked');
+        let deletion=await call(path+'/'+fileId,{method:'DELETE',cookie:admin});
+        assert.equal(deletion.status,403,'admin cannot remove creditor evidence');
+        deletion=await call(path+'/'+fileId,{method:'DELETE',cookie:b});
+        assert.equal(deletion.status,404,'another creditor cannot delete evidence');
+        deletion=await call(path+'/'+fileId,{method:'DELETE',cookie:a});
+        assert.equal(deletion.status,200,'draft owner may remove sample PDF');
+        listing=await call(path,{cookie:a});
+        assert.equal(listing.data.files.length,0);
+      }finally{
+        if(previous===undefined)delete process.env.SAMPLE_EVIDENCE_ENABLED;
+        else process.env.SAMPLE_EVIDENCE_ENABLED=previous;
+      }
+    });
     // A creditor can edit their own draft, but never an accepted/submitted claim.
     const editableInvoice={...invoice,description:'Corrected draft description'};
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:editableInvoice});
