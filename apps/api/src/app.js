@@ -13,6 +13,7 @@ import {installRegistrationRoutes} from './registration.js';
 import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
 import {installStaffRoutes} from './staff-invites.js';
+import {installEvidenceRoutes} from './evidence.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
@@ -76,6 +77,7 @@ async function getCase(req,res,next) {
 async function logEvent(item,user,kind,text,visibility='creditor',metadata={}) {
   await Activity.create({caseId:item._id,organizationId:item.organizationId,actorId:user._id,kind,text,visibility,metadata});
 }
+installEvidenceRoutes(route,{getCase,logEvent});
 // Short-lived per-case lease serializes demo ledger updates. Without this guard,
 // two parallel verifications could each read the same unverified balance.
 // It is NOT a substitute for an ACID transaction in a real financial platform.
@@ -280,6 +282,7 @@ app.use((error,_req,res,_next)=>{
   if(error?.code===11000)return res.status(409).json({error:'This invoice or reference already exists.'});
   if(error instanceof SyntaxError && 'body' in error) return res.status(400).json({error:'Invalid JSON request.'});
   if(error?.name==='CastError')return res.status(404).json({error:'Record not found.'});
+  if(error?.type==='entity.too.large')return res.status(413).json({error:'Uploaded document is too large.'});
   console.error('[API]',error?.message);
   res.status(500).json({error:'Something went wrong. Please retry.'});
 });
