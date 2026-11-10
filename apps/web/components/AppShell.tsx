@@ -29,7 +29,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     setReady(false);setTakingLong(false);setAuthError('');
     api<{user:User}>('/auth/me',{signal:controller.signal})
       .then(r=>{if(controller.signal.aborted)return;
-        if(r.user.role==='creditor'&&!r.user.organizationId){router.replace('/onboarding');return;}
+        if(r.user.role==='creditor'&&!r.user.organizationId&&pathname!=='/support'){router.replace('/onboarding');return;}
         setUser(r.user);
       })
       .catch(e=>{
@@ -38,7 +38,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         else setAuthError(e.message);
       })
       .finally(()=>{if(requestRef.current===controller && !controller.signal.aborted)setReady(true);});
-  },[router]);
+  },[router,pathname]);
   useEffect(()=>{load();return()=>{requestRef.current?.abort();};},[load]);
   useEffect(()=>{setMenu(false);},[pathname]);
   useEffect(()=>{
