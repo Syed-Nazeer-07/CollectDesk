@@ -3,6 +3,7 @@ import {useState} from 'react';
 import Link from 'next/link';
 import {ArrowLeft,CheckCircle2} from 'lucide-react';
 import {useRouter} from 'next/navigation';
+import BrandLockup from '@/components/BrandLockup';
 import {api,User} from '@/lib/api';
 export default function VerifyEmail({token}:{token:string}){
   const router=useRouter();
@@ -20,6 +21,7 @@ export default function VerifyEmail({token}:{token:string}){
     finally{setBusy(false);}
   }
   return <main className="auth-page"><section className="auth-card">
+    <BrandLockup/>
     <Link className="auth-back" href="/login"><ArrowLeft size={16}/> Back to sign in</Link>
     <div className="eyebrow">ACCOUNT VERIFICATION</div>
     <h1>Confirm your email</h1>
