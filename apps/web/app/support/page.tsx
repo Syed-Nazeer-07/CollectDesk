@@ -79,9 +79,10 @@ function SupportWorkspace({user}:{user:User}){
   }
   return <div className="support-layout">
     <section className="panel support-form-panel">
-      <div className="panel-head">
-        <div><h2><LifeBuoy size={20}/> Contact the team</h2>
-          <p>Report a problem without sharing confidential financial data.</p></div>
+      <div className="panel-head support-panel-head">
+        <span className="support-heading-icon" aria-hidden="true"><LifeBuoy size={19}/></span>
+        <div className="support-panel-heading"><h2>Contact the team</h2>
+          <p>Describe an issue or ask for help with your workspace.</p></div>
       </div>
       <form className="support-form" onSubmit={send}>
         <label className="field">Topic
@@ -106,11 +107,12 @@ function SupportWorkspace({user}:{user:User}){
       </form>
     </section>
     <section className="panel support-tickets-panel">
-      <div className="panel-head">
-        <div><h2><MessageCircle size={20}/>{user.role==='admin'?'Support queue':'Your requests'}</h2>
+      <div className="panel-head support-panel-head">
+        <span className="support-heading-icon" aria-hidden="true"><MessageCircle size={19}/></span>
+        <div className="support-panel-heading"><h2>{user.role==='admin'?'Support queue':'Your requests'}</h2>
           <p>{user.role==='admin'?'Review and resolve workspace support requests.':'Track updates and resolutions here.'}</p>
         </div>
-        <button className="button button-muted button-small" type="button" onClick={()=>setRevision(x=>x+1)} aria-label="Refresh support requests"><RefreshCw size={15}/></button>
+        <button className="button button-muted button-small support-refresh" type="button" onClick={()=>setRevision(x=>x+1)} aria-label="Refresh support requests"><RefreshCw size={16}/></button>
       </div>
       <div className="support-filter-row">
         <label htmlFor="support-status-filter">Status</label>
@@ -123,9 +125,11 @@ function SupportWorkspace({user}:{user:User}){
       {notice&&<p className="support-notice" role="status"><CheckCircle2 size={16}/>{notice}</p>}
       {error&&<div className="message error" role="alert">{error}<button type="button" onClick={()=>setRevision(v=>v+1)}>Retry</button></div>}
       {loading?<p className="support-list-state" role="status">Loading requests…</p>:
-        !error&&tickets.length===0?<div className="support-list-state">
-          <Headphones size={25}/><strong>No requests found</strong>
-          <span>{user.role==='admin'?'There are no requests in this queue.':'You can submit your first request using the form.'}</span>
+        !error&&tickets.length===0?<div className="support-list-state" role="status">
+          <span className="support-empty-icon" aria-hidden="true"><Headphones size={24}/></span>
+          <strong>{filter==='all'?'No requests yet':'No matching requests'}</strong>
+          <p>{filter!=='all'?'Try choosing a different status to see other requests.':user.role==='admin'?'New support requests will appear here.':'Once you submit a request, you can track its progress here.'}</p>
+          {filter!=='all'&&<button className="button button-outline button-small" type="button" onClick={()=>{setFilter('all');setPage(1);}}>Show all requests</button>}
         </div>:!error&&<div className="support-ticket-list">
           {tickets.map(t=><TicketCard key={t.id} ticket={t} admin={user.role==='admin'} onUpdate={update}/>)}
         </div>}
