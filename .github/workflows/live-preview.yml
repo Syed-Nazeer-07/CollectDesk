@@ -11,6 +11,9 @@ on:
       - apps/api/src/app.js
       - apps/web/lib/api.ts
   workflow_dispatch:
+  # Lightweight synthetic availability check once a day (02:35 UTC).
+  schedule:
+    - cron: '35 2 * * *'
 
 permissions:
   contents: read
