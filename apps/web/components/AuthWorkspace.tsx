@@ -68,7 +68,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
       .then(({ user }) => {
         if (active) router.replace(user.role === 'creditor' && !user.organizationId ? '/onboarding' : '/dashboard');
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       active = false;
     };
@@ -306,7 +306,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
             <span className="eyebrow">
               {isSignup ? 'CREDITOR ONBOARDING' : 'COLLECTDESK ACCESS'}
             </span>
-            <h1>{isSignup ? 'Create your workspace' : 'Welcome back'}</h1>
+            <h1>{isSignup ? 'Create your account' : 'Welcome back'}</h1>
             <p className="auth-panel-lead">
               {isSignup
                 ? 'Fill in your details below to activate your commercial creditor workspace.'

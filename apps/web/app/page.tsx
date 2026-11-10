@@ -62,6 +62,19 @@ const orbitChips=[
   {name:'Progress',color:'var(--mint)'},{name:'Reconciliation',color:'var(--accent)'},{name:'Closed',color:'var(--fg)'}
 ];
 
+const capabilities=[
+  {icon:'clip',title:'Invoice case intake',copy:'Create draft cases, submit overdue invoices, and keep your case details organized.'},
+  {icon:'shield',title:'Structured case review',copy:'Track review decisions, requests for more information, and case status changes.'},
+  {icon:'users',title:'Coordinated operations',copy:'Assigned staff can follow case progress and share appropriate updates.'},
+  {icon:'tick',title:'Verified recovery tracking',copy:'Separate recorded receipts from verified recovery totals, including corrections.'}
+];
+
+const steps=[
+  {number:'01',title:'Create your account',copy:'Sign up with an email address or Google login to set up your workspace.'},
+  {number:'02',title:'Submit an overdue invoice',copy:'Enter debtor and invoice details, confirm dates, and submit the claim for administrative review.'},
+  {number:'03',title:'Follow verified progress',copy:'Monitor case milestones, public updates, and verified recovery receipts from one dashboard.'}
+];
+
 const roles=[
   {icon:'brief',title:'Creditor',copy:'Submit and track cases for your company.',tags:['Draft invoices','Submit cases','Follow public progress']},
   {icon:'shield',title:'Administrator',copy:'Review cases, assign operators, and verify receipts.',tags:['Review requests','Assign operators','Verify or reverse receipts']},
@@ -90,7 +103,8 @@ export default function LandingPage(){
     <header className="lp-nav">
       <nav className="lp-nav-pill" aria-label="Main navigation">
         <Brand/>
-        <a className="lp-nav-link" href="#stages">How it works</a>
+        <a className="lp-nav-link" href="#features">Features</a>
+        <a className="lp-nav-link" href="#stages">Lifecycle</a>
         <a className="lp-nav-link" href="#roles">Roles</a>
         <a className="lp-nav-link" href="#faq">FAQ</a>
         <ThemeToggle className="lp-theme-toggle" />
@@ -182,6 +196,46 @@ export default function LandingPage(){
             <div className="lp-stat lp-rv"><span className="lp-kicker lp-k">Lifecycle</span><strong><span data-count="7">7</span></strong><p>case stages, from draft to closed, with a status on every step.</p></div>
             <div className="lp-stat lp-rv" style={{'--d':'.1s'} as React.CSSProperties}><span className="lp-kicker lp-k">Workspaces</span><strong><span data-count="3">3</span></strong><p>role-based views for creditors, administrators, and case operators.</p></div>
             <div className="lp-stat lp-rv" style={{'--d':'.2s'} as React.CSSProperties}><span className="lp-kicker lp-k">Recovery totals</span><strong><span data-count="100">100</span><sup>%</sup></strong><p>built from verified receipts only. Pending ones are listed, never counted.</p></div>
+          </div>
+        </div>
+      </section>
+
+      {/* CORE CAPABILITIES */}
+      <section className="lp-band" id="features" style={{paddingTop:0}} aria-labelledby="features-title">
+        <div className="lp-wrap">
+          <div className="lp-stages-head">
+            <span className="lp-kicker">Core platform</span>
+            <h2 id="features-title">All moving parts, in one workspace.</h2>
+            <p>Less back-and-forth. More clarity across submissions, decisions, and case activity.</p>
+          </div>
+          <div className="cdl-feature-grid">
+            {capabilities.map(item=>(
+              <article className="cdl-feature" key={item.title}>
+                <span className="cdl-feature-icon"><Ic n={item.icon} size={22}/></span>
+                <h3>{item.title}</h3>
+                <p>{item.copy}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CUSTOMER ONBOARDING */}
+      <section className="lp-band" id="how-it-works" style={{paddingTop:0}} aria-labelledby="how-title">
+        <div className="lp-wrap">
+          <div className="lp-stages-head">
+            <span className="lp-kicker">Getting started</span>
+            <h2 id="how-title">From first sign-in to your first case.</h2>
+            <p>Customer onboarding is designed around three straightforward steps.</p>
+          </div>
+          <div className="cdl-steps">
+            {steps.map(step=>(
+              <div className="cdl-step" key={step.number}>
+                <span className="cdl-step-number">{step.number}</span>
+                <h3>{step.title}</h3>
+                <p>{step.copy}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

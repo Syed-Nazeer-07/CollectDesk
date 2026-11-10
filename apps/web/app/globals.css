@@ -1149,7 +1149,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .field select,
 .login-form input {
   width: 100%;
-  min-height: 46px;
+  min-height: 52px;
   padding: 10px 14px;
   border-radius: var(--radius-md);
   background: var(--input-bg);
@@ -2347,8 +2347,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .auth-form input,
 .login-form input {
   width: 100% !important;
-  height: 48px !important;
-  min-height: 48px !important;
+  height: 52px !important;
+  min-height: 52px !important;
   border-radius: 12px !important;
   background: var(--input-bg) !important;
   border: 1.5px solid var(--border) !important;
