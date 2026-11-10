@@ -2,6 +2,7 @@
 import Script from 'next/script';
 import {useEffect,useRef,useState} from 'react';
 import {api,User} from '@/lib/api';
+import {useTheme} from '@/components/ThemeProvider';
 
 type Options={emailSignupEnabled:boolean;googleEnabled:boolean;googleClientId:string|null};
 type GoogleResponse={credential:string};
@@ -15,6 +16,7 @@ declare global {
 }
 
 export default function GoogleSignIn({onAuthenticated,showDivider=true}:{onAuthenticated:(user:User)=>void;showDivider?:boolean}){
+  const {theme}=useTheme();
   const [options,setOptions]=useState<Options|null>(null);
   const [scriptReady,setScriptReady]=useState(false);
   const [error,setError]=useState('');
@@ -49,12 +51,12 @@ export default function GoogleSignIn({onAuthenticated,showDivider=true}:{onAuthe
           }
         });
         target.current.replaceChildren();
-        window.google.accounts.id.renderButton(target.current,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',width:340});
+        window.google.accounts.id.renderButton(target.current,{type:'standard',theme:theme==='dark'?'filled_black':'outline',size:'large',text:'continue_with',shape:'rectangular',width:Math.min(360,Math.max(220,Math.floor(target.current.getBoundingClientRect().width)))});
       }catch(e){if(!cancelled)setError(e instanceof Error?e.message:'Google is unavailable.');}
     }
     setup();
     return()=>{cancelled=true;};
-  },[options,scriptReady,attempt]);
+  },[options,scriptReady,attempt,theme]);
   if(!options?.googleEnabled)return null;
   return <div className="auth-google">
     <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={()=>setScriptReady(true)}/>
