@@ -34,6 +34,8 @@ New creditor dashboards include a **getting-started checklist** driven by actual
 | **Case operator** | Manage assigned cases and share public or internal activity |
 | **Dashboard** | Outstanding balance, net verified recovery, illustrative fees, case-status filters and recent activity |
 | **Help & support** | Private support ticket intake, status/history, and administrator-only resolution workflow |
+| **Staff invitations** | Admin-issued one-time, email-delivered operator invitations; private activation, expiration and revocation |
+| **Sample evidence** | Optional private synthetic PDF upload/list/download/delete per case, disabled by default |
 
 **Core flow**
 
@@ -66,6 +68,8 @@ Their passwords are configured **privately** through `DEMO_SEED_PASSWORD` in Ren
 
 Sign-in and account creation share one page. Email signup, verification, Google Sign-In and company onboarding are available **only when the corresponding providers have been configured by the deployment owner**. Public registration grants Creditor access only. Administrator and Operator identities must be provisioned separately, and the Account & access page displays the signed-in role without offering a role selector.
 
+**Staff invitations:** Administrators can access `/staff` to invite case operators through a verified transactional email sender. Invitations are single use, expire in 24 hours, and may be revoked before acceptance. Invitees set their own password at the private emailed `/staff/activate` link. Public signup never grants operator or administrator privileges. Administrator accounts remain separately provisioned. Without a configured sender, staff invitations fail closed rather than generating shared credentials.
+
 **Password recovery:** Existing users can open `/forgot-password` from sign-in. When an email provider is configured, a valid account receives a single-use reset link expiring in 30 minutes. Recovery does not disclose whether an email address exists, does not change account roles, and invalidates old sessions after resetting. `/reset-password?token=...` refuses reused or expired tokens. Recovery remains available to existing accounts even when new registrations are disabled. The reset URL is removed from browser history after loading and its responses use no-referrer/no-store headers.
 
 **Enable public creditor registration:** Set `PUBLIC_REGISTRATION_ENABLED=true` in your host's private environment variables, then configure at least one provider:
@@ -75,6 +79,13 @@ Sign-in and account creation share one page. Email signup, verification, Google 
 - **Gmail SMTP (local or SMTP-capable hosting only):** `GMAIL_SMTP_USER` + `GMAIL_SMTP_APP_PASSWORD`, using a Google App Password. Render Free blocks outgoing SMTP ports 465 and 587, so Gmail SMTP is deliberately not advertised as available on Render without an explicit paid-host override (`ALLOW_SMTP_ON_RENDER=true`). **Do not set this override on Render Free.**
 
 Store every API key or app password only in the hosting provider's secret settings. A Google OAuth Client ID is not a Gmail SMTP password. If no working sender is configured, the registration page stays disabled rather than creating unverifiable accounts.
+
+## Synthetic evidence and release verification
+
+- **Private demo PDFs:** Set `SAMPLE_EVIDENCE_ENABLED=true` explicitly to enable small, synthetic PDF attachments in editable creditor cases. Default is disabled. Each PDF is limited to **1 MiB** and each case to **three files**. All reads and deletes check the active user and case role/organization, and downloads are served as attachments rather than publicly hosted files.
+- **Not production evidence storage:** Files are stored in a private MongoDB GridFS bucket. Malware scanning/quarantine, verified retention/deletion policies, external storage authorization and privacy approval **are not implemented**. Do not upload real invoices, financial data or personal debtor records.
+- **Release identity:** `/api/v1/meta/release` exposes the non-secret release commit prefix (when `RENDER_GIT_COMMIT` is present) and database status. Compare this with the latest approved GitHub commit after Render finishes deploying.
+- **Approval checklist:** See [implementation worklist](docs/IMPLEMENTATION_CHECKLIST.md) and [release-readiness criteria](docs/RELEASE_READINESS.md). CI passing never substitutes for live OAuth/email tests, representative UAT or designated operator sign-off.
 
 ## Run locally
 
