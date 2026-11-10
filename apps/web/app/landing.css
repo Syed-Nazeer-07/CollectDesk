@@ -363,3 +363,120 @@ html:has(.lp){scroll-behavior:smooth;scroll-padding-top:84px}
 
 }
 
+
+
+
+/* November visual QA: consistent theme contrast, calmer motion and useful interaction. */
+.lp .lp-paper,
+.lp .lp-paper h2,
+.lp .lp-paper h3,
+.lp .lp-paper .lp-role h3 {
+  color: var(--paper-ink);
+}
+.lp .lp-paper .lp-lead,
+.lp .lp-paper .lp-role p,
+.lp .lp-paper .lp-note,
+.lp .lp-paper .lp-note span {
+  color: var(--paper-dim);
+}
+.lp .lp-paper .lp-kicker {
+  color: var(--paper-dim);
+}
+.lp .lp-paper .lp-role-ico {
+  background: var(--paper-ink);
+  color: #ffffff;
+}
+.lp .lp-paper .lp-role li {
+  color: var(--paper-ink);
+  border-color: var(--paper-line);
+}
+.lp .lp-paper .lp-ledger {
+  color: var(--fg);
+}
+.lp .lp-paper .lp-ledger h3 {
+  color: var(--fg);
+}
+/* Verified recovery reads as a quiet, trustworthy white seal. */
+.lp .lp-coin-face {
+  background: linear-gradient(145deg,#ffffff,#f2f3f4);
+  border: 3px solid rgba(255,255,255,.94);
+  box-shadow: 0 0 0 7px rgba(255,106,43,.13),
+              0 16px 46px rgba(24,31,42,.16),
+              inset 0 -5px 12px rgba(24,31,42,.07);
+}
+.lp .lp-coin-face::before {
+  border: 1.5px solid rgba(255,106,43,.44);
+}
+.lp .lp-coin-face svg {
+  color: #26323a;
+  stroke-width: 2.7;
+}
+.lp .lp-coin-shadow {
+  background: radial-gradient(rgba(20,28,40,.2),transparent 72%);
+}
+/* Orbit pills are genuine links into the lifecycle, not decorative buttons. */
+.lp .lp-chip {
+  padding: 13px 20px;
+  font-size: 14px;
+  min-height: 44px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color .2s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.lp .lp-chip:hover,
+.lp .lp-chip:focus-visible {
+  background: var(--panel);
+  border-color: var(--accent);
+  color: var(--fg);
+  box-shadow: 0 10px 28px -8px rgba(255,106,43,.28);
+}
+html[data-theme="light"] .lp .lp-chip:hover,
+html.light .lp .lp-chip:hover {
+  background: #fff7f0;
+  color: #151a22;
+}
+.lp .cdl-feature {
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 232px;
+  justify-content: flex-start;
+}
+.lp .cdl-feature:hover,
+.lp .cdl-feature:focus-visible {
+  transform: translateY(-5px);
+  border-color: rgba(255,106,43,.65);
+  box-shadow: 0 18px 34px -20px rgba(255,106,43,.42);
+}
+.lp .cdl-feature:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* Keep the footer compact and readable, including on laptops. */
+.lp .lp-foot {
+  padding-top: 42px;
+}
+.lp .lp-foot-cols a {
+  line-height: 1.65;
+  min-height: 32px;
+}
+.lp .lp-foot-cols h5 {
+  color: var(--fg-dim);
+}
+.lp .lp-foot-note {
+  margin-top: 36px;
+  color: var(--fg-dim);
+}
+.lp #features, .lp #how-it-works, .lp #stages,
+.lp #roles, .lp #faq, .lp .lp-step {
+  scroll-margin-top: 104px;
+}
+@media(max-width:640px) {
+  .lp .lp-chip { font-size: 12px; padding: 10px 12px; min-height: 39px; }
+  .lp .cdl-feature { min-height: 0; }
+  .lp .lp-foot { padding-top: 24px; }
+  .lp .lp-foot-note { margin-top: 18px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .lp .cdl-feature { transition: none; }
+  .lp .lp-chip { transition: none; }
+}
