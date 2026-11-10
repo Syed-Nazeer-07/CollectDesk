@@ -253,6 +253,9 @@ try {
   await creditor.goto(base+'/support',{waitUntil:'domcontentloaded'});
   const tracked=creditor.locator('.support-ticket').filter({hasText:supportSubject});
   await tracked.getByText('The team verified the sample request and provided a resolution.').waitFor();
+  // Return to the case before subsequent receipt/privacy assertions.
+  await creditor.goto(caseUrl,{waitUntil:'domcontentloaded'});
+  await statusIs(creditor,'Submitted');
   log('Admin resolution is visible to the original requester');
   step = 'admin review and assignment';
   await admin.goto(caseUrl, { waitUntil: 'domcontentloaded' });
