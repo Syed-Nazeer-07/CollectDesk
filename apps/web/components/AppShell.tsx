@@ -5,6 +5,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe} from 'lucide-react';
 import {api,User} from '@/lib/api';
 import {ThemeToggle} from '@/components/ThemeProvider';
+import BrandMark from '@/components/BrandMark';
 
 type Props={children:(user:User)=>React.ReactNode;title:string;subtitle?:string;action?:boolean};
 
@@ -56,14 +57,14 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     <aside className={`sidebar ${menu?'open':''}`}>
       <div className="sidebar-top">
         <Link href="/dashboard" className="brand" onClick={()=>setMenu(false)} aria-label="CollectDesk overview">
-          <span className="brand-mark"><BriefcaseBusiness size={20} strokeWidth={2}/></span>
-          <span className="brand-word">collect<span>desk</span><small>CASE MANAGEMENT</small></span>
+          <BrandMark className="brand-mark"/>
+          <span className="brand-word">collect<span>Desk</span><small>CASE MANAGEMENT</small></span>
         </Link>
         <button type="button" className="icon-button hide-desktop" onClick={()=>setMenu(false)} aria-label="Close navigation"><X size={20}/></button>
       </div>
       <div className="workspace-identity" aria-label="Current workspace">
         <span className="workspace-avatar">CD</span>
-        <span className="workspace-name"><strong>CollectDesk</strong><small>{displayRole} workspace</small></span>
+        <span className="workspace-name"><strong>collectDesk</strong><small>{displayRole} workspace</small></span>
         <span className="workspace-indicator" aria-hidden="true"/>
       </div>
       <nav className="sidebar-nav" aria-label="Main navigation">
