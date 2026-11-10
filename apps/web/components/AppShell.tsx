@@ -84,7 +84,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     </aside>
     <main className="main">
       <header className="topbar">
-        <div className="topbar-left"><button type="button" className="icon-button hide-desktop" aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <b>{title}</b></span></div>
+        <div className="topbar-left"><button type="button" className="icon-button hide-desktop" aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb"><span className="breadcrumb-root">Workspace</span><span className="breadcrumb-separator">/</span><b>{title}</b></span></div>
         <div className="topbar-right">
           <Link href="/" className="button button-muted button-small" title="View landing page">
             <Globe size={14} /> Site
