@@ -38,6 +38,22 @@ async function session(email, mobile = false) {
       'Customer onboarding should clearly explain each step');
     assert.equal(await page.title(), 'collectDesk',
       'Browser tab should use the short collectDesk brand name');
+    assert.equal(await page.locator('.lp-brand svg.lp-brand-mark').count(),2,
+      'The landing header and footer should use the shared vector mark');
+    if(!mobile){
+      const nav=page.getByRole('navigation',{name:'Main navigation'});
+      for(const [name,target] of [
+        ['Features','features'],['Lifecycle','stages'],['Roles','roles'],['FAQ','faq']
+      ]){
+        await nav.getByRole('link',{name,exact:true}).click();
+        await page.waitForFunction(id=>
+          document.querySelector('.lp-nav-link[href="#'+id+'"]')?.getAttribute('aria-current')==='location',
+          target
+        );
+        assert.equal(await page.locator('.lp-nav-link.lp-active').count(),1,
+          'Exactly one landing section should be highlighted');
+      }
+    }
     assert.ok(await page.locator('link[rel="icon"][href*="icon.svg"]').count() > 0,
       'Website favicon should be present in the browser tab');
     assert.equal(await page.locator('.lp-f-orange, .lp-f-sky').count(),0,
@@ -80,6 +96,8 @@ async function session(email, mobile = false) {
   // The branding story is intentionally hidden at mobile widths, so both
   // elements have zero-sized boxes there and cannot overlap.
   if (!mobile) assert.ok(layout.brand.bottom + 6 <= layout.tagline.top, 'Brand overlaps login tagline');
+  assert.equal(await page.locator('.story-brand svg.brand-mark').count(),1,
+    'Login screen should use the shared CollectDesk logo');
   assert.ok(layout.email.height >= 50, 'Login fields are too small to use comfortably');
   assert.equal(layout.horizontalOverflow, false, 'Login page overflows horizontally');
   if (!mobile) assert.ok(layout.panel.width > layout.story.width, 'Sign-in panel should be wider than branding');
@@ -112,6 +130,9 @@ async function session(email, mobile = false) {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL(/\/dashboard(?:\?.*)?$/);
   await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor();
+  assert.equal(await page.locator('.sidebar-top svg.brand-mark').count(),1,
+    'Workspace sidebar should use the same logo mark');
+
   await page.locator('.metrics-grid').waitFor();
   return page;
 }
