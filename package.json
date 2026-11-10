@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "mongodb-memory-server": "^11.3.0",
     "playwright": "1.65.0"
   },
   "engines": {

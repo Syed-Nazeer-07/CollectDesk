@@ -10,6 +10,7 @@ test('verification sender is disabled until all credentials for a provider are p
   assert.equal(emailDeliveryProvider({GMAIL_SMTP_USER:'owner@gmail.com',GMAIL_SMTP_APP_PASSWORD:'test'}),'gmail');
   assert.equal(emailDeliveryProvider({RESEND_API_KEY:'key',AUTH_FROM_EMAIL:'verify@example.org'}),'resend');
   assert.equal(emailDeliveryProvider({BREVO_API_KEY:'key',BREVO_FROM_EMAIL:'verify@example.org'}),'brevo');
+  assert.equal(emailDeliveryProvider({PUBLIC_REGISTRATION_ENABLED:'true',NODE_ENV:'development'}),'console','Local demo mode can exercise signup without external email credentials');
   assert.equal(emailDeliveryProvider({
     RENDER:'true',GMAIL_SMTP_USER:'owner@gmail.com',GMAIL_SMTP_APP_PASSWORD:'test'
   }),null,'Render must not expose a signup path that depends on blocked SMTP');
@@ -57,6 +58,23 @@ test('Gmail rejection fails closed and closes the transport',async()=>{
     })
   }),/rejected/);
   assert.equal(closed,true);
+});
+
+test('console delivery keeps local demo signup working without external mail credentials',async()=>{
+  const messages=[];
+  const originalInfo=console.info;
+  console.info=(...args)=>messages.push(args.join(' '));
+  try {
+    await sendVerificationEmail('newuser@example.test','https://example.org/signup/verify?token=demo',{
+      env:{PUBLIC_REGISTRATION_ENABLED:'true',NODE_ENV:'development'},
+      createTransport:()=>{throw new Error('console transport should not attempt SMTP');}
+    });
+    assert.equal(messages.length,1);
+    assert.match(messages[0],/CollectDesk demo email \(verification\): Verify your CollectDesk account/);
+    assert.match(messages[0],/newuser@example.test/);
+  } finally {
+    console.info=originalInfo;
+  }
 });
 
 test('Resend delivery remains supported without Gmail configuration',async()=>{

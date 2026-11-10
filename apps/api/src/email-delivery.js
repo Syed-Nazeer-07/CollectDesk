@@ -14,6 +14,9 @@ export function emailDeliveryProvider(env=process.env){
   // Paid Render instances can opt in explicitly after confirming outbound SMTP access.
   const renderSmtpAllowed=env.RENDER!=='true'||env.ALLOW_SMTP_ON_RENDER==='true';
   if(renderSmtpAllowed && env.GMAIL_SMTP_USER?.trim() && env.GMAIL_SMTP_APP_PASSWORD?.trim())return 'gmail';
+  // Local demo environments can still exercise the signup flow without external mail credentials.
+  // Production remains fail-closed: signup is only enabled when a real sender is configured.
+  if(env.PUBLIC_REGISTRATION_ENABLED==='true' && env.NODE_ENV!=='production')return 'console';
   return null;
 }
 
@@ -59,6 +62,12 @@ async function sendAccountEmail(email,url,kind,{
       signal:AbortSignal.timeout(10000)
     });
     if(!response.ok)throw new Error('Email provider refused the verification message');
+    return;
+  }
+
+  if(provider==='console'){
+    const logMessage=`CollectDesk demo email (${kind}): ${subject}\nTo: ${email}\n${text}`;
+    console.info(logMessage);
     return;
   }
 

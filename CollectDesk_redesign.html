@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>CollectDesk – Modern UI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Light colour palette */
+      --bg: #f9fafb;
+      --bg-card: #ffffff;
+      --fg: #111827;
+      --fg-muted: #6b7280;
+      --accent: #2563eb; /* blue */
+      --accent-dark: #1e40af;
+      --accent-light: #93c5fd;
+      --border: #e5e7eb;
+      --radius: 12px;
+      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --gutter: clamp(16px, 4vw, 32px);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin:0; padding:0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--fg);
+      line-height: 1.6; overflow-x: hidden;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 var(--gutter); }
+    /* Nav */
+    .nav { position: sticky; top:0; background: var(--bg-card); backdrop-filter:blur(8px); box-shadow: 0 2px 4px rgba(0,0,0,0.05); z-index: 100; }
+    .nav .container { display:flex; justify-content:space-between; align-items:center; height:64px; }
+    .nav .brand { font-family: 'Poppins', sans-serif; font-weight:700; font-size:1.25rem; color: var(--accent-dark); display:flex; align-items:center; gap:0.5rem; }
+    .nav .links { display:none; }
+    .nav .cta { display:flex; gap:0.75rem; }
+    .nav .btn { padding:0.5rem 1rem; border:none; border-radius: var(--radius); cursor:pointer; font-weight:500; transition:background .2s; }
+    .nav .btn-ghost { background: transparent; color: var(--fg); }
+    .nav .btn-ghost:hover { background: var(--accent-light); color: #fff; }
+    .nav .btn-primary { background: var(--accent); color:#fff; }
+    .nav .btn-primary:hover { background: var(--accent-dark); }
+    @media(min-width:768px) {
+      .nav .links { display:flex; gap:1.5rem; }
+      .nav .nav-toggle { display:none; }
+    }
+    /* Hero */
+    .hero { background: linear-gradient(135deg, var(--accent-light), var(--accent)); color:#fff; padding: 4rem 0 6rem; text-align:center; position:relative; overflow:hidden; }
+    .hero::before { content:""; position:absolute; inset:0; background: url('https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat; opacity:0.15; }
+    .hero h1 { font-family:'Poppins',sans-serif; font-size: clamp(2.5rem,6vw,4rem); margin:0 0 1rem; }
+    .hero p { font-size:1.125rem; max-width: 48rem; margin:0 auto 2rem; }
+    .hero .cta { display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; }
+    .hero .btn { border-radius: var(--radius); font-weight:600; }
+    .hero .btn-primary { background:#fff; color: var(--accent-dark); }
+    .hero .btn-primary:hover { background:#f3f4f6; }
+    .hero .btn-ghost { background:rgba(255,255,255,0.2); color:#fff; }
+    .hero .btn-ghost:hover { background:rgba(255,255,255,0.3); }
+    /* Card component */
+    .card { background: var(--bg-card); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:1.5rem; margin-bottom:1.5rem; }
+    .card h3 { margin-top:0; font-family:'Poppins',sans-serif; font-size:1.5rem; color: var(--accent-dark); }
+    .card p { margin:0.5rem 0 0; }
+    /* Dashboard */
+    .dashboard { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:1rem; }
+    .stat { text-align:center; padding:1rem; }
+    .stat strong { display:block; font-size:2rem; font-weight:600; color: var(--accent-dark); }
+    .stat span { color: var(--fg-muted); }
+    /* Orbit */
+    .orbit-section { background: var(--bg-card); padding:3rem 0; }
+    .orbit { position:relative; width:100%; max-width:600px; margin:0 auto; height:400px; }
+    .orbit .ring { position:absolute; inset:0; border:2px dashed var(--border); border-radius:50%; }
+    .orbit .coin { position:absolute; inset:0; margin:auto; width:120px; height:120px; background: conic-gradient(from 45deg, var(--accent), var(--accent-light)); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; }
+    /* Stages */
+    .stages { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:2rem; margin:3rem 0; }
+    .stage { background: var(--bg-card); border:1px solid var(--border); border-radius: var(--radius); padding:1.5rem; }
+    .stage h3 { font-size:1.25rem; margin-bottom:0.5rem; color: var(--accent-dark); }
+    .stage p { margin:0; }
+    .stage .who { display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem; color: var(--fg-muted); font-size:0.9rem; }
+    /* CTA */
+    .cta { background: var(--accent); color:#fff; text-align:center; padding:3rem 1rem; border-radius: var(--radius); }
+    .cta h2 { font-size:2rem; margin-bottom:0.5rem; }
+    .cta p { margin-bottom:1.5rem; }
+    .cta .actions { display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; }
+    .cta .btn-primary { background:#fff; color: var(--accent-dark); }
+    .cta .btn-primary:hover { background:#f3f4f6; }
+    /* Footer */
+    .footer { background: var(--bg-card); padding:2rem 0; font-size:0.875rem; color: var(--fg-muted); }
+    .footer .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:1.5rem; }
+    .footer a { color: var(--fg); }
+    .footer a:hover { color: var(--accent-dark); }
+    .footer .brand { font-family:'Poppins',sans-serif; font-weight:700; font-size:1.125rem; color: var(--accent-dark); }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <header class="nav">
+    <div class="wrap container">
+      <a href="#" class="brand">CollectDesk</a>
+      <nav class="links">
+        <a href="#stages">How it works</a>
+        <a href="#roles">Roles</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="cta">
+        <a href="https://collectdesk.onrender.com/login" class="btn btn-ghost" target="_blank" rel="noopener">Sign in</a>
+        <a href="https://collectdesk.onrender.com/login?mode=signup" class="btn btn-primary" target="_blank" rel="noopener">Get started</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="wrap">
+      <h1>Every overdue invoice deserves a clearer path forward.</h1>
+      <p>One workspace to submit collection cases, coordinate reviews, and track verified recovery from first submission to resolution.</p>
+      <div class="cta">
+        <a href="https://collectdesk.onrender.com/login?mode=signup" class="btn btn-primary" target="_blank" rel="noopener">Create a creditor account</a>
+        <a href="#stages" class="btn btn-ghost">See how it works</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard preview -->
+  <section class="wrap" style="margin-top:-4rem;">
+    <div class="card">
+      <h3>Workspace overview</h3>
+      <div class="dashboard">
+        <div class="stat"><strong>08</strong><span>Active cases</span></div>
+        <div class="stat"><strong>03</strong><span>Awaiting review</span></div>
+        <div class="stat"><strong>12</strong><span>Verified entries</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Orbit section -->
+  <section class="orbit-section">
+    <div class="wrap">
+      <h2 style="text-align:center; margin-bottom:1rem;">Introducing verified recovery</h2>
+      <div class="orbit">
+        <div class="ring"></div>
+        <div class="coin">Verified</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Statement & stats -->
+  <section class="wrap" style="margin:3rem 0;">
+    <p style="text-align:center; max-width:48rem; margin:auto;">We take overdue invoices from intake to review, assignment, and verified recovery, so every update has an owner and every number has a source.</p>
+    <div class="dashboard" style="margin-top:2rem;">
+      <div class="stat"><strong>7</strong><span>Lifecycle stages</span></div>
+      <div class="stat"><strong>3</strong><span>Workspaces</span></div>
+      <div class="stat"><strong>100%</strong><span>Recovery totals</span></div>
+    </div>
+  </section>
+
+  <!-- Stages -->
+  <section class="wrap" id="stages">
+    <h2 style="text-align:center; margin-bottom:2rem;">From draft to verified recovery</h2>
+    <div class="stages">
+      <div class="stage">
+        <h3>Draft</h3>
+        <p>Create a case from an overdue invoice. Edit the details until they are right.</p>
+        <div class="who"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-brief"/></svg>Creditor</div>
+      </div>
+      <div class="stage">
+        <h3>Submitted</h3>
+        <p>Send the case to the administrators. It waits in the queue with a clear status.</p>
+        <div class="who"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-brief"/></svg>Creditor</div>
+      </div>
+      <div class="stage">
+        <h3>Review</h3>
+        <p>An administrator approves the case or asks for more information.</p>
+        <div class="who"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-shield"/></svg>Administrator</div>
+      </div>
+      <div class="stage">
+        <h3>Assigned</h3>
+        <p>An operator takes ownership, so every case has one named person behind it.</p>
+        <div class="who"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-shield"/></svg>Administrator</div>
+      </div>
+      <div class="stage">
+        <h3>Progress</h3>
+        <p>The operator logs activity. Public updates reach the creditor, internal notes stay internal.</p>
+        <div class="who"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-users"/></svg>Case operator</div>
+      </div>
+      <div class="stage">
+        <h3>Reconciliation</h3>
+        <p>Receipts are verified, rejected, or reversed. Only verified ones move the total.</p>
+        <div class="who"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-shield"/></svg>Administrator</div>
+      </div>
+      <div class="stage">
+        <h3>Closed</h3>
+        <p>The case closes with its full ledger intact. Closing does not mean the invoice was paid in full.</p>
+        <div class="who"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-clip"/></svg>Administrator</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call to action -->
+  <section class="cta">
+    <div class="wrap">
+      <h2>Ready to start collecting?</h2>
+      <p>Try CollectDesk for free and see how easy case management can be.</p>
+      <div class="actions">
+        <a href="https://collectdesk.onrender.com/login?mode=signup" class="btn btn-primary" target="_blank" rel="noopener">Get started now</a>
+        <a href="https://collectdesk.onrender.com/login" class="btn btn-ghost" target="_blank" rel="noopener">Sign in</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="wrap">
+      <div class="grid">
+        <div>
+          <div class="brand">CollectDesk</div>
+          <p>Product preview using sample data. Not for real invoices, debtor outreach, or payment collection.</p>
+        </div>
+        <div>
+          <h5>Product</h5>
+          <a href="#">Features</a>
+          <a href="#">Pricing</a>
+          <a href="#">Docs</a>
+        </div>
+        <div>
+          <h5>Company</h5>
+          <a href="#">About</a>
+          <a href="#">Blog</a>
+          <a href="#">Careers</a>
+        </div>
+        <div>
+          <h5>Legal</h5>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+        </div>
+      </div>
+      <p style="text-align:center; margin-top:2rem;">© 2026 CollectDesk – All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- SVG symbols (kept from original for icons) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-brief" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></symbol>
+    </defs>
+  </svg>
+</body>
+</html>
+

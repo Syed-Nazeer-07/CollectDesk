@@ -106,11 +106,16 @@ export function installRegistrationRoutes(app,webOrigin){
       passwordHash:await bcrypt.hash(input.password,12),tokenHash:hashToken(token),
       expiresAt:new Date(Date.now()+30*60*1000)
     });
+    const verificationUrl=webOrigin+'/signup/verify?token='+encodeURIComponent(token);
     try{
-      await sendVerificationEmail(input.email,webOrigin+'/signup/verify?token='+encodeURIComponent(token));
+      await sendVerificationEmail(input.email,verificationUrl);
     }catch{
       await PendingSignup.deleteOne({_id:doc._id});
       return res.status(503).json({error:'Verification email could not be sent. Please try again later.'});
+    }
+    if(emailDeliveryProvider()==='console'){
+      response.devToken=token;
+      response.devVerificationUrl=verificationUrl;
     }
     res.status(202).json(response);
   });

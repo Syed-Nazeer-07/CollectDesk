@@ -2,8 +2,9 @@
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness} from 'lucide-react';
+import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe} from 'lucide-react';
 import {api,User} from '@/lib/api';
+import {ThemeToggle} from '@/components/ThemeProvider';
 
 type Props={children:(user:User)=>React.ReactNode;title:string;subtitle?:string;action?:boolean};
 
@@ -82,7 +83,15 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     <main className="main">
       <header className="topbar">
         <div className="topbar-left"><button type="button" className="icon-button hide-desktop" aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <b>{title}</b></span></div>
-        <div className="topbar-right"><Link href="/account" className="top-avatar-link" aria-label="View account and permissions" title="Account & access"><span className="top-avatar">{initials}</span></Link></div>
+        <div className="topbar-right">
+          <Link href="/" className="button button-muted button-small" title="View landing page">
+            <Globe size={14} /> Site
+          </Link>
+          <ThemeToggle />
+          <Link href="/account" className="top-avatar-link" aria-label="View account and permissions" title="Account & access">
+            <span className="top-avatar">{initials}</span>
+          </Link>
+        </div>
       </header>
       <div className="main-content">
         <div className="page-heading"><div><div className="eyebrow">COLLECTDESK / WORKSPACE</div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
