@@ -2717,3 +2717,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .pagination-actions { width: 100%; justify-content: flex-end; }
   .app-footer { gap: 6px 16px; }
 }
+
+
+/* Google's embedded button follows the theme and stays centered at all widths. */
+.auth-google-button {
+  width: 100%;
+  max-width: 360px;
+  min-height: 40px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-google {
+  width: 100%;
+}
+.auth-google-button iframe {
+  max-width: 100%;
+}
+.auth-divider {
+  text-align: center;
+}
