@@ -104,6 +104,30 @@ async function session(email, mobile = false) {
   if (!mobile) assert.ok(layout.brand.bottom + 6 <= layout.tagline.top, 'Brand overlaps login tagline');
   assert.equal(await page.locator('.story-brand svg.brand-mark').count(),1,
     'Login screen should use the shared CollectDesk logo');
+  // GIS's personalized sign-in widget is cross-origin, so its interior
+  // cannot be inspected in CI. Guard the containing iframe styles against
+  // inheriting dark color-scheme and showing a white rectangular gutter.
+  const googleFrameStyle=await page.evaluate(()=>{
+    const wrap=document.createElement('div');
+    wrap.className='auth-google-button';
+    const iframe=document.createElement('iframe');
+    wrap.appendChild(iframe);
+    document.body.appendChild(wrap);
+    const outer=getComputedStyle(wrap),inner=getComputedStyle(iframe);
+    const result={
+      colorScheme:inner.colorScheme,
+      outerColorScheme:outer.colorScheme,
+      overflow:outer.overflow,
+      display:inner.display,
+      borderWidth:inner.borderTopWidth
+    };
+    wrap.remove();
+    return result;
+  });
+  assert.equal(googleFrameStyle.colorScheme,'normal','Google iframe should not inherit dark color-scheme');
+  assert.equal(googleFrameStyle.outerColorScheme,'normal','Google button wrapper should avoid dark scheme');
+  assert.equal(googleFrameStyle.overflow,'hidden','Google button should clip external iframe gutters');
+  assert.equal(googleFrameStyle.display,'block','Google iframe must not create inline baseline gaps');
   assert.ok(layout.email.height >= 50, 'Login fields are too small to use comfortably');
   assert.equal(layout.horizontalOverflow, false, 'Login page overflows horizontally');
   if (!mobile) assert.ok(layout.panel.width > layout.story.width, 'Sign-in panel should be wider than branding');
