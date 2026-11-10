@@ -32,10 +32,10 @@ async function session(email, mobile = false) {
     const startLink = page.getByRole('link', { name: /Create a creditor account/i });
     assert.equal(await startLink.getAttribute('href'), '/login?mode=signup',
       'Landing page account creation must open the existing registration flow');
-    assert.equal(await page.locator('.cdl-feature').count(), 4,
+    assert.equal(await page.locator('.lp-hero-assure span').count(), 3,
       'Landing page should explain the core product capabilities');
-    assert.equal(await page.locator('.cdl-step').count(), 3,
-      'Customer onboarding should clearly explain each step');
+    assert.equal(await page.locator('#stages .lp-step').count(), 7,
+      'Customer onboarding should clearly explain each stage');
     const overflowing = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     assert.equal(overflowing, false, 'Landing page must not overflow the viewport');
     await page.screenshot({
