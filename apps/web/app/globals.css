@@ -2738,3 +2738,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .auth-divider {
   text-align: center;
 }
+
+
+/* Single CollectDesk mark, shared across the landing, sign-in and workspace. */
+svg.brand-mark {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.story-brand svg.brand-mark {
+  width: 38px;
+  height: 38px;
+}
+.story-brand > span:last-child {
+  color: #f4eedd;
+}
+.story-brand > span:last-child > span {
+  color: var(--accent);
+}
