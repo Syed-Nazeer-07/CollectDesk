@@ -28,17 +28,26 @@ export async function sendPasswordResetEmail(email,url,options={}){
   return sendAccountEmail(email,url,'password-reset',options);
 }
 
+export async function sendStaffInviteEmail(email,url,options={}){
+  return sendAccountEmail(email,url,'staff-invite',options);
+}
+
 async function sendAccountEmail(email,url,kind,{
   env=process.env,httpFetch=fetch,createTransport=nodemailer.createTransport
 }={}){
   const provider=emailDeliveryProvider(env);
   if(!provider)throw new Error('No account email provider configured');
   const passwordReset=kind==='password-reset';
-  const subject=passwordReset?'Reset your CollectDesk password':'Verify your CollectDesk account';
-  const text=(passwordReset
+  const staffInvite=kind==='staff-invite';
+  const subject=staffInvite?'Your CollectDesk case operator invitation':
+    passwordReset?'Reset your CollectDesk password':'Verify your CollectDesk account';
+  const text=(staffInvite
+    ?'A CollectDesk administrator has invited you as a case operator in the fictional-data workspace. Use the link to set your password:\n'
+    :passwordReset
     ?'Someone requested a password reset for your CollectDesk account. Use this link to set a new password:\n'
     :'Confirm your email to activate your CollectDesk creditor workspace (sample-data preview):\n')+url+
-    '\n\nThis link expires in 30 minutes and can be used once. If you did not request this, ignore this email.';
+    '\n\nThis link expires in '+(staffInvite?'24 hours':'30 minutes')+
+    ' and can be used once. If you did not request or expect this message, ignore it.';
 
   if(provider==='resend'){
     const response=await httpFetch('https://api.resend.com/emails',{
