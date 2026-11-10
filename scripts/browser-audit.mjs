@@ -41,6 +41,35 @@ async function assertPrimaryContrast(page,selector){
   assert.ok(fg>bg,'Primary action should use light text on orange.');
 }
 
+// Measure actual browser layout: catch inline icon/text collisions in empty states.
+async function assertEmptyStateLayout(page,containerSelector,iconSelector,titleSelector,textSelector){
+  const measurements=await page.locator(containerSelector).first().evaluate((container,selectors)=>{
+    const rect=(element)=>{
+      if(!element)throw new Error('Missing empty-state child');
+      const r=element.getBoundingClientRect();
+      return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height,
+        cx:r.left+r.width/2};
+    };
+    const icon=container.querySelector(selectors.icon);
+    const title=container.querySelector(selectors.title);
+    const description=container.querySelector(selectors.text);
+    const containerRect=rect(container);
+    const style=getComputedStyle(container);
+    return {container:containerRect,icon:rect(icon),title:rect(title),
+      text:rect(description),display:style.display,direction:style.flexDirection};
+  },{icon:iconSelector,title:titleSelector,text:textSelector});
+  assert.equal(measurements.display,'flex',containerSelector+' should be a flex layout');
+  assert.equal(measurements.direction,'column',containerSelector+' should stack vertically');
+  assert.ok(measurements.icon.bottom+3<=measurements.title.top,
+    containerSelector+' icon overlaps heading');
+  assert.ok(measurements.title.bottom+3<=measurements.text.top,
+    containerSelector+' heading overlaps description');
+  assert.ok(Math.abs(measurements.icon.cx-measurements.container.cx)<8,
+    containerSelector+' icon should be centered');
+  assert.ok(Math.abs(measurements.title.cx-measurements.container.cx)<8,
+    containerSelector+' heading should be centered');
+}
+
 async function session(email, mobile = false) {
   const context = await browser.newContext({
     viewport: mobile ? { width: 390, height: 844 } : { width: 1365, height: 900 },
@@ -222,6 +251,25 @@ try {
   await creditor.getByRole('navigation',{name:'Main navigation'})
     .getByRole('link',{name:'Help & support'}).click();
   await creditor.getByRole('heading',{name:'Help & support',exact:true}).waitFor();
+  const supportHeaderLayout=await creditor.locator('.support-layout').evaluate(root=>{
+    const headers=[...root.querySelectorAll('.support-panel-head')].map(el=>{
+      const r=el.getBoundingClientRect(),icon=el.querySelector('.support-heading-icon').getBoundingClientRect(),
+        heading=el.querySelector('h2').getBoundingClientRect();
+      return {top:r.top,height:r.height,left:r.left,iconRight:icon.right,headingLeft:heading.left,
+        titleTop:heading.top,titleBottom:heading.bottom};
+    });
+    return {headers,overflow:document.documentElement.scrollWidth>window.innerWidth+2};
+  });
+  assert.equal(supportHeaderLayout.headers.length,2,'Support cards should share a header component');
+  assert.ok(Math.abs(supportHeaderLayout.headers[0].top-supportHeaderLayout.headers[1].top)<3,
+    'Support cards must align vertically');
+  assert.ok(Math.abs(supportHeaderLayout.headers[0].height-supportHeaderLayout.headers[1].height)<3,
+    'Support card headers should have the same height');
+  for(const header of supportHeaderLayout.headers)
+    assert.ok(header.iconRight+6<header.headingLeft,'Support icon must not overlap heading');
+  assert.equal(supportHeaderLayout.overflow,false,'Support cards must not overflow the viewport');
+  await creditor.getByText('No requests yet').waitFor();
+  await assertEmptyStateLayout(creditor,'.support-list-state','.support-empty-icon','strong','p');
   await creditor.getByLabel('Subject').fill(supportSubject);
   await creditor.getByLabel('Describe the issue')
     .fill('This is a fictional browser audit request. No real customer data is involved.');
@@ -260,7 +308,12 @@ try {
   await creditor.goto(base + '/cases?status=submitted', { waitUntil: 'domcontentloaded' });
   await creditor.getByLabel('Filter by status').waitFor();
   assert.equal(await creditor.getByLabel('Filter by status').inputValue(),'submitted');
-  log('Account access and URL-synchronized case filtering work across navigation');
+  await creditor.getByRole('searchbox',{name:'Search cases'}).fill('zz-no-matching-case-ui-audit-987');
+  await creditor.getByRole('heading',{name:'No matching cases'}).waitFor();
+  await assertEmptyStateLayout(creditor,'.cases-empty-filter','.cases-empty-icon','h4','p');
+  await creditor.screenshot({path:'browser-audit-results/cases-empty-desktop.png',fullPage:true});
+  await creditor.getByRole('button',{name:'Clear filters'}).click();
+  log('Account access, empty-state alignment and URL-synchronized case filtering work');
 
   step = 'creditor login and case creation';
   await creditor.goto(base + '/cases/new', { waitUntil: 'domcontentloaded' });
@@ -398,6 +451,12 @@ try {
   await mobile.locator('.loading-panel').waitFor({ state: 'hidden' });
   const mobileCount = Number(await mobile.locator('.case-list-title h3 span').innerText());
   assert.ok(mobileCount > 0, 'Mobile case register did not load any demo records');
+  await mobile.getByRole('searchbox',{name:'Search cases'}).fill('zz-no-matching-case-ui-audit-987');
+  await mobile.getByRole('heading',{name:'No matching cases'}).waitFor();
+  await assertEmptyStateLayout(mobile,'.cases-empty-filter','.cases-empty-icon','h4','p');
+  await mobile.screenshot({path:'browser-audit-results/cases-empty-mobile.png',fullPage:true});
+  await mobile.getByRole('button',{name:'Clear filters'}).click();
+  await mobile.locator('.cases-table tbody tr').first().waitFor();
   const pageOverflow = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
   assert.equal(pageOverflow, false, 'Mobile page has unintended horizontal overflow');
   const firstMobileCard = mobile.locator('.cases-table tbody tr').first();
