@@ -374,6 +374,13 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(result.status,401,'Google nonce cannot be replayed');
         result=await call('/cases',{cookie:googleCookie});
         assert.equal(result.status,403,'Google user cannot use case endpoints without a company');
+        result=await call('/support/requests',{method:'POST',cookie:googleCookie,
+          body:{category:'onboarding',subject:'Help with setup',
+            message:'I cannot finish the fictional company setup process.'}});
+        assert.equal(result.status,201,'a verified Google user must be able to request onboarding support');
+        result=await call('/support/requests',{cookie:googleCookie});
+        assert.equal(result.status,200);
+        assert.equal(result.data.requests.length,1);
         result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
           body:{organizationName:'New Google Fictional Company',role:'admin'}});
         assert.equal(result.status,422,'company onboarding must not accept role escalation');
