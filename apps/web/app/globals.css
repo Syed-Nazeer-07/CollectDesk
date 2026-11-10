@@ -18,6 +18,10 @@
   --accent-hover: #ff7f47;
   --accent-active: #e65315;
   --accent-ink: #1b0d05;
+  /* White-on-orange controls require a darker accessible fill than brand artwork. */
+  --action-orange: #c74610;
+  --action-orange-hover: #a83b0d;
+  --action-foreground: #ffffff;
   --accent-soft: rgba(255, 106, 43, 0.14);
   --accent-glow: rgba(255, 106, 43, 0.35);
 
@@ -612,13 +616,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .button-primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--action-orange);
+  color: var(--action-foreground);
+  font-weight: 700;
   box-shadow: 0 8px 24px -8px var(--accent-glow);
 }
 
 .button-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--action-orange-hover);
   box-shadow: 0 12px 28px -6px var(--accent-glow);
 }
 
@@ -919,8 +924,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--action-orange);
+  color: var(--action-foreground);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -1063,8 +1068,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .table-view:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--action-orange);
+  color: var(--action-foreground);
   transform: translateY(-1px);
 }
 
@@ -1880,8 +1885,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .account-option.selected .account-check {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--action-orange);
+  color: var(--action-foreground);
+  border-color: var(--action-orange);
 }
 
 .account-option strong {
@@ -2235,8 +2241,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .auth-mode-switch button.active {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--action-orange);
+  color: var(--action-foreground);
   box-shadow: 0 4px 14px -2px var(--accent-glow);
 }
 
