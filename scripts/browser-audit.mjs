@@ -401,6 +401,20 @@ try {
   const pageOverflow = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
   assert.equal(pageOverflow, false, 'Mobile page has unintended horizontal overflow');
   const firstMobileCard = mobile.locator('.cases-table tbody tr').first();
+  const mobileInvoiceLayout=await firstMobileCard.locator('td').first().evaluate(cell=>{
+    const link=cell.querySelector('.table-case');
+    const meta=cell.querySelector('.table-muted');
+    const outer=cell.getBoundingClientRect(),code=link.getBoundingClientRect(),invoice=meta.getBoundingClientRect();
+    return {display:getComputedStyle(cell).display,left:outer.left,width:outer.width,codeLeft:code.left,
+      codeRight:code.right,invoiceRight:invoice.right};
+  });
+  assert.equal(mobileInvoiceLayout.display,'grid','Mobile case/invoice cell needs an explicit two-column grid');
+  assert.ok(mobileInvoiceLayout.codeLeft>mobileInvoiceLayout.left+mobileInvoiceLayout.width*.28,
+    'Mobile case ID must not overlap the Case / invoice label');
+  assert.ok(mobileInvoiceLayout.codeRight<=mobileInvoiceLayout.left+mobileInvoiceLayout.width+2,
+    'Mobile case ID extends beyond its card');
+  assert.ok(mobileInvoiceLayout.invoiceRight<=mobileInvoiceLayout.left+mobileInvoiceLayout.width+2,
+    'Mobile invoice number extends beyond its card');
   const cardBounds = await firstMobileCard.evaluate(node => {
     const rect=node.getBoundingClientRect();
     return { width:rect.width, right:rect.right, viewport:window.innerWidth };
