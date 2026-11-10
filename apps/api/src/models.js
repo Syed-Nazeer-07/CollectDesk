@@ -90,3 +90,17 @@ const supportRequestSchema=new mongoose.Schema({
 supportRequestSchema.index({status:1,createdAt:-1});
 supportRequestSchema.index({createdBy:1,createdAt:-1});
 export const SupportRequest=mongoose.model('SupportRequest',supportRequestSchema);
+
+/** Operator-only invitations. Tokens are stored as SHA-256 hashes, never raw. */
+const staffInviteSchema=new mongoose.Schema({
+  email:{type:String,required:true,lowercase:true,index:true},
+  role:{type:String,enum:['operator'],required:true,default:'operator'},
+  invitedBy:{...id,ref:'User',required:true},
+  tokenHash:{type:String,required:true,unique:true},
+  expiresAt:{type:Date,required:true},
+  status:{type:String,enum:['pending','consumed','revoked'],default:'pending'},
+  consumedAt:{type:Date,default:null}
+},options);
+staffInviteSchema.index({email:1,status:1});
+staffInviteSchema.index({expiresAt:1},{expireAfterSeconds:30*24*60*60});
+export const StaffInvite=mongoose.model('StaffInvite',staffInviteSchema);
