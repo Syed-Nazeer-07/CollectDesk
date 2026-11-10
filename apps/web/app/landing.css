@@ -282,7 +282,7 @@ html:has(.lp){scroll-behavior:smooth;scroll-padding-top:84px}
 .lp summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:24px 0;font:600 clamp(18px,2vw,22px)/1.25 var(--display);letter-spacing:-.025em}
 .lp summary::-webkit-details-marker{display:none}
 .lp summary .lp-pl{flex:none;width:36px;height:36px;border-radius:50%;background:rgba(244,238,221,.08);display:grid;place-items:center;transition:transform .3s,background .3s}
-.lp details[open] summary .lp-pl{transform:rotate(45deg);background:var(--accent);color:var(--accent-ink)}
+.lp details[open] summary .lp-pl{transform:rotate(45deg);background:var(--action-orange);color:var(--action-foreground)}
 .lp details p{padding:0 56px 26px 0;color:var(--fg-dim);max-width:38em}
 .lp .lp-cta{margin-top:clamp(60px,8vw,110px);border-radius:clamp(24px,4vw,44px);padding:clamp(30px,5vw,64px);background:radial-gradient(60% 120% at 90% 0%,rgba(255,106,43,.45),transparent 60%),var(--panel);border:1px solid var(--line);display:flex;flex-wrap:wrap;gap:28px;justify-content:space-between;align-items:center}
 .lp .lp-cta h2{font-size:clamp(30px,4.6vw,58px);max-width:11em}
