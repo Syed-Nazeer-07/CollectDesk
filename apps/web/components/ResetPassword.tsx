@@ -4,6 +4,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {ArrowLeft,ArrowRight,CheckCircle2,Eye,EyeOff,KeyRound} from 'lucide-react';
+import BrandLockup from '@/components/BrandLockup';
 import {api} from '@/lib/api';
 
 export default function ResetPassword({token}:{token:string}){
@@ -36,6 +37,7 @@ export default function ResetPassword({token}:{token:string}){
     finally{setBusy(false);}
   }
   return <main className="auth-page"><section className="auth-card">
+    <BrandLockup/>
     <Link className="auth-back" href="/login"><ArrowLeft size={16}/> Back to sign in</Link>
     <span className="auth-mark"><KeyRound size={22}/></span>
     <div className="eyebrow">ACCOUNT RECOVERY</div>
