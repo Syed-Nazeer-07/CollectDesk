@@ -2826,3 +2826,28 @@ svg.brand-mark {
   width: 100%;
   min-width: 0;
 }
+
+
+/* Visually separate Google sign-in from the email form without visual clutter. */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 16px 0 18px;
+  color: var(--fg-dim);
+  font: 600 11px/1.4 var(--body);
+  letter-spacing: .01em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1 1 0;
+  background: var(--border);
+}
+.auth-divider span {
+  white-space: nowrap;
+}
+@media(max-width:390px) {
+  .auth-divider { gap: 9px; }
+}
