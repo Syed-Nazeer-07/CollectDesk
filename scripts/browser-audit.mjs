@@ -312,7 +312,7 @@ try {
   await creditor.getByRole('heading',{name:'No matching cases'}).waitFor();
   await assertEmptyStateLayout(creditor,'.cases-empty-filter','.cases-empty-icon','h4','p');
   await creditor.screenshot({path:'browser-audit-results/cases-empty-desktop.png',fullPage:true});
-  await creditor.getByRole('button',{name:'Clear filters'}).click();
+  await creditor.locator('.cases-empty-filter').getByRole('button',{name:'Clear filters'}).click();
   log('Account access, empty-state alignment and URL-synchronized case filtering work');
 
   step = 'creditor login and case creation';
@@ -455,7 +455,7 @@ try {
   await mobile.getByRole('heading',{name:'No matching cases'}).waitFor();
   await assertEmptyStateLayout(mobile,'.cases-empty-filter','.cases-empty-icon','h4','p');
   await mobile.screenshot({path:'browser-audit-results/cases-empty-mobile.png',fullPage:true});
-  await mobile.getByRole('button',{name:'Clear filters'}).click();
+  await mobile.locator('.cases-empty-filter').getByRole('button',{name:'Clear filters'}).click();
   await mobile.locator('.cases-table tbody tr').first().waitFor();
   const pageOverflow = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
   assert.equal(pageOverflow, false, 'Mobile page has unintended horizontal overflow');
