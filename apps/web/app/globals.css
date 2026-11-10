@@ -2761,3 +2761,33 @@ svg.brand-mark {
 .story-brand > span:last-child > span {
   color: var(--accent);
 }
+
+
+/* Unified identity on standalone onboarding, verification and recovery screens. */
+.cd-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 24px;
+  color: var(--fg);
+  font: 800 20px/1 var(--display);
+  letter-spacing: -.05em;
+  text-decoration: none;
+}
+.cd-brand-lockup > span > span {
+  color: var(--accent);
+}
+.cd-brand-lockup-icon {
+  width: 34px;
+  height: 34px;
+  display: block;
+  flex: 0 0 34px;
+}
+.cd-brand-lockup:hover > span {
+  opacity: .82;
+}
+.cd-brand-lockup:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 7px;
+}
