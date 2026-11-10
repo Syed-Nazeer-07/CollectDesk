@@ -108,8 +108,19 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const resolved=await call('/support/requests?status=resolved',{cookie:a});
       assert.equal(resolved.data.requests.length,1);
       assert.match(resolved.data.requests[0].resolutionNote,/verified the outcome/);
+      assert.equal(resolved.data.requests[0].history.length,1,
+        'admin decisions should create an auditable history entry');
       const otherResolved=await call('/support/requests?status=resolved',{cookie:b});
       assert.equal(otherResolved.data.requests.length,0);
+      response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
+        body:{status:'in_progress'}});
+      assert.equal(response.status,200);
+      const reopened=await call('/support/requests?status=in_progress',{cookie:a});
+      assert.equal(reopened.data.requests.length,1);
+      assert.equal(reopened.data.requests[0].history.length,2,
+        'reopening must append history without erasing the prior resolution');
+      assert.match(reopened.data.requests[0].history[0].note,/verified the outcome/);
+      assert.equal(reopened.data.requests[0].history[1].status,'in_progress');
     });
 
     let r = await call('/cases',{method:'POST',cookie:a,origin:null,body:{}});
