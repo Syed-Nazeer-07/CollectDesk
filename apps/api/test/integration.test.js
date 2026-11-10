@@ -61,6 +61,15 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const b = await signIn('creditorb@test.collectdesk.local');
     const admin = await signIn('admin@test.collectdesk.local');
     const operator = await signIn('operator@test.collectdesk.local');
+    await t.test('release metadata exposes version but never secrets',async()=>{
+      const release=await call('/meta/release');
+      assert.equal(release.status,200);
+      assert.equal(release.data.product,'CollectDesk');
+      assert.equal(release.data.database,'connected');
+      assert.ok(release.data.version);
+      assert.ok(!JSON.stringify(release.data).includes(process.env.JWT_SECRET),
+        'public release metadata must never include secrets');
+    });
 
     await t.test('support request privacy, validation and administrator resolution',async()=>{
       let response=await call('/support/requests');
