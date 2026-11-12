@@ -48,6 +48,7 @@ function ActivityFeed({user}:{user:User}){
       const seen=new Date(result.seenAt).getTime();
       setItems(previous=>previous.map(item=>({...item,unread:new Date(item.createdAt).getTime()>seen})));
       setUnreadCount(0);
+      window.dispatchEvent(new Event('collectdesk:notifications-read'));
     }catch(e){setError(e instanceof Error?e.message:'Could not update activity status.');}
     finally{setMarking(false);}
   }
