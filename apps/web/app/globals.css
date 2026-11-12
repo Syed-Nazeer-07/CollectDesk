@@ -3418,3 +3418,12 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 .evidence-refresh:hover,.evidence-refresh:focus-visible{color:var(--accent)}
 .evidence-refresh:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:600px){.evidence-content{padding:17px}.evidence-list>li{align-items:flex-start}.evidence-upload .button{width:100%}}
+
+/* Case register reporting controls: fit alongside filters on desktop and wrap
+   without clipping the CSV/sort actions on compact phones. */
+.case-tools .select-wrap{min-width:0}
+.case-tools .select-wrap select{max-width:100%;cursor:pointer}
+@media(max-width:650px){
+  .case-tools .select-wrap{flex:1 1 145px}
+  .case-tools>.button{flex:1 1 130px;justify-content:center;min-width:0}
+}
