@@ -14,11 +14,16 @@ export default function EvidencePanel({caseId,role,status}:{caseId:string;role:R
   const [refresh,setRefresh]=useState(0);
   useEffect(()=>{
     let active=true;
-    api<Payload>('/cases/'+encodeURIComponent(caseId)+'/evidence')
+    const controller=new AbortController();
+    api<Payload>('/cases/'+encodeURIComponent(caseId)+'/evidence',{signal:controller.signal})
       .then(r=>{if(active){setData(r);setError('');}})
-      .catch(e=>{if(active)setError(e instanceof Error?e.message:'Cannot load sample files.')});
-    return()=>{active=false;};
+      .catch(e=>{if(active&&!controller.signal.aborted)setError(e instanceof Error?e.message:'Cannot load sample files.')});
+    return()=>{active=false;controller.abort();};
   },[caseId,refresh]);
+  // Do not silently hide an unavailable evidence service as though it were off.
+  if(error&&!data)return <div className="message error" role="alert">
+    Could not check document availability. <button type="button" onClick={()=>setRefresh(n=>n+1)}>Retry</button>
+  </div>;
   if(!data?.enabled)return null;
   const editable=role==='creditor'&&(status==='draft'||status==='needs_info');
   async function upload(e:React.FormEvent){
