@@ -43,18 +43,19 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   },[q]);
   useEffect(()=>{
     let cancelled=false;
+    const controller=new AbortController();
     setLoading(true);setError('');
     const query=new URLSearchParams({page:String(page),limit:String(PAGE_SIZE)});
     if(status!=='all')query.set('status',status);
     if(debouncedQ)query.set('q',debouncedQ);
-    api<{cases:CaseRow[];pagination:Pagination}>('/cases?'+query.toString())
+    api<{cases:CaseRow[];pagination:Pagination}>('/cases?'+query.toString(),{signal:controller.signal})
       .then(result=>{
         if(cancelled)return;
         setCases(result.cases);setPagination(result.pagination);
       })
       .catch(e=>{if(!cancelled){setError(e.message);setCases([]);}})
       .finally(()=>{if(!cancelled)setLoading(false);});
-    return()=>{cancelled=true};
+    return()=>{cancelled=true;controller.abort();};
   },[page,status,debouncedQ,reload]);
 
   function setFilter(next:StatusFilter){
