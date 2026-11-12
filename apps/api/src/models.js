@@ -7,7 +7,8 @@ export const User = mongoose.model('User', new mongoose.Schema({
   name: {type: String, required: true}, email: {type: String, required: true, lowercase: true, unique: true},
   passwordHash: {type: String, required: true, select: false}, googleSub: {type:String,unique:true,sparse:true,select:false}, role: {type: String, enum: ['creditor','operator','admin'], required: true},
   organizationId: {...id, ref: 'Organization'}, active: {type: Boolean, default: true},
-  sessionVersion: {type:Number,default:0,min:0}
+  sessionVersion: {type:Number,default:0,min:0},
+  notificationsSeenAt: {type:Date,default:null}
 }, options));
 const caseSchema = new mongoose.Schema({
   caseCode: {type: String, required: true, unique: true}, organizationId: {...id, ref: 'Organization', required: true, index: true},
