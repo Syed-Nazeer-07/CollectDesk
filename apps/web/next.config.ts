@@ -10,6 +10,9 @@ const config: NextConfig = {
     ]},{source:'/signup/verify',headers:[
       {key:'Referrer-Policy',value:'no-referrer'},
       {key:'Cache-Control',value:'no-store'}
+    ]},{source:'/staff/activate',headers:[
+      {key:'Referrer-Policy',value:'no-referrer'},
+      {key:'Cache-Control',value:'no-store'}
     ]}];
   },
   async rewrites() {
