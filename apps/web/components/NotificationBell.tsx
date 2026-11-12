@@ -23,7 +23,8 @@ export default function NotificationBell(){
     // Refresh when the user returns to the tab, without background polling
     // that repeatedly wakes free hosting when the workspace is idle.
     window.addEventListener('focus',refresh);
-    return()=>{active=false;controller.abort();window.removeEventListener('focus',refresh);};
+    window.addEventListener('collectdesk:notifications-read',refresh);
+    return()=>{active=false;controller.abort();window.removeEventListener('focus',refresh);window.removeEventListener('collectdesk:notifications-read',refresh);};
   },[pathname]);
   return <Link href="/notifications" className={styles.link+(pathname==='/notifications'?' '+styles.active:'')}
     aria-label={unread>0?'Activity updates, '+(unread>=100?'99 or more':unread)+' unread':'Activity updates'}
