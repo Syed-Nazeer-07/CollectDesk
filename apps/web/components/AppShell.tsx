@@ -20,6 +20,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   const pathname=usePathname();
   const router=useRouter();
   const requestRef=useRef<AbortController|null>(null);
+  const menuTriggerRef=useRef<HTMLButtonElement|null>(null);
   const load=useCallback(()=>{
     // Cancel stale /auth/me fetches before retrying. Do not let an old response
     // overwrite a newer session check.
@@ -42,6 +43,17 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   useEffect(()=>{load();return()=>{requestRef.current?.abort();};},[load]);
   useEffect(()=>{setMenu(false);},[pathname]);
   useEffect(()=>{
+    if(!menu)return;
+    function closeOnEscape(event:KeyboardEvent){
+      if(event.key==='Escape'){
+        setMenu(false);
+        menuTriggerRef.current?.focus();
+      }
+    }
+    document.addEventListener('keydown',closeOnEscape);
+    return()=>document.removeEventListener('keydown',closeOnEscape);
+  },[menu]);
+  useEffect(()=>{
     if(ready)return;
     const timeout=setTimeout(()=>setTakingLong(true),8000);
     return()=>clearTimeout(timeout);
@@ -54,7 +66,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   const displayRole=user?roleName[user.role]:'Workspace user';
   return <div className="app-root">
     {menu&&<button className="mobile-overlay" type="button" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}
-    <aside className={`sidebar ${menu?'open':''}`}>
+    <aside id="workspace-sidebar" aria-label="Workspace navigation" className={`sidebar ${menu?'open':''}`}>
       <div className="sidebar-top">
         <Link href="/dashboard" className="brand" onClick={()=>setMenu(false)} aria-label="CollectDesk overview">
           <BrandMark className="brand-mark"/>
@@ -85,7 +97,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     </aside>
     <main className="main">
       <header className="topbar">
-        <div className="topbar-left"><button type="button" className="icon-button hide-desktop" aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb"><span className="breadcrumb-root">Workspace</span><span className="breadcrumb-separator">/</span><b>{title}</b></span></div>
+        <div className="topbar-left"><button ref={menuTriggerRef} type="button" className="icon-button hide-desktop" aria-controls="workspace-sidebar" aria-expanded={menu} aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb"><span className="breadcrumb-root">Workspace</span><span className="breadcrumb-separator">/</span><b>{title}</b></span></div>
         <div className="topbar-right">
           <Link href="/" className="button button-muted button-small" title="View landing page">
             <Globe size={14} /> Site
