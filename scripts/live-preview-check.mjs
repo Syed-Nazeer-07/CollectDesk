@@ -64,6 +64,14 @@ assert.match(landing.body,/Every overdue invoice deserves/i,
 const login=await request('/login');
 assert.equal(login.status,200,'Public login page failed');
 assert.match(login.body,/(collectdesk|Sign in to your workspace)/i,'Login page content missing');
+for(const publicRoute of ['/forgot-password','/signup/verify','/staff/activate']){
+  const response=await request(publicRoute);
+  assert.equal(response.status,200,'Public authentication helper route failed: '+publicRoute);
+}
+for(const protectedRoute of ['/api/v1/cases','/api/v1/support/requests','/api/v1/staff/invitations']){
+  const response=await request(protectedRoute);
+  assert.equal(response.status,401,'A protected endpoint was accessible anonymously: '+protectedRoute);
+}
 const auth=await request('/api/v1/auth/me');
 assert.equal(auth.status,401,'Unauthenticated public API must return HTTP 401');
 const invalid=await request('/api/v1/auth/login',{
