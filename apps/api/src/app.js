@@ -14,7 +14,7 @@ import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
 import {installStaffRoutes} from './staff-invites.js';
 import {installEvidenceRoutes} from './evidence.js';
-import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,isOverdue,pageInfo,scopeForUser} from './rules.js';
+import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
 // Requests reach Express through the internal Next.js reverse proxy.
@@ -190,7 +190,12 @@ route.post('/cases/:id/submit',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canSubmit(req.caseItem.status))return res.status(409).json({error:'Case has already been submitted.'});
   if(!isOverdue(req.caseItem.dueDate))return res.status(422).json({error:'Only overdue invoices can be submitted. Check the due date.'});
   const updated=await Case.updateOne({
-    _id:req.caseItem._id,status:{$in:['draft','needs_info']},financialLockToken:null
+    _id:req.caseItem._id,
+    status:{$in:['draft','needs_info']},
+    financialLockToken:null,
+    // Date-only invoices are stored at UTC midnight. Match the current Indian
+    // business day at the actual write, not just the earlier getCase snapshot.
+    dueDate:{$lt:new Date(indiaDateKey()+'T00:00:00.000Z')}
   },{$set:{status:'submitted',submittedAt:new Date()}});
   if(!updated.modifiedCount)return res.status(409).json({error:'This case changed or is processing an attachment. Refresh and retry.'});
   await logEvent(req.caseItem,req.user,'submitted','Invoice submitted for review.');res.json({ok:true});
