@@ -2,7 +2,7 @@
 
 import {Suspense,useEffect,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
-import {Search,SlidersHorizontal,RefreshCw,ChevronLeft,ChevronRight,X} from 'lucide-react';
+import {Search,SlidersHorizontal,RefreshCw,ChevronLeft,ChevronRight,X,Download} from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import {CaseTable} from '@/components/Widgets';
 import {api,CaseRow,label} from '@/lib/api';
@@ -11,6 +11,8 @@ type Pagination={page:number;pageSize:number;total:number;totalPages:number};
 const PAGE_SIZE=25;
 const STATUSES=['all','draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed'] as const;
 type StatusFilter=typeof STATUSES[number];
+const SORT_OPTIONS=['updated','due','amount'] as const;
+type CaseSort=typeof SORT_OPTIONS[number];
 
 export default function CasesPage(){
   return <AppShell title="All cases" subtitle="Track, review, and manage your collection cases.">
@@ -27,6 +29,9 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   const requestedStatus=searchParams.get('status');
   const status:StatusFilter=STATUSES.includes(requestedStatus as StatusFilter)
     ?requestedStatus as StatusFilter:'all';
+  const requestedSort=searchParams.get('sort');
+  const sort:CaseSort=SORT_OPTIONS.includes(requestedSort as CaseSort)
+    ?requestedSort as CaseSort:'updated';
   const [cases,setCases]=useState<CaseRow[]>([]);
   const [pagination,setPagination]=useState<Pagination>({page:1,pageSize:PAGE_SIZE,total:0,totalPages:1});
   const [loading,setLoading]=useState(true);
@@ -35,8 +40,10 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   const [debouncedQ,setDebouncedQ]=useState('');
   const [page,setPage]=useState(1);
   const [reload,setReload]=useState(0);
+  const [exporting,setExporting]=useState(false);
+  const [exportError,setExportError]=useState('');
 
-  useEffect(()=>{setPage(1);},[status]);
+  useEffect(()=>{setPage(1);},[status,sort]);
   useEffect(()=>{
     const timeout=setTimeout(()=>setDebouncedQ(q.trim()),300);
     return()=>clearTimeout(timeout);
@@ -48,6 +55,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
     const query=new URLSearchParams({page:String(page),limit:String(PAGE_SIZE)});
     if(status!=='all')query.set('status',status);
     if(debouncedQ)query.set('q',debouncedQ);
+    query.set('sort',sort);
     api<{cases:CaseRow[];pagination:Pagination}>('/cases?'+query.toString(),{signal:controller.signal})
       .then(result=>{
         if(cancelled)return;
@@ -56,11 +64,39 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
       .catch(e=>{if(!cancelled){setError(e.message);setCases([]);}})
       .finally(()=>{if(!cancelled)setLoading(false);});
     return()=>{cancelled=true;controller.abort();};
-  },[page,status,debouncedQ,reload]);
+  },[page,status,sort,debouncedQ,reload]);
 
-  function setFilter(next:StatusFilter){
+  function updateFilters(next:StatusFilter,nextSort:CaseSort){
     setPage(1);
-    router.replace(next==='all'?'/cases':'/cases?status='+next,{scroll:false});
+    const query=new URLSearchParams();
+    if(next!=='all')query.set('status',next);
+    if(nextSort!=='updated')query.set('sort',nextSort);
+    router.replace('/cases'+(query.size?'?'+query.toString():''),{scroll:false});
+  }
+  function setFilter(next:StatusFilter){updateFilters(next,sort);}
+  function setSort(next:CaseSort){updateFilters(status,next);}
+  async function downloadReport(){
+    if(exporting)return;
+    setExportError('');setExporting(true);
+    try{
+      const query=new URLSearchParams({sort});
+      if(status!=='all')query.set('status',status);
+      if(debouncedQ)query.set('q',debouncedQ);
+      const response=await fetch('/api/v1/cases/export?'+query.toString(),{
+        credentials:'include',cache:'no-store',signal:AbortSignal.timeout(45000)
+      });
+      if(!response.ok){
+        const info=await response.json().catch(()=>({error:'Export unavailable.'}));
+        throw new Error(info.error||'Could not export your cases.');
+      }
+      const file=await response.blob();
+      const url=URL.createObjectURL(file);
+      const link=document.createElement('a');
+      link.href=url;link.download='collectdesk-cases.csv';
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(e){setExportError(e instanceof Error?e.message:'Could not export cases.');}
+    finally{setExporting(false);}
   }
   function resetFilters(){
     setQ('');setDebouncedQ('');setPage(1);
@@ -78,6 +114,16 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
         value={status} onChange={e=>setFilter(e.target.value as StatusFilter)}>
         {STATUSES.map(s=><option key={s} value={s}>{s==='all'?'All statuses':label(s)}</option>)}
       </select></div>
+      <div className="select-wrap"><select aria-label="Sort cases" value={sort}
+        onChange={e=>setSort(e.target.value as CaseSort)}>
+        <option value="updated">Recently updated</option>
+        <option value="due">Due date · earliest</option>
+        <option value="amount">Amount · highest</option>
+      </select></div>
+      <button className="button button-outline" type="button" onClick={downloadReport}
+        disabled={loading||exporting||pagination.total===0} title="Download matching case-register records as CSV">
+        <Download size={16}/>{exporting?'Exporting…':'Export CSV'}
+      </button>
       {filtered&&<button className="button button-muted case-reset-filters" type="button" onClick={resetFilters}>
         <X size={15}/> Clear filters
       </button>}
@@ -88,6 +134,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
       <h3>Case register <span>{loading?'…':pagination.total}</span></h3>
       <p>{status==='all'?'All accessible cases':label(status)+' cases'}{debouncedQ?' matching “'+debouncedQ+'”':''}</p>
     </div>
+    {exportError&&<div className="message error" role="alert">{exportError}</div>}
     {error&&<div className="message error" role="alert">{error} <button type="button" onClick={()=>setReload(v=>v+1)}>Try again</button></div>}
     {loading?<div className="loading-panel" role="status"><div className="spinner"/> Loading cases…</div>:
       !error&&cases.length===0?
