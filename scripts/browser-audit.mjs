@@ -455,7 +455,16 @@ try {
 
   step = 'mobile layout navigation';
   const mobile = await session('creditor@demo.collectdesk.test', true);
-  await mobile.getByRole('button', { name: 'Open menu' }).click();
+  const navTrigger=mobile.getByRole('button',{name:'Open menu'});
+  await navTrigger.click();
+  assert.equal(await navTrigger.getAttribute('aria-expanded'),'true',
+    'Mobile menu must announce its expanded state');
+  await mobile.keyboard.press('Escape');
+  assert.equal(await navTrigger.getAttribute('aria-expanded'),'false',
+    'Escape must close the mobile menu');
+  assert.equal(await mobile.evaluate(()=>document.activeElement?.getAttribute('aria-label')),'Open menu',
+    'Escape should return keyboard focus to the menu button');
+  await navTrigger.click();
   await mobile.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /All cases/i }).click();
   await mobile.getByRole('heading', { name: 'All cases', exact: true }).waitFor();
   await mobile.locator('.loading-panel').waitFor({ state: 'hidden' });
