@@ -43,6 +43,20 @@ for(let attempt=1;attempt<=3;attempt++){
 }
 assert.equal(health?.status,200,'Public API health did not return HTTP 200');
 assert.deepEqual(JSON.parse(health.body),{ok:true},'Public API and database readiness check failed');
+const release=await request('/api/v1/meta/release');
+assert.equal(release.status,200,'Public release identifier endpoint is unavailable');
+const releaseInfo=JSON.parse(release.body);
+assert.equal(releaseInfo.product,'CollectDesk','Unexpected application at deployment URL');
+assert.equal(releaseInfo.database,'connected','Release metadata does not confirm database readiness');
+assert.ok(releaseInfo.commit===null||/^[a-f0-9]{12}$/i.test(releaseInfo.commit),
+  'Release commit identifier must be a short non-sensitive SHA');
+const expected=process.env.GITHUB_SHA?.slice(0,12)||null;
+if(expected&&releaseInfo.commit&&releaseInfo.commit!==expected)
+  console.warn('Deployment commit differs from this workflow run:',{
+    github:expected,deployed:releaseInfo.commit
+  });
+else
+  console.log('Public release:',{commit:releaseInfo.commit,version:releaseInfo.version});
 const landing=await request('/');
 assert.equal(landing.status,200,'Public customer onboarding page failed');
 assert.match(landing.body,/Every overdue invoice deserves/i,
