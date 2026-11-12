@@ -305,6 +305,18 @@ try {
   await creditor.getByRole('button', { name: 'Clear filters' }).first().click();
   await creditor.waitForURL(/\/cases$/);
   assert.equal(await creditor.getByLabel('Filter by status').inputValue(),'all');
+  // New reporting controls remain URL-driven and exports obey the same filters.
+  await creditor.getByLabel('Sort cases').selectOption('due');
+  await creditor.waitForURL(/\/cases\?sort=due$/);
+  await creditor.getByLabel('Sort cases').selectOption('amount');
+  await creditor.waitForURL(/\/cases\?sort=amount$/);
+  const downloadPromise=creditor.waitForEvent('download');
+  await creditor.getByRole('button',{name:/Export CSV/i}).click();
+  const report=await downloadPromise;
+  assert.equal(report.suggestedFilename(),'collectdesk-cases.csv');
+  await creditor.getByLabel('Sort cases').selectOption('updated');
+  await creditor.waitForURL(/\/cases$/);
+  log('Case register sorting and authorized CSV downloads work');
   await creditor.goto(base + '/cases?status=submitted', { waitUntil: 'domcontentloaded' });
   await creditor.getByLabel('Filter by status').waitFor();
   assert.equal(await creditor.getByLabel('Filter by status').inputValue(),'submitted');
