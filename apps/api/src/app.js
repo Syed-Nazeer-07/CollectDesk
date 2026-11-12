@@ -170,7 +170,7 @@ route.get('/cases/export',async(req,res)=>{
   });
   return res.send(casesCsv(items));
 });
-function escapeRegex(value){return value.replace(/[.*+?^${}()|[\]\\]/g,'\\function escapeRegex(value){return value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}');}
+function escapeRegex(value){return value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
 const caseBody=z.object({debtorName:z.string().trim().min(2).max(160),invoiceNo:z.string().trim().min(2).max(70),
   issueDate:z.iso.date(),dueDate:z.iso.date(),principalPaise:z.number().int().min(100).max(1_000_000_000_00),
   description:z.string().trim().max(1200).default(''), disputed:z.boolean().default(false),evidenceLabel:z.string().trim().max(120).default('')}).strict().refine(x=>x.dueDate>=x.issueDate,{message:'Due date must be on or after issue date.',path:['dueDate']});
