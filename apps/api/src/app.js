@@ -15,6 +15,7 @@ import {installSupportRoutes} from './support.js';
 import {installStaffRoutes} from './staff-invites.js';
 import {installEvidenceRoutes} from './evidence.js';
 import {caseSort,caseFilters,casesCsv} from './case-register.js';
+import {installNotificationRoutes} from './notifications.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
@@ -88,6 +89,7 @@ async function logEvent(item,user,kind,text,visibility='creditor',metadata={}) {
   await Activity.create({caseId:item._id,organizationId:item.organizationId,actorId:user._id,kind,text,visibility,metadata});
 }
 installEvidenceRoutes(route,{getCase,logEvent});
+installNotificationRoutes(route);
 // Short-lived per-case lease serializes demo ledger updates. Without this guard,
 // two parallel verifications could each read the same unverified balance.
 // It is NOT a substitute for an ACID transaction in a real financial platform.

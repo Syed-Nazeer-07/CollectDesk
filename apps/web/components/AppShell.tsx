@@ -2,10 +2,11 @@
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus} from 'lucide-react';
+import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus,Bell} from 'lucide-react';
 import {api,User} from '@/lib/api';
 import {ThemeToggle} from '@/components/ThemeProvider';
 import BrandMark from '@/components/BrandMark';
+import NotificationBell from '@/components/NotificationBell';
 
 type Props={children:(user:User)=>React.ReactNode;title:string;subtitle?:string;action?:boolean};
 
@@ -84,6 +85,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/dashboard'?'active':''}`} aria-current={pathname==='/dashboard'?'page':undefined} href="/dashboard"><LayoutDashboard size={18}/> Overview</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname.startsWith('/cases')&&pathname!=='/cases/new'?'active':''}`} aria-current={pathname.startsWith('/cases')&&pathname!=='/cases/new'?'page':undefined} href="/cases"><FolderKanban size={18}/> All cases</Link>
         {user?.role==='creditor'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/cases/new'?'active':''}`} aria-current={pathname==='/cases/new'?'page':undefined} href="/cases/new"><Plus size={18}/> Create case</Link>}
+        <Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/notifications'?'active':'')} aria-current={pathname==='/notifications'?'page':undefined} href="/notifications"><Bell size={18}/> Activity updates</Link>
         <span className="nav-caption nav-caption-second">ACCOUNT</span>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/account'?'active':''}`} aria-current={pathname==='/account'?'page':undefined} href="/account"><UserRound size={18}/> Account & access</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/support'?'active':''}`} aria-current={pathname==='/support'?'page':undefined} href="/support"><LifeBuoy size={18}/> Help & support</Link>
@@ -102,6 +104,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
           <Link href="/" className="button button-muted button-small" title="View landing page">
             <Globe size={14} /> Site
           </Link>
+          {ready&&user&&<NotificationBell/>}
           <ThemeToggle />
           <Link href="/account" className="top-avatar-link" aria-label="View account and permissions" title="Account & access">
             <span className="top-avatar">{initials}</span>

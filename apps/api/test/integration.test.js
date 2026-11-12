@@ -15,7 +15,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   process.env.JWT_SECRET = 'integration-test-only-secret-replace-for-real-production';
   const mongoose = (await import('mongoose')).default;
   const bcrypt = (await import('bcryptjs')).default;
-  const {Organization, User, Case, Receipt} = await import('../src/models.js');
+  const {Organization, User, Case, Activity, Receipt} = await import('../src/models.js');
 
   // Hard block before any data deletion. Never run against the demo or production DB.
   const parsed = new URL(uri);
@@ -61,6 +61,60 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const b = await signIn('creditorb@test.collectdesk.local');
     const admin = await signIn('admin@test.collectdesk.local');
     const operator = await signIn('operator@test.collectdesk.local');
+    await t.test('notifications enforce live role scope, hide internal notes, and persist unread state',async()=>{
+      const creditorA=await User.findOne({email:'creditora@test.collectdesk.local'});
+      const creditorB=await User.findOne({email:'creditorb@test.collectdesk.local'});
+      const adminUser=await User.findOne({email:'admin@test.collectdesk.local'});
+      const operatorUser=await User.findOne({email:'operator@test.collectdesk.local'});
+      const caseA=await Case.create({
+        caseCode:'CC-NOTIFY-A',organizationId:orgA._id,createdBy:creditorA._id,
+        debtorName:'Sample notification A',invoiceNo:'NOTIFY-A',
+        issueDate:new Date('2026-01-01'),dueDate:new Date('2026-02-01'),
+        principalPaise:50000,status:'in_progress',assignedTo:operatorUser._id
+      });
+      const caseB=await Case.create({
+        caseCode:'CC-NOTIFY-B',organizationId:orgB._id,createdBy:creditorB._id,
+        debtorName:'Sample notification B',invoiceNo:'NOTIFY-B',
+        issueDate:new Date('2026-01-01'),dueDate:new Date('2026-02-01'),
+        principalPaise:60000,status:'submitted'
+      });
+      try{
+        await Activity.create([
+          {caseId:caseA._id,organizationId:orgA._id,actorId:adminUser._id,kind:'review',visibility:'creditor',text:'Accepted for testing.'},
+          {caseId:caseA._id,organizationId:orgA._id,actorId:adminUser._id,kind:'note',visibility:'internal',text:'Internal-only secret.'},
+          {caseId:caseA._id,organizationId:orgA._id,actorId:operatorUser._id,kind:'note',visibility:'creditor',text:'Operator update.'},
+          {caseId:caseB._id,organizationId:orgB._id,actorId:creditorB._id,kind:'submitted',visibility:'creditor',text:'Other tenant update.'}
+        ]);
+        let result=await call('/notifications',{cookie:a});
+        assert.equal(result.status,200,JSON.stringify(result.data));
+        assert.equal(result.data.unreadCount,2,'creditor should see admin review and operator note only');
+        assert.ok(result.data.notifications.every(n=>n.caseId===String(caseA._id)));
+        assert.ok(!JSON.stringify(result.data).includes('Internal-only secret'));
+        assert.ok(!JSON.stringify(result.data).includes('Other tenant update'));
+        result=await call('/notifications',{cookie:operator});
+        assert.equal(result.status,200);
+        assert.equal(result.data.notifications.length,2,'operator sees current assignment, excluding their own event');
+        assert.ok(result.data.notifications.every(n=>n.caseId===String(caseA._id)));
+        result=await call('/notifications',{cookie:admin});
+        assert.equal(result.status,200);
+        assert.ok(result.data.notifications.some(n=>n.caseId===String(caseB._id)));
+        assert.ok(!result.data.notifications.some(n=>n.text==='Internal-only secret'),'do not alert actor of own updates');
+        result=await call('/notifications/read',{method:'POST',cookie:a});
+        assert.equal(result.status,200);
+        result=await call('/notifications',{cookie:a});
+        assert.equal(result.data.unreadCount,0);
+        assert.ok(result.data.notifications.every(n=>n.unread===false));
+        assert.equal((await call('/notifications/read',{method:'POST'})).status,401,'read cursor requires authentication');
+        assert.equal((await call('/notifications?page=0',{cookie:a})).status,422,'pagination must be validated');
+        await Case.updateOne({_id:caseA._id},{$unset:{assignedTo:1}});
+        result=await call('/notifications',{cookie:operator});
+        assert.equal(result.data.notifications.length,0,'reassigned operator must lose old case visibility');
+      }finally{
+        await Activity.deleteMany({caseId:{$in:[caseA._id,caseB._id]}});
+        await Case.deleteMany({_id:{$in:[caseA._id,caseB._id]}});
+      }
+    });
+
     await t.test('account and case APIs are never cached by shared proxies',async()=>{
       const me=await fetch(base+'/api/v1/auth/me',{headers:{cookie:a}});
       assert.equal(me.status,200);
