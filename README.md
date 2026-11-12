@@ -19,6 +19,8 @@ Manage overdue cases, coordinate teams, and track verified recoveries — all in
 
 CollectDesk brings the commercial collections workflow into one organized application. Creditors submit overdue cases, administrators review and assign them, and operators record progress. Recovery totals are based on verified demonstration receipts rather than unconfirmed claims.
 
+The case register also supports server-side search, status filters, ordering by latest update/earliest due date/highest value, and an authenticated **Export CSV** action. Exports contain at most 5,000 case-register rows, honor the viewer's case permissions and active filters, and quote spreadsheet cells defensively. They never include internal activity notes or user credentials.
+
 ### Highlights
 
 - **Role-based workspaces** — distinct creditor, administrator, and case-operator permissions.
