@@ -52,7 +52,11 @@ return <AppShell title="Case details" subtitle="Review the case, timeline, and v
   <div className="receipts">{data.receipts.map(r=><div className="receipt-row" key={r.id}>
     <div><b>{money(r.amountPaise)}{r.kind==='reversal'?' (reversal)':''}</b><small>{r.reference} · {date(r.createdAt)}</small></div>
     <span className={`status status-${r.status}`}>{r.status==='recorded'?'Awaiting verification':r.status==='verified'?'Verified':'Rejected'}</span>
-    {currentUser.role==='admin'&&r.status==='recorded'&&<button type="button" className="button button-small button-primary" disabled={busy} onClick={()=>action(`/cases/${id}/receipts/${r.id}/verify`)}>Verify</button>}
+    {currentUser.role==='admin'&&r.status==='recorded'&&(
+      data.approvalPolicy?.separateReceiptApproval&&r.recordedBy===currentUser.id
+        ?<small className="muted">Another administrator must verify</small>
+        :<button type="button" className="button button-small button-primary" disabled={busy} onClick={()=>action(`/cases/${id}/receipts/${r.id}/verify`)}>Verify</button>
+    )}
     {currentUser.role==='admin'&&r.status==='recorded'&&<button type="button" className="button button-small button-outline" disabled={busy} onClick={()=>{setRejectReceiptId(v=>v===r.id?null:r.id);setRejectReason('')}}>Reject pending</button>}
     {currentUser.role==='admin'&&rejectReceiptId===r.id&&<form className="receipt-correction" onSubmit={e=>{e.preventDefault();const submitted=rejectReason;action(`/cases/${id}/receipts/${r.id}/reject`,{reason:submitted}).then(ok=>{if(ok){setRejectReceiptId(null);setRejectReason('')}})}}>
       <label className="field">Reason for rejecting pending receipt<textarea required minLength={4} maxLength={400} rows={2} value={rejectReason} onChange={e=>setRejectReason(e.target.value)} placeholder="Explain why this pending receipt is invalid"/></label>
