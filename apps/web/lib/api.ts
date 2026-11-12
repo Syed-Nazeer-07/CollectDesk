@@ -3,8 +3,8 @@ export type User={id:string; name:string; email:string; role:Role; organizationI
 export type CaseStatus='draft'|'submitted'|'needs_info'|'rejected'|'accepted'|'in_progress'|'on_hold'|'closed';
 export type CaseRow={id:string;caseCode:string;debtorName:string;invoiceNo:string;principalPaise:number;status:CaseStatus;dueDate:string;updatedAt:string;createdAt:string;assignedTo?:string|null};
 export type Activity={id:string;kind:string;text:string;visibility:'creditor'|'internal';actor:string;createdAt:string};
-export type Receipt={id:string;amountPaise:number;status:'recorded'|'verified'|'rejected';kind:'receipt'|'reversal';reference:string;reversedFrom?:string|null;createdAt:string};
-export type Detail={case:CaseRow&{issueDate:string;description:string;disputed:boolean;decisionReason:string;feeRateBps:number;evidenceLabel:string};financials:{outstandingPaise:number;recoveredPaise:number;feePaise:number};activities:Activity[];receipts:Receipt[]};
+export type Receipt={id:string;amountPaise:number;status:'recorded'|'verified'|'rejected';kind:'receipt'|'reversal';reference:string;reversedFrom?:string|null;recordedBy?:string|null;createdAt:string};
+export type Detail={case:CaseRow&{issueDate:string;description:string;disputed:boolean;decisionReason:string;feeRateBps:number;evidenceLabel:string};financials:{outstandingPaise:number;recoveredPaise:number;feePaise:number};activities:Activity[];receipts:Receipt[];approvalPolicy?:{separateReceiptApproval:boolean}};
 export type Dashboard={summary:{totalCases:number;activeCases:number;awaitingReview:number;totalOutstandingPaise:number;verifiedRecoveredPaise:number;estimatedFeesPaise:number};recentCases:CaseRow[];statusBreakdown:{status:CaseStatus;count:number}[]};
 const API='/api/v1'; // Next.js proxies to Express (same-origin cookies).
 export class ApiError extends Error {status:number;issues?:{field:string;message:string}[];constructor(message:string,status:number,issues?:{field:string;message:string}[]){super(message);this.name='ApiError';this.status=status;this.issues=issues;}}
