@@ -2,7 +2,10 @@ import {z} from 'zod';
 import {Activity,Case,User} from './models.js';
 
 const KINDS = ['submitted','review','assigned','status','note','verified','reversal','receipt','receipt_rejected','updated'];
-const querySchema = z.object({page:z.coerce.number().int().min(1).max(100).default(1)}).strict();
+const querySchema = z.object({
+  page:z.coerce.number().int().min(1).max(100).default(1),
+  unread:z.enum(['0','1']).default('0')
+}).strict();
 const PAGE_SIZE = 20;
 
 /**
@@ -10,7 +13,7 @@ const PAGE_SIZE = 20;
  * notification store that could disagree with the case timeline.
  * Access is checked against the CURRENT case assignment/company on every read.
  */
-export function notificationPipeline(user,page=1) {
+export function notificationPipeline(user,page=1,unreadOnly=false) {
   const match={kind:{$in:KINDS},actorId:{$ne:user._id}};
   if(user.role==='creditor') {
     match.visibility='creditor';
@@ -28,6 +31,7 @@ export function notificationPipeline(user,page=1) {
     {$match:access},
     {$facet:{
       items:[
+        ...(unreadOnly?[{$match:{createdAt:{$gt:seenAt}}}]:[]),
         {$sort:{createdAt:-1,_id:-1}},
         {$skip:(page-1)*PAGE_SIZE},
         {$limit:PAGE_SIZE+1},
@@ -45,8 +49,8 @@ export function notificationPipeline(user,page=1) {
 
 export function installNotificationRoutes(route) {
   route.get('/notifications',async(req,res)=>{
-    const {page}=querySchema.parse(req.query);
-    const [result]=await Activity.aggregate(notificationPipeline(req.user,page));
+    const {page,unread}=querySchema.parse(req.query);
+    const [result]=await Activity.aggregate(notificationPipeline(req.user,page,unread==='1'));
     const rows=result?.items || [];
     res.json({
       notifications:rows.slice(0,PAGE_SIZE).map(row=>({

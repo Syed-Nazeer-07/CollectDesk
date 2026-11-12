@@ -33,3 +33,9 @@
 .empty p{font-size:13px}
 .footnote{font-size:11px;color:var(--fg-faint);padding:0 3px}
 @media(max-width:650px){.intro{padding:19px 17px}.heading{padding:16px}.entry{padding:17px 14px;gap:8px}.entryTop{gap:7px}.entryTop strong{font-size:13px}.entryTop time{font-size:10px}.actions{width:100%;justify-content:space-between}.arrow{width:15px}}
+
+.filters{display:flex;align-items:center;gap:5px;padding:12px 22px;border-bottom:1px solid var(--border)}
+.filters button{font:700 12px/1.25 var(--body);padding:9px 14px;border-radius:9px;color:var(--fg-dim);transition:color .16s,background .16s}
+.filters button:hover{background:var(--bg-2);color:var(--fg)}
+.filters .selected{background:var(--accent-soft);color:var(--accent-text)}
+@media(max-width:650px){.filters{padding:10px 13px}.filters button{flex:1 1 0}}

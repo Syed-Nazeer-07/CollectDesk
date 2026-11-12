@@ -88,6 +88,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         let result=await call('/notifications',{cookie:a});
         assert.equal(result.status,200,JSON.stringify(result.data));
         assert.equal(result.data.unreadCount,2,'creditor should see admin review and operator note only');
+        let unreadOnly=await call('/notifications?unread=1',{cookie:a});
+        assert.equal(unreadOnly.status,200);
+        assert.equal(unreadOnly.data.notifications.length,2);
+        assert.ok(unreadOnly.data.notifications.every(n=>n.unread));
         assert.ok(result.data.notifications.every(n=>n.caseId===String(caseA._id)));
         assert.ok(!JSON.stringify(result.data).includes('Internal-only secret'));
         assert.ok(!JSON.stringify(result.data).includes('Other tenant update'));
@@ -104,8 +108,17 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         result=await call('/notifications',{cookie:a});
         assert.equal(result.data.unreadCount,0);
         assert.ok(result.data.notifications.every(n=>n.unread===false));
+        unreadOnly=await call('/notifications?unread=1',{cookie:a});
+        assert.equal(unreadOnly.data.notifications.length,0,'read items must leave unread-only feed');
+        assert.equal(unreadOnly.data.unreadCount,0);
+        await Activity.create({caseId:caseA._id,organizationId:orgA._id,actorId:adminUser._id,
+          kind:'status',visibility:'creditor',text:'A newer update.'});
+        unreadOnly=await call('/notifications?unread=1',{cookie:a});
+        assert.equal(unreadOnly.data.notifications.length,1,'new updates appear after marking all read');
+        assert.equal(unreadOnly.data.notifications[0].text,'A newer update.');
         assert.equal((await call('/notifications/read',{method:'POST'})).status,401,'read cursor requires authentication');
         assert.equal((await call('/notifications?page=0',{cookie:a})).status,422,'pagination must be validated');
+        assert.equal((await call('/notifications?unread=invalid',{cookie:a})).status,422,'filter must be validated');
         await Case.updateOne({_id:caseA._id},{$unset:{assignedTo:1}});
         result=await call('/notifications',{cookie:operator});
         assert.equal(result.data.notifications.length,0,'reassigned operator must lose old case visibility');

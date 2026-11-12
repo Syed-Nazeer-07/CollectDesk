@@ -32,3 +32,14 @@ test('unknown roles and creditors without a company are denied by aggregation sc
   const creditor=stages({_id:id(),role:'creditor',organizationId:null});
   assert.deepEqual(creditor[3].$match,{'case.organizationId':null});
 });
+
+test('unread filter changes items, not the global unread badge count',()=>{
+  const seenAt=new Date('2026-11-12T00:00:00.000Z');
+  const user={_id:id(),role:'creditor',organizationId:id(),notificationsSeenAt:seenAt};
+  const all=stages(user,1);
+  const unread=notificationPipeline(user,1,true);
+  assert.equal(all[4].$facet.items[0].$match,undefined,'all updates must not be restricted by cursor');
+  assert.deepEqual(unread[4].$facet.items[0],{$match:{createdAt:{$gt:seenAt}}});
+  assert.deepEqual(unread[4].$facet.unread,all[4].$facet.unread,
+    'badge count must remain independent from the current filter');
+});

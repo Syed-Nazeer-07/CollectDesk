@@ -29,6 +29,7 @@ The case register also supports server-side search, status filters, ordering by 
 - **Organization isolation** — creditor records are scoped to their respective organizations.
 - **Account onboarding** — company setup and a progress-aware getting-started checklist.
 - **Support tickets** — authenticated users submit requests; administrators manage resolutions.
+- **Activity updates** — role-scoped in-app notifications, unread filtering and persistent read status, with direct case links.
 - **Staff access** — administrator-issued, expiring operator invitations when transactional email is configured.
 - **Optional identity flows** — Google sign-in, verified email registration, and password recovery when the required providers are configured.
 - **Synthetic PDF evidence** — optional private sample attachments behind an explicit feature flag; not approved for real financial documents.
