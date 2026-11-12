@@ -61,6 +61,15 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const b = await signIn('creditorb@test.collectdesk.local');
     const admin = await signIn('admin@test.collectdesk.local');
     const operator = await signIn('operator@test.collectdesk.local');
+    await t.test('account and case APIs are never cached by shared proxies',async()=>{
+      const me=await fetch(base+'/api/v1/auth/me',{headers:{cookie:a}});
+      assert.equal(me.status,200);
+      assert.match(me.headers.get('cache-control')||'',/private/i);
+      assert.match(me.headers.get('cache-control')||'',/no-store/i);
+      const release=await fetch(base+'/api/v1/meta/release');
+      assert.equal(release.status,200);
+      assert.match(release.headers.get('cache-control')||'',/no-store/i);
+    });
     await t.test('release metadata exposes version but never secrets',async()=>{
       const release=await call('/meta/release');
       assert.equal(release.status,200);
