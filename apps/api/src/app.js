@@ -28,6 +28,11 @@ const webOrigin=process.env.WEB_ORIGIN || process.env.RENDER_EXTERNAL_URL || 'ht
 app.use(cors({origin:webOrigin,credentials:true}));
 app.use(express.json({limit:'32kb'}));
 app.use(cookieParser());
+// Authenticated and account APIs must never be cached by browsers or shared proxies.
+app.use('/api/v1',(_req,res,next)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  next();
+});
 app.use((req,res,next)=>{
   if(['POST','PATCH','PUT','DELETE'].includes(req.method)) {
     if(req.get('origin') !== webOrigin) return res.status(403).json({error:'Request origin rejected.'});
