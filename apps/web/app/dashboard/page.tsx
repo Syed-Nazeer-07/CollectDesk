@@ -17,11 +17,12 @@ export default function DashboardPage(){
   const [refresh,setRefresh]=useState(0);
   useEffect(()=>{
     let active=true;
+    const controller=new AbortController();
     setError('');
-    api<Dashboard>('/dashboard/summary')
+    api<Dashboard>('/dashboard/summary',{signal:controller.signal})
       .then(d=>{if(active)setData(d);})
-      .catch(e=>{if(active)setError(e.message);});
-    return()=>{active=false;};
+      .catch(e=>{if(active&&!controller.signal.aborted)setError(e.message);});
+    return()=>{active=false;controller.abort();};
   },[refresh]);
   return <AppShell title="Overview" subtitle="Portfolio health, case progress and verified recovery.">
     {(user:User)=><div className="dashboard-content">
