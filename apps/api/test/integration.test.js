@@ -303,6 +303,27 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(deletion.status,200,'draft owner may remove sample PDF');
         listing=await call(path,{cookie:a});
         assert.equal(listing.data.files.length,0);
+        // A storage quota check done before writing must stay correct even when
+        // several uploads arrive simultaneously.
+        for(let i=0;i<2;i++){
+          const added=await send(a);
+          assert.equal(added.status,201,'the first two sample files fit the quota');
+        }
+        const racing=await Promise.all([send(a),send(a)]);
+        assert.equal(racing.filter(x=>x.status===201).length,1,
+          'concurrent uploads must not exceed the three-file quota');
+        assert.ok(racing.some(x=>x.status===409),'excess concurrent upload should be rejected');
+        listing=await call(path,{cookie:a});
+        assert.equal(listing.data.files.length,3);
+        const extra=await send(a);
+        assert.equal(extra.status,409,'the fourth sample file must be rejected');
+        await Case.updateOne({_id:caseId},{$set:{
+          financialLockToken:'held-by-test',financialLockExpiresAt:new Date(Date.now()+60_000)
+        }});
+        const submittedDuringUpload=await call('/cases/'+caseId+'/submit',{method:'POST',cookie:a});
+        assert.equal(submittedDuringUpload.status,409,'an active attachment lease must block submission');
+        await Case.updateOne({_id:caseId,financialLockToken:'held-by-test'},
+          {$set:{financialLockToken:null,financialLockExpiresAt:null}});
       }finally{
         if(previous===undefined)delete process.env.SAMPLE_EVIDENCE_ENABLED;
         else process.env.SAMPLE_EVIDENCE_ENABLED=previous;
