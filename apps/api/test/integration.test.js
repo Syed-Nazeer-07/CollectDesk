@@ -389,6 +389,8 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,409,'closed is terminal');
     r = await call(`/cases/${closeId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:10000,reference:'CLOSED-PAYMENT'}});
     assert.equal(r.status,409,'cannot record a new receipt against a closed case');
+    r = await call(`/cases/${closeId}/activity`,{method:'POST',cookie:admin,body:{text:'Invalid note after closure',visibility:'internal'}});
+    assert.equal(r.status,409,'a closed case must not accept new notes');
     r = await call(`/cases/${caseId}/activity`,{method:'POST',cookie:operator,body:{text:'Internal review, not for creditor',visibility:'internal'}});
     assert.equal(r.status,201);
     r = await call(`/cases/${caseId}/activity`,{method:'POST',cookie:operator,body:{text:'Progress update for the creditor',visibility:'creditor'}});
@@ -402,6 +404,18 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,201,JSON.stringify(r.data));
     const receiptId = r.data.id;
+    // Maker/checker can be enabled for teams with multiple admins; the
+    // existing single-admin sample mode is deliberately unchanged by default.
+    const previousMakerChecker=process.env.SEPARATE_RECEIPT_APPROVAL;
+    process.env.SEPARATE_RECEIPT_APPROVAL='true';
+    try{
+      const denied=await call(`/cases/${caseId}/receipts/${receiptId}/verify`,{method:'POST',cookie:admin});
+      assert.equal(denied.status,403,'strict approval must reject self-verification');
+      assert.match(denied.data.error,/different administrator/i);
+    }finally{
+      if(previousMakerChecker===undefined)delete process.env.SEPARATE_RECEIPT_APPROVAL;
+      else process.env.SEPARATE_RECEIPT_APPROVAL=previousMakerChecker;
+    }
     const erroneous=await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:10_000,reference:'INCORRECT-PENDING'}});
     assert.equal(erroneous.status,201,'additional synthetic pending receipt recorded');
     r = await call(`/cases/${caseId}/receipts/${erroneous.data.id}/reject`,{method:'POST',cookie:operator,body:{reason:'Invalid reference'}});
