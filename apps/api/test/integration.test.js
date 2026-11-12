@@ -439,6 +439,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const previousMakerChecker=process.env.SEPARATE_RECEIPT_APPROVAL;
     process.env.SEPARATE_RECEIPT_APPROVAL='true';
     try{
+      const policyView=await call(`/cases/${caseId}`,{cookie:admin});
+      assert.equal(policyView.data.approvalPolicy.separateReceiptApproval,true);
+      const selfReceipt=policyView.data.receipts.find(v=>v.id===receiptId);
+      assert.ok(selfReceipt?.recordedBy,'administrator must see the recorder when dual approval is active');
       const denied=await call(`/cases/${caseId}/receipts/${receiptId}/verify`,{method:'POST',cookie:admin});
       assert.equal(denied.status,403,'strict approval must reject self-verification');
       assert.match(denied.data.error,/different administrator/i);
@@ -467,6 +471,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.data.financials.recoveredPaise,200_000);
     assert.equal(r.data.financials.feePaise,40_000);
     assert.equal(r.data.receipts.length,1,'verified receipt can be shared');
+    assert.equal(r.data.receipts[0].recordedBy,null,'creditors must not receive staff recorder IDs');
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Fictional receipt correction'}});
     assert.equal(r.status,200);
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Duplicate correction'}});
