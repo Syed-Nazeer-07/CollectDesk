@@ -1,6 +1,6 @@
 # CollectDesk — remaining implementation checklist
 
-Last updated: **2026-11-12**. The comprehensive app review and reliability upgrades are implemented in code; current-release CI and external provider/sponsor checks must still be confirmed. See [full audit](COMPREHENSIVE_AUDIT_2026-11-12.md).
+Last updated: **2026-11-12**. The comprehensive code release (`5c53372`) passed [TypeScript, API integration, production build, Docker, desktop/mobile browser, and hosted-container tests](https://github.com/Syed-Nazeer-07/CollectDesk/actions/runs/43253388298). Live Render deployment parity, real identity-provider checks, and sponsor approval remain unverified. See [full audit](COMPREHENSIVE_AUDIT_2026-11-12.md).
 
 This is an engineering execution checklist, not an assertion that the platform has been approved for real-money use. Preserve the existing demo workflows and design. Each checkbox requires implementation evidence, test results and live verification.
 
