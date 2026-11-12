@@ -34,7 +34,11 @@ app.use((req,res,next)=>{
   }
   next();
 });
-app.get('/health',(_req,res)=>res.json({ok:true, database: mongoose.connection.readyState===1 ? 'connected':'unavailable'}));
+app.get('/health',(_req,res)=>{
+  const connected=mongoose.connection.readyState===1;
+  res.set('Cache-Control','no-store');
+  return res.status(connected?200:503).json({ok:connected,database:connected?'connected':'unavailable'});
+});
 /** Non-sensitive version metadata for external deployment verification. */
 app.get('/api/v1/meta/release',(_req,res)=>{
   const sha=process.env.RENDER_GIT_COMMIT||process.env.GITHUB_SHA||'';
@@ -88,7 +92,14 @@ async function withFinancialLock(req,res,operation) {
     $or:[{financialLockToken:null},{financialLockExpiresAt:{$lt:new Date()}}]
   },{$set:{financialLockToken:token,financialLockExpiresAt:new Date(Date.now()+120_000)}});
   if(!acquired.modifiedCount) return res.status(409).json({error:'Another financial update is in progress. Refresh and retry.'});
-  try {return await operation();}
+  try {
+    // The authorization middleware loaded a case before this lease was acquired.
+    // Re-read inside the lease so financial operations validate its CURRENT state.
+    const current=await Case.findOne({_id:req.caseItem._id,financialLockToken:token}).lean();
+    if(!current)return res.status(409).json({error:'Case changed during this update. Refresh and retry.'});
+    req.caseItem=current;
+    return await operation();
+  }
   finally {
     try {await Case.updateOne({_id:req.caseItem._id,financialLockToken:token},{$set:{financialLockToken:null,financialLockExpiresAt:null}});}
     catch (error) {console.error('[API] Ledger lease cleanup failed; it will expire:',error?.message);}
@@ -193,7 +204,12 @@ route.post('/cases/:id/assign',getCase,requireRole('admin'),async(req,res)=>{
   const {operatorId}=assignBody.parse(req.body);
   const operator=await User.findOne({_id:operatorId,role:'operator',active:true}).lean();
   if(!operator)return res.status(422).json({error:'Operator does not exist.'});
-  await Case.updateOne({_id:req.caseItem._id},{$set:{assignedTo:operator._id,status:'in_progress'}});
+  // The case may have been closed/held or entered a ledger update while the
+  // operator lookup was running. Check state and lease atomically on the write.
+  const updated=await Case.updateOne({
+    _id:req.caseItem._id,status:{$in:['accepted','in_progress']},financialLockToken:null
+  },{$set:{assignedTo:operator._id,status:'in_progress'}});
+  if(!updated.matchedCount)return res.status(409).json({error:'Case changed while assigning. Refresh and retry.'});
   await logEvent(req.caseItem,req.user,'assigned',`Case assigned to ${operator.name}.`);res.json({ok:true});
 });
 const transitionBody=z.object({
@@ -223,7 +239,9 @@ const activityBody=z.object({text:z.string().trim().min(3).max(1200),visibility:
 route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(req,res)=>{
   if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return res.status(409).json({error:'Case must be accepted before updates.'});
   const {text,visibility}=activityBody.parse(req.body);
-  await logEvent(req.caseItem,req.user,'note',text,visibility);res.status(201).json({ok:true});
+  const current=await Case.findOne({_id:req.caseItem._id,...scope(req.user),status:{$in:['accepted','in_progress','on_hold']}}).lean();
+  if(!current||!assertAccess(req.user,current))return res.status(409).json({error:'Case status or assignment changed. Refresh before posting.'});
+  await logEvent(current,req.user,'note',text,visibility);res.status(201).json({ok:true});
 });
 const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120)}).strict();
 route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
@@ -257,6 +275,10 @@ route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),
   const r=await Receipt.findOne({caseId:req.caseItem._id,_id:req.params.receiptId});
   if(!r)return res.status(404).json({error:'Receipt not found.'});
   if(r.status!=='recorded')return res.status(409).json({error:'Receipt has already been processed.'});
+  // Optional strict maker/checker mode for teams with at least two admins.
+  // Disabled by default so existing single-admin demo workspaces keep working.
+  if(process.env.SEPARATE_RECEIPT_APPROVAL==='true' && String(r.recordedBy)===String(req.user._id))
+    return res.status(403).json({error:'A different administrator must verify this receipt.'});
   const others=await Receipt.find({caseId:req.caseItem._id,status:'verified'}).lean();
   const totals=calculateMoney(req.caseItem.principalPaise,req.caseItem.feeRateBps,others);
   if(r.amountPaise>totals.outstandingPaise)return res.status(422).json({error:'Verified total would exceed invoice principal.'});
