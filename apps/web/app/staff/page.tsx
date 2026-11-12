@@ -22,10 +22,18 @@ function InvitationManager(){
   const [email,setEmail]=useState('');
   const [items,setItems]=useState<Invitation[]>([]);
   const [busy,setBusy]=useState(false);
+  const [senderReady,setSenderReady]=useState<boolean|null>(null);
   const [refresh,setRefresh]=useState(0);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  useEffect(()=>{
+    let active=true;
+    api<{enabled:boolean}>('/auth/password/options')
+      .then(r=>{if(active)setSenderReady(r.enabled);})
+      .catch(()=>{if(active)setSenderReady(false);});
+    return()=>{active=false;};
+  },[]);
   useEffect(()=>{
     let active=true;
     setLoading(true);
@@ -36,7 +44,9 @@ function InvitationManager(){
     return()=>{active=false};
   },[refresh]);
   async function invite(event:React.FormEvent){
-    event.preventDefault();setBusy(true);setError('');setNotice('');
+    event.preventDefault();
+    if(senderReady!==true){setError('Email delivery is not configured for staff invitations.');return;}
+    setBusy(true);setError('');setNotice('');
     try{
       await api('/staff/invitations',{method:'POST',body:JSON.stringify({
         email:email.trim().toLowerCase(),role:'operator'
@@ -69,9 +79,10 @@ function InvitationManager(){
           <div><strong>Case operator</strong>
             <span>Can view assigned cases and record progress. Cannot self-assign admin access.</span>
           </div></div>
-        <button className="button button-primary" type="submit" disabled={busy}>
+        <button className="button button-primary" type="submit" disabled={busy||senderReady!==true}>
           <Mail size={16}/>{busy?'Sending invitation…':'Send operator invitation'}
         </button>
+        {senderReady===false&&<p className="message error" role="status">Staff invitations are unavailable until a verified transactional email sender is configured.</p>}
         <p className="muted staff-note">Requires a configured transactional email sender. Existing user accounts cannot be invited again. No passwords are shared by email.</p>
       </form>
     </section>
