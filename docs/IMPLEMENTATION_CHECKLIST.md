@@ -55,3 +55,12 @@ Progress updates should change boxes only after evidence is recorded. GitHub CI 
 - [x] Make CI/Compose/Render builds reproducible with `npm ci` and the lockfile
 - [ ] Compare generated desktop/mobile screenshots and real-device user flows after the **final** Render deployment
 - [ ] Obtain actual backup/restore test, malware scanning, compliance review, and supervisor-approved go-live scope
+
+## Phase 7 — Case register productivity (Nov 12)
+- [x] Server-side sorting by latest update, earliest invoice due date and highest amount
+- [x] CSV export of all matching accessible cases (up to 5,000), rather than only the visible page
+- [x] Organization and assigned-operator restrictions apply to exports
+- [x] Prevent spreadsheet-formula injection and export only approved register fields
+- [x] Browser test covering sorting, downloadable CSV and responsive register
+- [x] Full test run passed at code SHA `054acd1`: [CI report](https://github.com/Syed-Nazeer-07/CollectDesk/actions/runs/43271930817)
+- [ ] Verify the live Render site is serving the updated commit and perform a real-account acceptance pass
