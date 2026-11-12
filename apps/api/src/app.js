@@ -14,6 +14,7 @@ import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
 import {installStaffRoutes} from './staff-invites.js';
 import {installEvidenceRoutes} from './evidence.js';
+import {caseSort,caseFilters,casesCsv} from './case-register.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
@@ -135,21 +136,41 @@ route.get('/dashboard/summary',async(req,res)=>{
 const caseListQuery=z.object({
   status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),
   q:z.string().trim().max(100).optional(),
+  sort:z.enum(['updated','due','amount']).default('updated'),
   page:z.coerce.number().int().min(1).max(10000).default(1),
   limit:z.coerce.number().int().min(1).max(100).default(25)
 }).strict();
 route.get('/cases',async(req,res)=>{
-  const {status,q,page,limit}=caseListQuery.parse(req.query);
-  const filter={...scope(req.user)};
-  if(status) filter.status=status;
-  if(q)filter.$or=[{debtorName:{$regex:escapeRegex(q),$options:'i'}},{invoiceNo:{$regex:escapeRegex(q),$options:'i'}},{caseCode:{$regex:escapeRegex(q),$options:'i'}}];
+  const {status,q,page,limit,sort}=caseListQuery.parse(req.query);
+  const filter=caseFilters({status,q},scope(req.user),escapeRegex);
   const [total,items]=await Promise.all([
     Case.countDocuments(filter),
-    Case.find(filter).sort({updatedAt:-1,_id:-1}).skip((page-1)*limit).limit(limit).lean()
+    Case.find(filter).sort(caseSort(sort)).skip((page-1)*limit).limit(limit).lean()
   ]);
   res.json({cases:items.map(c=>({id:String(c._id),caseCode:c.caseCode,debtorName:c.debtorName,invoiceNo:c.invoiceNo,principalPaise:c.principalPaise,status:c.status,dueDate:c.dueDate,createdAt:c.createdAt,updatedAt:c.updatedAt,assignedTo:c.assignedTo?String(c.assignedTo):null})),pagination:pageInfo(page,limit,total)});
 });
-function escapeRegex(value){return value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+// Export every accessible matching case, not merely the currently visible page.
+const exportQuery=caseListQuery.pick({status:true,q:true,sort:true});
+route.get('/cases/export',async(req,res)=>{
+  const {status,q,sort}=exportQuery.parse(req.query);
+  const filter=caseFilters({status,q},scope(req.user),escapeRegex);
+  const maxRows=5000;
+  const items=await Case.find(filter)
+    .sort(caseSort(sort))
+    .select('caseCode debtorName invoiceNo principalPaise status dueDate createdAt updatedAt')
+    .limit(maxRows+1).lean();
+  if(items.length>maxRows)return res.status(413).json({
+    error:'This export exceeds 5,000 cases. Narrow your search or status filter.'
+  });
+  res.set({
+    'Content-Type':'text/csv; charset=utf-8',
+    'Content-Disposition':'attachment; filename="collectdesk-cases.csv"',
+    'Cache-Control':'private, no-store',
+    'X-Content-Type-Options':'nosniff'
+  });
+  return res.send(casesCsv(items));
+});
+function escapeRegex(value){return value.replace(/[.*+?^${}()|[\]\\]/g,'\\function escapeRegex(value){return value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}');}
 const caseBody=z.object({debtorName:z.string().trim().min(2).max(160),invoiceNo:z.string().trim().min(2).max(70),
   issueDate:z.iso.date(),dueDate:z.iso.date(),principalPaise:z.number().int().min(100).max(1_000_000_000_00),
   description:z.string().trim().max(1200).default(''), disputed:z.boolean().default(false),evidenceLabel:z.string().trim().max(120).default('')}).strict().refine(x=>x.dueDate>=x.issueDate,{message:'Due date must be on or after issue date.',path:['dueDate']});
