@@ -117,6 +117,8 @@ Public creditor registration is opt-in through `PUBLIC_REGISTRATION_ENABLED=true
 - **Verified email:** Resend (`RESEND_API_KEY`, `AUTH_FROM_EMAIL`) or Brevo (`BREVO_API_KEY`, `BREVO_FROM_EMAIL`) with an approved sender.
 - **Local SMTP:** Gmail SMTP can be configured on SMTP-capable hosts, but Render Free restricts outbound SMTP ports.
 
+Set `SEPARATE_RECEIPT_APPROVAL=true` only when the workspace has at least two authorized administrators; it prevents a user who recorded a receipt from verifying that same receipt. The default is `false` so the original single-admin sample workflow remains usable.
+
 Operator invitations and password recovery require a working email sender. Public registration never grants administrator or operator privileges. Do not put tokens, SMTP passwords, database URLs, or reviewer passwords in source control.
 
 ## Documentation
@@ -124,6 +126,7 @@ Operator invitations and password recovery require a working email sender. Publi
 - [Product requirements](docs/Commercial_Collections_PRD_v0.1.pdf)
 - [Competitor research](docs/Commercial_Collections_Competitor_Research_Enhanced.pdf)
 - [Implementation checklist](docs/IMPLEMENTATION_CHECKLIST.md)
+- [Full application audit and improvement log (Nov 2026)](docs/COMPREHENSIVE_AUDIT_2026-11-12.md)
 - [Release readiness and QA](docs/RELEASE_READINESS.md)
 
 ## Current scope
