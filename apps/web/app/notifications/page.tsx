@@ -4,7 +4,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Bell,CheckCheck,ArrowUpRight,Inbox,RefreshCw} from 'lucide-react';
 import AppShell from '@/components/AppShell';
-import {api,date,User} from '@/lib/api';
+import {api,User} from '@/lib/api';
 import styles from './page.module.css';
 
 type Update={id:string;caseId:string;caseCode:string;debtorName:string;kind:string;text:string;createdAt:string;unread:boolean};
@@ -17,8 +17,17 @@ const titles:Record<string,string>={
   receipt_rejected:'Receipt rejected',updated:'Case details updated'
 };
 
+function activityTime(value:string){
+  const parsed=new Date(value);
+  if(Number.isNaN(parsed.getTime()))return '—';
+  return new Intl.DateTimeFormat('en-IN',{
+    day:'2-digit',month:'short',hour:'numeric',minute:'2-digit',hour12:true,timeZone:'Asia/Kolkata'
+  }).format(parsed);
+}
+
 function ActivityFeed({user}:{user:User}){
   const [items,setItems]=useState<Update[]>([]);
+  const [view,setView]=useState<'all'|'unread'>('all');
   const [page,setPage]=useState(1);
   const [hasMore,setHasMore]=useState(false);
   const [unreadCount,setUnreadCount]=useState(0);
@@ -31,7 +40,7 @@ function ActivityFeed({user}:{user:User}){
     const controller=new AbortController();
     let active=true;
     setBusy(true);setError('');
-    api<Feed>('/notifications?page='+page,{signal:controller.signal}).then(data=>{
+    api<Feed>('/notifications?page='+page+(view==='unread'?'&unread=1':''),{signal:controller.signal}).then(data=>{
       if(!active)return;
       setItems(previous=>page===1?data.notifications:[...previous,...data.notifications.filter(next=>!previous.some(old=>old.id===next.id))]);
       setHasMore(data.hasMore);
@@ -39,14 +48,20 @@ function ActivityFeed({user}:{user:User}){
     }).catch(e=>{if(active&&!controller.signal.aborted)setError(e.message);})
       .finally(()=>{if(active)setBusy(false);});
     return()=>{active=false;controller.abort();};
-  },[page,refresh]);
+  },[page,refresh,view]);
+
+  function changeView(next:'all'|'unread'){
+    if(next===view)return;
+    setItems([]);setHasMore(false);setPage(1);setView(next);
+  }
 
   async function markRead(){
     setMarking(true);setError('');
     try{
       const result=await api<{seenAt:string}>('/notifications/read',{method:'POST'});
       const seen=new Date(result.seenAt).getTime();
-      setItems(previous=>previous.map(item=>({...item,unread:new Date(item.createdAt).getTime()>seen})));
+      setItems(previous=>view==='unread'?[]:previous.map(item=>({...item,unread:new Date(item.createdAt).getTime()>seen})));
+      if(view==='unread')setHasMore(false);
       setUnreadCount(0);
       window.dispatchEvent(new Event('collectdesk:notifications-read'));
     }catch(e){setError(e instanceof Error?e.message:'Could not update activity status.');}
@@ -71,19 +86,27 @@ function ActivityFeed({user}:{user:User}){
         <button type="button" onClick={()=>{setPage(1);setRefresh(n=>n+1);}}
           className={styles.refresh} disabled={busy} aria-label="Refresh activity"><RefreshCw size={16}/></button>
       </div>
+      <div className={styles.filters} role="group" aria-label="Filter activity updates">
+        <button type="button" className={view==='all'?styles.selected:''} aria-pressed={view==='all'}
+          onClick={()=>changeView('all')}>All updates</button>
+        <button type="button" className={view==='unread'?styles.selected:''} aria-pressed={view==='unread'}
+          onClick={()=>changeView('unread')}>Unread only</button>
+      </div>
       {error&&<div className="message error" role="alert">{error}
         <button type="button" onClick={()=>{setPage(1);setRefresh(n=>n+1);}}>Retry</button></div>}
       {busy&&items.length===0?<div className={styles.empty} role="status">Loading your activity…</div>:
       items.length===0&&!error?<div className={styles.empty}><Inbox size={32}/>
-        <strong>Nothing to review yet</strong><p>Relevant updates appear here when your cases move forward.</p>
-        <Link href="/cases" className="button button-outline">View cases <ArrowUpRight size={16}/></Link>
+        <strong>{view==='unread'?"You're all caught up":'Nothing to review yet'}</strong>
+        <p>{view==='unread'?'New case updates will appear here.':'Relevant updates appear here when your cases move forward.'}</p>
+        {view==='unread'?<button type="button" className="button button-outline" onClick={()=>changeView('all')}>View all updates</button>:
+          <Link href="/cases" className="button button-outline">View cases <ArrowUpRight size={16}/></Link>}
       </div>:
       <div className={styles.list}>
         {items.map(item=><Link key={item.id} href={'/cases/'+encodeURIComponent(item.caseId)}
           className={styles.entry+(item.unread?' '+styles.unread:'')}>
           <span className={styles.indicator} aria-hidden="true">{item.unread?'•':''}</span>
           <span className={styles.entryBody}>
-            <span className={styles.entryTop}><strong>{titles[item.kind]||'Case updated'}</strong><time dateTime={item.createdAt}>{date(item.createdAt)}</time></span>
+            <span className={styles.entryTop}><strong>{titles[item.kind]||'Case updated'}</strong><time dateTime={item.createdAt}>{activityTime(item.createdAt)}</time></span>
             <span className={styles.description}>{item.text}</span>
             <span className={styles.caseLabel}>{item.caseCode} <span aria-hidden="true">·</span> {item.debtorName}</span>
           </span>

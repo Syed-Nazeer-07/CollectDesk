@@ -411,11 +411,53 @@ try {
   await operator.getByText('Public browser audit progress update').waitFor();
   log('Assigned operator posted public and internal activity');
 
+  step = 'notification center activity and read-state QA';
+  await creditor.goto(base+'/notifications',{waitUntil:'domcontentloaded'});
+  await creditor.getByRole('heading',{name:'Activity updates',exact:true}).waitFor();
+  await creditor.getByText('Public browser audit progress update').waitFor();
+  assert.equal(await creditor.getByText('Private browser audit internal note').count(),0,
+    'Creditor notification feed must not leak private operator notes');
+  await creditor.getByRole('button',{name:'Unread only'}).click();
+  await creditor.getByText('Public browser audit progress update').waitFor();
+  const unreadResponse=await creditor.request.get(base+'/api/v1/notifications?unread=1');
+  assert.equal(unreadResponse.status(),200,'Unread notification filter should use authenticated API');
+  const unreadPayload=await unreadResponse.json();
+  assert.ok(unreadPayload.notifications.every(update=>update.unread),
+    'Unread-only API must never return read updates');
+  await creditor.getByRole('button',{name:'Mark all read'}).click();
+  await creditor.getByText("You're all caught up").waitFor();
+  const afterRead=await creditor.request.get(base+'/api/v1/notifications?unread=1');
+  assert.equal((await afterRead.json()).notifications.length,0);
+  await creditor.getByRole('button',{name:'View all updates'}).click();
+  await creditor.getByText('Public browser audit progress update').waitFor();
+  await creditor.reload();
+  await creditor.getByText('Public browser audit progress update').waitFor();
+  await creditor.screenshot({path:'browser-audit-results/creditor-notifications.png',fullPage:true});
+  await creditor.goto(caseUrl,{waitUntil:'domcontentloaded'});
+
+  await admin.goto(base+'/notifications',{waitUntil:'domcontentloaded'});
+  await admin.getByText('Private browser audit internal note').waitFor();
+  await admin.screenshot({path:'browser-audit-results/admin-notifications.png',fullPage:true});
+  await admin.goto(caseUrl,{waitUntil:'domcontentloaded'});
+
+  await operator.goto(base+'/notifications',{waitUntil:'domcontentloaded'});
+  await operator.getByRole('heading',{name:'Activity updates',exact:true}).waitFor();
+  await operator.getByText('Case assigned to Jordan Lee.').first().waitFor();
+  assert.equal(await operator.getByText('Public browser audit progress update').count(),0,
+    'Operator should not be notified about own actions');
+  log('Notifications filter correctly, enforce role privacy and persist read state');
+
   step = 'tenant privacy';
   const otherCreditor = await session('creditor2@demo.collectdesk.test');
   await otherCreditor.goto(caseUrl, { waitUntil: 'domcontentloaded' });
   await otherCreditor.getByText('Case not found.').first().waitFor();
   log('Another creditor organization cannot open the case');
+  await otherCreditor.goto(base+'/notifications',{waitUntil:'domcontentloaded'});
+  await otherCreditor.getByRole('heading',{name:'Activity updates',exact:true}).waitFor();
+  await otherCreditor.getByRole('button',{name:'Unread only'}).waitFor();
+  assert.equal(await otherCreditor.getByText('Public browser audit progress update').count(),0,
+    'Unrelated tenant must never receive another creditor notification');
+  await otherCreditor.screenshot({path:'browser-audit-results/other-tenant-notifications.png',fullPage:true});
 
   step = 'internal note privacy and verified receipts';
   await creditor.reload();
@@ -467,6 +509,13 @@ try {
 
   step = 'mobile layout navigation';
   const mobile = await session('creditor@demo.collectdesk.test', true);
+  await mobile.goto(base+'/notifications',{waitUntil:'domcontentloaded'});
+  await mobile.getByRole('button',{name:'Unread only'}).waitFor();
+  await mobile.getByRole('button',{name:'All updates'}).click();
+  await mobile.getByRole('heading',{name:'Recent activity'}).waitFor();
+  await mobile.screenshot({path:'browser-audit-results/mobile-notifications.png',fullPage:true});
+  assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,
+    'Activity feed should not overflow mobile viewport');
   const navTrigger=mobile.getByRole('button',{name:'Open menu'});
   await navTrigger.click();
   assert.equal(await navTrigger.getAttribute('aria-expanded'),'true',

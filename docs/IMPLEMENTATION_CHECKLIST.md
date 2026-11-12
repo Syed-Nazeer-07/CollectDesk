@@ -64,3 +64,12 @@ Progress updates should change boxes only after evidence is recorded. GitHub CI 
 - [x] Browser test covering sorting, downloadable CSV and responsive register
 - [x] Full test run passed at code SHA `054acd1`: [CI report](https://github.com/Syed-Nazeer-07/CollectDesk/actions/runs/43271930817)
 - [ ] Verify the live Render site is serving the updated commit and perform a real-account acceptance pass
+
+## Phase 8 — Activity center and notification QA (Nov 13)
+- [x] Add role-scoped in-app case activity notifications using existing activity trail
+- [x] Add unread/all filters, timestamps in the business timezone, and persistent per-user read cursor
+- [x] Enforce current assignment and creditor-company isolation for every notification request
+- [x] Unit and integration coverage for unread filtering, note visibility, cross-tenant privacy and read cursor
+- [x] Browser UI audit exercises all three roles, read state and mobile responsiveness
+- [ ] Manual live test with authorized real accounts after the release is deployed
+- [ ] Keep email/push alerts out of scope until sender, consent and delivery policy are approved
