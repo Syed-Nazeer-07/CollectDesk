@@ -174,7 +174,8 @@ route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
   const result=await Case.updateOne({
     _id:req.caseItem._id,
     organizationId:req.user.organizationId,
-    status:{$in:['draft','needs_info']}
+    status:{$in:['draft','needs_info']},
+    financialLockToken:null
   },{$set:input});
   if(!result.matchedCount)return res.status(409).json({error:'This case is no longer editable. Refresh before continuing.'});
   await logEvent(req.caseItem,req.user,'updated','Draft case details updated.');
@@ -183,8 +184,10 @@ route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
 route.post('/cases/:id/submit',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canSubmit(req.caseItem.status))return res.status(409).json({error:'Case has already been submitted.'});
   if(!isOverdue(req.caseItem.dueDate))return res.status(422).json({error:'Only overdue invoices can be submitted. Check the due date.'});
-  const updated=await Case.updateOne({_id:req.caseItem._id,status:{$in:['draft','needs_info']}},{$set:{status:'submitted',submittedAt:new Date()}});
-  if(!updated.modifiedCount)return res.status(409).json({error:'Case has already been submitted.'});
+  const updated=await Case.updateOne({
+    _id:req.caseItem._id,status:{$in:['draft','needs_info']},financialLockToken:null
+  },{$set:{status:'submitted',submittedAt:new Date()}});
+  if(!updated.modifiedCount)return res.status(409).json({error:'This case changed or is processing an attachment. Refresh and retry.'});
   await logEvent(req.caseItem,req.user,'submitted','Invoice submitted for review.');res.json({ok:true});
 });
 const reviewBody=z.object({decision:z.enum(['accept','reject','request_info']),reason:z.string().trim().min(4).max(600),feeRateBps:z.number().int().min(1500).max(3000).optional()}).strict();
