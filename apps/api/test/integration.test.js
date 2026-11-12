@@ -372,6 +372,28 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,422);
     r = await call('/cases?limit=9999',{cookie:a});
     assert.equal(r.status,422);
+    r = await call('/cases?sort=due',{cookie:a});
+    assert.equal(r.status,200);
+    assert.equal(r.data.cases[0].invoiceNo,'TEST-001','earliest due case should appear first');
+    r = await call('/cases?sort=amount',{cookie:a});
+    assert.equal(r.status,200);
+    r = await call('/cases?sort=bad-value',{cookie:a});
+    assert.equal(r.status,422,'sort input must use a validated allowlist');
+    const publicExport=await fetch(base+'/api/v1/cases/export');
+    assert.equal(publicExport.status,401,'anonymous users cannot export the register');
+    const ownExport=await fetch(base+'/api/v1/cases/export?q=TEST-001',{headers:{cookie:a}});
+    assert.equal(ownExport.status,200);
+    assert.match(ownExport.headers.get('content-disposition')||'',/attachment/);
+    assert.match(ownExport.headers.get('cache-control')||'',/no-store/);
+    const exported=await ownExport.text();
+    assert.match(exported,/TEST-001/);
+    assert.doesNotMatch(exported,/INV-FUTURE-TEST/,'export search must be applied across every row');
+    const foreignExport=await fetch(base+'/api/v1/cases/export',{headers:{cookie:b}});
+    assert.equal(foreignExport.status,200);
+    assert.doesNotMatch(await foreignExport.text(),/TEST-001/,
+      'tenant B must not be able to export tenant A case data');
+    r = await call('/cases/export?sort=invalid',{cookie:a});
+    assert.equal(r.status,422,'invalid report ordering must be rejected');
     r = await call(`/cases/${caseId}`,{cookie:operator});
     assert.equal(r.status,404,'unassigned operator must not see the case');
     r = await call(`/cases/${caseId}/review`,{method:'POST',cookie:admin,body:{decision:'accept',reason:'Test review',feeRateBps:2000}});
