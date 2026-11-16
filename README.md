@@ -2,144 +2,162 @@
 
 # CollectDesk
 
-### A clearer workspace for commercial collections
+**A role-based workspace for commercial collections**
 
-Manage overdue cases, coordinate teams, and track verified recoveries — all in one role-based workspace.
+Organize overdue cases, coordinate creditor and operations teams, and track verified *sample* recoveries in one place.
 
-[Live application](https://collectdesk.onrender.com/) · [Sign in](https://collectdesk.onrender.com/login) · [Source code](https://github.com/Syed-Nazeer-07/CollectDesk) · [CI](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
+[Live demo](https://collectdesk.onrender.com/) · [Sign in](https://collectdesk.onrender.com/login) · [CI runs](https://github.com/Syed-Nazeer-07/CollectDesk/actions)
 
-**Next.js · React · TypeScript · Node.js · Express · MongoDB**
+[![CollectDesk checks](https://github.com/Syed-Nazeer-07/CollectDesk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Syed-Nazeer-07/CollectDesk/actions/workflows/ci.yml)
+
+Next.js 16 · React 19 · TypeScript · Express 5 · MongoDB
 
 </div>
 
-> [!NOTE]
-> **Technical-evaluation MVP using fictional data.** CollectDesk is not a payment processor or a live debt-collection service. Do not upload real invoices, debtor information, or financial records. The hosted service may take time to wake up on Render's free tier; availability and configured sign-in providers should be verified before a demo.
+> [!IMPORTANT]
+> **Technical-evaluation MVP — fictional data only.** This is not a payment processor or an authorized debt-collection platform. Never upload real invoices, debtor details, payment information, or other sensitive records. The Render demo may need a cold start; optional sign-in methods depend on provider configuration.
 
-## Overview
+## What it does
 
-CollectDesk brings the commercial collections workflow into one organized application. Creditors submit overdue cases, administrators review and assign them, and operators record progress. Recovery totals are based on verified demonstration receipts rather than unconfirmed claims.
-
-The case register also supports server-side search, status filters, ordering by latest update/earliest due date/highest value, and an authenticated **Export CSV** action. Exports contain at most 5,000 case-register rows, honor the viewer's case permissions and active filters, and quote spreadsheet cells defensively. They never include internal activity notes or user credentials.
-
-### Highlights
-
-- **Role-based workspaces** — distinct creditor, administrator, and case-operator permissions.
-- **Case lifecycle** — draft, submit, review, assign, progress, reconcile, and close cases.
-- **Recovery reporting** — outstanding balances, verified recoveries, illustrative fees, and activity history.
-- **Organization isolation** — creditor records are scoped to their respective organizations.
-- **Account onboarding** — company setup and a progress-aware getting-started checklist.
-- **Support tickets** — authenticated users submit requests; administrators manage resolutions.
-- **Activity updates** — role-scoped in-app notifications, unread filtering and persistent read status, with direct case links.
-- **Staff access** — administrator-issued, expiring operator invitations when transactional email is configured.
-- **Optional identity flows** — Google sign-in, verified email registration, and password recovery when the required providers are configured.
-- **Synthetic PDF evidence** — optional private sample attachments behind an explicit feature flag; not approved for real financial documents.
-
-## How it works
+CollectDesk follows the lifecycle of an overdue *demonstration* case:
 
 ```text
-Creditor creates a draft
-          ↓
-Submits an overdue case
-          ↓
-Administrator reviews and assigns
-          ↓
-Operator records collection activity
-          ↓
+Creditor drafts and submits a case
+             ↓
+Administrator reviews and assigns it
+             ↓
+Operator records case activity
+             ↓
 Administrator verifies sample receipts
-          ↓
-Case is reconciled and closed
+             ↓
+Case is reconciled or closed
 ```
 
-Pending receipts do not count as recovered funds. Reversals are recorded separately, and a closed case does not necessarily mean the full balance was recovered.
-
-## Technology
-
-| Area | Technologies |
+| Capability | Details |
 | --- | --- |
-| Frontend | Next.js 16, React 19, TypeScript, Lucide |
-| Backend | Node.js 22, Express 5, Zod |
-| Database | MongoDB, Mongoose |
-| Authentication | Signed HTTP-only cookies, bcrypt, optional Google OAuth and verified email |
-| Infrastructure | Docker Compose for local development, Render for hosting |
-| Quality | Node.js API tests, Playwright browser audit, GitHub Actions |
+| Role-based access | Separate creditor, administrator and operator permissions |
+| Case register | Server-side search, status filters, sorting, pagination and permission-scoped CSV export |
+| Collections oversight | Sample balances, verified receipt totals, reversals and activity history |
+| Organization isolation | Creditor records restricted to the appropriate organization |
+| Team operations | Staff invitations, support requests and role-scoped notifications |
+| Onboarding and identity | Company setup; optional Google sign-in, email verification and password recovery |
+| Sample evidence | Private, feature-flagged PDF attachments for synthetic test data only |
 
-## Repository structure
+**Accounting behavior:** Pending receipts are not counted as recovered funds. A case marked closed does not necessarily mean its entire balance was paid. CSV exports are capped at 5,000 accessible rows and exclude internal notes and credentials.
+
+## Tech stack
+
+- **Web:** Next.js, React, TypeScript and Lucide
+- **API:** Node.js, Express, Zod, signed HTTP-only session cookies and bcrypt
+- **Data:** MongoDB and Mongoose
+- **Infrastructure:** Docker Compose for local demos; Render for the hosted preview
+- **Checks:** Node.js tests, TypeScript checks, Playwright browser audit and GitHub Actions
+
+## Repository layout
 
 ```text
 CollectDesk/
 ├── apps/
-│   ├── web/             # Next.js application
-│   └── api/             # Express API and tests
-├── docs/                # Product research and release documentation
-├── scripts/             # Seed, smoke test and hosting utilities
-├── compose.yaml         # Local MongoDB, API and web services
-├── Dockerfile.render    # Hosted container build
-└── package.json         # npm workspace scripts
+│   ├── api/                  Express API, models and tests
+│   └── web/                  Next.js pages, components and styles
+├── docs/                     Requirements, research and QA notes
+├── scripts/                  Smoke tests, browser audit and launch utilities
+├── .github/workflows/        CI and external preview diagnostics
+├── compose.yaml              Local MongoDB, API and web services
+├── Dockerfile                Local Compose build
+├── Dockerfile.render         Single-container hosted preview
+├── render.yaml               Render Blueprint configuration
+└── package.json              npm workspaces and project commands
 ```
 
-## Run locally
+## Quick start: local demo with Docker
 
-**Requirements:** Docker Desktop (Linux containers) and Node.js/npm.
+**Prerequisites:** Docker Desktop (Linux containers) and Node.js/npm. Use only fictional data.
 
-1. Clone the repository and enter the project directory.
-2. Create a local environment file from the example:
+1. Clone the repository and enter its directory:
 
-```powershell
-Copy-Item .env.compose.example .env.compose
-```
+   ```bash
+   git clone https://github.com/Syed-Nazeer-07/CollectDesk.git
+   cd CollectDesk
+   ```
 
-3. In `.env.compose`, set a unique `JWT_SECRET` (at least 32 characters) and `DEMO_SEED_PASSWORD` (at least 12 characters). Never commit secrets.
-4. Build, seed fictional reviewer accounts, and start the services:
+2. Copy the environment template to a private file:
 
-```powershell
-docker compose --env-file .env.compose build
-docker compose --env-file .env.compose --profile seed run --rm seed
-docker compose --env-file .env.compose up -d database api web
-```
+   ```bash
+   cp .env.compose.example .env.compose
+   ```
 
-Open **http://localhost:3000**. The API is available locally on port **4000**.
+   On Windows PowerShell, use `Copy-Item .env.compose.example .env.compose` instead.
 
-The seeded reviewer roles are administrator, creditor, and case operator. Their passwords come from your private `DEMO_SEED_PASSWORD` setting; no public credentials are supplied.
+3. In `.env.compose`, set a unique `JWT_SECRET` (32+ characters) and `DEMO_SEED_PASSWORD` (12+ characters). **Do not commit this file.**
 
-### Checks
+4. Build, seed fictional records and start the three services:
+
+   ```bash
+   docker compose --env-file .env.compose build
+   docker compose --env-file .env.compose --profile seed run --rm seed
+   docker compose --env-file .env.compose up -d database api web
+   ```
+
+Open [http://localhost:3000](http://localhost:3000). The local API listens at [http://localhost:4000](http://localhost:4000).
+
+The seed script creates fictional reviewer accounts for the three roles. It uses your private `DEMO_SEED_PASSWORD`; no public password is included here.
+
+To stop the services:
 
 ```bash
+docker compose --env-file .env.compose down
+```
+
+### Development checks
+
+Run these from the repository root after `npm ci` with a Node.js version supported by `package.json`:
+
+```bash
+npm run typecheck -w @collectdesk/web
 npm test
 npm run build
 ```
 
-For additional checks, see the repository scripts and [GitHub Actions](https://github.com/Syed-Nazeer-07/CollectDesk/actions). Browser audits create fictional records and must never target a production database.
+`npm run check` combines the API test suite and web build. `npm run smoke` and `npm run audit:browser` require a running, appropriately seeded test environment. **Never run the browser audit against a production database**: it creates and updates test records.
 
-## Deployment and configuration
+## Configuration and hosting
 
-The hosted deployment uses `Dockerfile.render` and `node scripts/start-hosted.mjs`. Configure `MONGODB_URI`, `JWT_SECRET`, and `WEB_ORIGIN` as private environment variables. Set the web origin to the actual HTTPS deployment URL.
+The hosted demo uses `Dockerfile.render` with `scripts/start-hosted.mjs` to run Express and Next.js together. Configure secrets in your hosting provider rather than the repository.
 
-Public creditor registration is opt-in through `PUBLIC_REGISTRATION_ENABLED=true` and requires a configured identity provider:
+| Setting | Purpose |
+| --- | --- |
+| `MONGODB_URI` | MongoDB connection string |
+| `JWT_SECRET` | Strong session signing secret |
+| `WEB_ORIGIN` | Actual HTTPS origin of the hosted application |
+| `DEMO_SEED_PASSWORD` | Required only when seeding fictional accounts |
+| `GOOGLE_CLIENT_ID` | Optional Google identity provider |
+| `PUBLIC_REGISTRATION_ENABLED` | Optional public creditor registration; requires a working verification sender |
+| `SAMPLE_EVIDENCE_ENABLED` | Synthetic-only attachment capability; disabled by default |
+| `SEPARATE_RECEIPT_APPROVAL` | Optional two-person receipt control; requires enough authorized administrators |
 
-- **Google:** `GOOGLE_CLIENT_ID` and the correct authorized HTTPS JavaScript origin.
-- **Verified email:** Resend (`RESEND_API_KEY`, `AUTH_FROM_EMAIL`) or Brevo (`BREVO_API_KEY`, `BREVO_FROM_EMAIL`) with an approved sender.
-- **Local SMTP:** Gmail SMTP can be configured on SMTP-capable hosts, but Render Free restricts outbound SMTP ports.
+See [API environment examples](apps/api/.env.example), [web environment examples](apps/web/.env.example), and [Compose configuration](.env.compose.example) for additional options. Email delivery requires an approved Resend/Brevo sender or a supported SMTP environment; Render Free restricts outbound SMTP. Never expose secret keys in the frontend.
 
-Set `SEPARATE_RECEIPT_APPROVAL=true` only when the workspace has at least two authorized administrators; it prevents a user who recorded a receipt from verifying that same receipt. The default is `false` so the original single-admin sample workflow remains usable.
-
-Operator invitations and password recovery require a working email sender. Public registration never grants administrator or operator privileges. Do not put tokens, SMTP passwords, database URLs, or reviewer passwords in source control.
+The [live diagnostic workflow](.github/workflows/live-preview.yml) checks public routes and authorization failures, but does **not** establish that real identity providers, email delivery or business acceptance have been tested.
 
 ## Documentation
 
-- [Product requirements](docs/Commercial_Collections_PRD_v0.1.pdf)
-- [Competitor research](docs/Commercial_Collections_Competitor_Research_Enhanced.pdf)
+- [Product requirements (PDF)](docs/Commercial_Collections_PRD_v0.1.pdf)
+- [Competitor research (PDF)](docs/Commercial_Collections_Competitor_Research_Enhanced.pdf)
 - [Implementation checklist](docs/IMPLEMENTATION_CHECKLIST.md)
-- [Full application audit and improvement log (Nov 2026)](docs/COMPREHENSIVE_AUDIT_2026-11-12.md)
-- [Release readiness and QA](docs/RELEASE_READINESS.md)
+- [Engineering audit and known limitations](docs/COMPREHENSIVE_AUDIT_2026-11-12.md)
+- [Release-readiness checklist](docs/RELEASE_READINESS.md)
 
-## Current scope
+## Limitations and release status
 
-CollectDesk is a **demonstration application**, not a production collections platform. It does not transfer money, contact debtors, or establish business identity. Optional sample PDFs are stored privately but do not have production-grade malware scanning, retention controls, or compliance approval. A real deployment would require legal and privacy review, hardened evidence handling, monitored infrastructure, tested backups, and end-to-end acceptance testing.
+This repository is a **sample-data MVP**, not a production financial service. It does not transfer money or contact debtors. Evidence handling is not approved for real files; production use would require legal and privacy review, malware scanning, retention controls, transaction integrity review, monitored infrastructure, tested backups and live role-based acceptance testing.
+
+The GitHub Actions badge reflects automated checks on `main`, **not** compliance certification or live-provider readiness. See the release-readiness checklist for what is still unverified.
 
 ---
 
 <div align="center">
 
-Built by [Syed Nazeer](https://github.com/Syed-Nazeer-07) · **CollectDesk © 2026**
+Built by [Syed Nazeer](https://github.com/Syed-Nazeer-07) · © 2026 CollectDesk
 
 </div>

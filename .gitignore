@@ -1,12 +1,28 @@
+# Dependencies and generated builds
 node_modules/
 .next/
 out/
+coverage/
+*.tsbuildinfo
+
+# Browser and test artifacts
+browser-audit-results/
+playwright-report/
+test-results/
+
+# Local configuration, secrets and credentials
 .env
 .env.local
 .env.*.local
-.DS_Store
-coverage/
-*.log
-*.tsbuildinfo
-
 .env.compose
+*.pem
+*.key
+
+# Logs, temporary files and editor state
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

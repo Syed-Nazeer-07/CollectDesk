@@ -1,15 +1,26 @@
-**/node_modules
-**/.next
+# Git metadata, developer configuration and credentials
+.git
+.github
 **/.env
 **/.env.local
 **/.env.*.local
-.git
-*.zip
-*.log
-**/coverage
-**/.DS_Store
-
-# Never copy host configuration or private credentials into an image.
 .env.compose
 .env.compose.*
 **/.env.*
+**/*.pem
+**/*.key
+
+# Installed dependencies and generated output
+**/node_modules
+**/.next
+**/coverage
+**/.DS_Store
+*.log
+*.zip
+browser-audit-results
+playwright-report
+test-results
+
+# Evaluation references and tests are not used by runtime containers
+docs
+**/test
