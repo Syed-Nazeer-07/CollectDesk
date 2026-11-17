@@ -42,6 +42,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   const [reload,setReload]=useState(0);
   const [exporting,setExporting]=useState(false);
   const [exportError,setExportError]=useState('');
+  const [exportNotice,setExportNotice]=useState('');
 
   useEffect(()=>{setPage(1);},[status,sort]);
   useEffect(()=>{
@@ -77,7 +78,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   function setSort(next:CaseSort){updateFilters(status,next);}
   async function downloadReport(){
     if(exporting)return;
-    setExportError('');setExporting(true);
+    setExportError('');setExportNotice('');setExporting(true);
     try{
       const query=new URLSearchParams({sort});
       if(status!=='all')query.set('status',status);
@@ -95,6 +96,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
       link.href=url;link.download='collectdesk-cases.csv';
       document.body.appendChild(link);link.click();link.remove();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
+      setExportNotice('CSV download started.');
     }catch(e){setExportError(e instanceof Error?e.message:'Could not export cases.');}
     finally{setExporting(false);}
   }
@@ -121,7 +123,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
         <option value="amount">Amount · highest</option>
       </select></div>
       <button className="button button-outline" type="button" onClick={downloadReport}
-        disabled={loading||exporting||pagination.total===0} title="Download matching case-register records as CSV">
+        disabled={loading||exporting||!!error||q.trim()!==debouncedQ||pagination.total===0} title="Download matching case-register records as CSV">
         <Download size={16}/>{exporting?'Exporting…':'Export CSV'}
       </button>
       {filtered&&<button className="button button-muted case-reset-filters" type="button" onClick={resetFilters}>
@@ -134,6 +136,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
       <h3>Case register <span>{loading?'…':pagination.total}</span></h3>
       <p>{status==='all'?'All accessible cases':label(status)+' cases'}{debouncedQ?' matching “'+debouncedQ+'”':''}</p>
     </div>
+    {exportNotice&&<p className="message success" role="status">{exportNotice}</p>}
     {exportError&&<div className="message error" role="alert">{exportError}</div>}
     {error&&<div className="message error" role="alert">{error} <button type="button" onClick={()=>setReload(v=>v+1)}>Try again</button></div>}
     {loading?<div className="loading-panel" role="status"><div className="spinner"/> Loading cases…</div>:

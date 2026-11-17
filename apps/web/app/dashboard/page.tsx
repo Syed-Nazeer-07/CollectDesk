@@ -36,7 +36,7 @@ export default function DashboardPage(){
         <Link href="/cases" className="button button-outline dashboard-overview-action">Open case register <ArrowUpRight size={17}/></Link>
       </section>
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
-        <div className="loading-panel"><div className="spinner"/> Loading dashboard…</div>:<>
+        <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
         {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={19}/>} sub="Cases you can access"/>
@@ -67,6 +67,13 @@ export default function DashboardPage(){
               <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Open assigned cases'}</strong><small>{user.role==='creditor'?'Prepare a sample overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'See all cases assigned to your operator account'}</small></span>
               <ArrowUpRight size={18} aria-hidden="true"/>
             </Link>
+            {(user.role==='creditor' ? ['needs_info','draft'] : user.role==='admin' ? ['accepted','on_hold'] : ['in_progress','on_hold']).map(status=>{
+              const count=data.statusBreakdown.find(row=>row.status===status)?.count || 0;
+              if (!count) return null;
+              return <Link key={status} href={'/cases?status='+status} className="queue-link">
+                <span>{label(status)}</span><strong>{count}</strong><ArrowUpRight size={16}/>
+              </Link>;
+            })}
             <div className="finance-totals">
               <span>Estimated service fees</span>
               <strong>{shortMoney(data.summary.estimatedFeesPaise)}</strong>

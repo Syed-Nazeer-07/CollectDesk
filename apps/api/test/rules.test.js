@@ -82,7 +82,7 @@ test('missing tenant and unknown roles fail closed for queries and single cases'
   assert.equal(assertAccess({role:'operator'},c),false);
   assert.deepEqual(scopeForUser({role:'admin'}),{});
   assert.deepEqual(scopeForUser({role:'creditor',organizationId:'org-one'}),{organizationId:'org-one'});
-  assert.deepEqual(scopeForUser({role:'creditor'}),{organizationId:{$exists:false}});
-  assert.deepEqual(scopeForUser({role:'operator'}),{assignedTo:{$exists:false}});
+  assert.deepEqual(scopeForUser({role:'creditor'}),{_id:{$exists:false}});
+  assert.deepEqual(scopeForUser({role:'operator'}),{_id:{$exists:false}});
   assert.deepEqual(scopeForUser({role:'guest'}),{_id:{$exists:false}});
 });

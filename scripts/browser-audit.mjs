@@ -7,6 +7,8 @@ import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const base = process.env.AUDIT_BASE_URL || 'http://localhost:3000';
+if (!['localhost','127.0.0.1','[::1]'].includes(new URL(base).hostname))
+  throw new Error('Run the mutating browser audit against a local seeded instance.');
 const password = process.env.DEMO_SEED_PASSWORD;
 if (!password || password.length < 12) {
   console.error('Set DEMO_SEED_PASSWORD (12+ chars) for the seeded fictional demo.');
@@ -286,6 +288,16 @@ try {
   await creditor.getByRole('heading', { name: 'What you can do' }).waitFor();
   assert.equal(await creditor.getByRole('button', { name: 'Sign out', exact: true }).count(), 1, 'Sign-out should be clearly labelled');
   assert.equal(await creditor.locator('.workspace-identity').getAttribute('role'), null, 'Workspace identity must not pretend to be a control');
+  const displayName=creditor.getByLabel('Display name');
+  const originalName=await displayName.inputValue();
+  await displayName.fill('Sample Account Reviewer');
+  await creditor.getByRole('button',{name:'Save display name'}).click();
+  await creditor.getByText('Display name saved.').waitFor();
+  await creditor.reload();
+  await creditor.getByRole('heading',{name:'Sample Account Reviewer'}).waitFor();
+  await displayName.fill(originalName);
+  await creditor.getByRole('button',{name:'Save display name'}).click();
+  await creditor.getByText('Display name saved.').waitFor();
   await creditor.screenshot({ path: 'browser-audit-results/account-access.png', fullPage: true });
   await creditor.getByRole('link', { name: /Open case register/i }).click();
   await creditor.getByRole('heading', { name: 'All cases', exact: true }).waitFor();
@@ -330,6 +342,9 @@ try {
   step = 'creditor login and case creation';
   await creditor.goto(base + '/cases/new', { waitUntil: 'domcontentloaded' });
   await creditor.locator('input[name="debtorName"]').fill('Browser Audit Fictional Supplies');
+  await creditor.reload();
+  await creditor.getByText('Recovered your unfinished invoice from this tab.').waitFor();
+  assert.equal(await creditor.locator('input[name="debtorName"]').inputValue(),'Browser Audit Fictional Supplies');
   const invoiceNo = 'AUDIT-' + Date.now();
   await creditor.locator('input[name="invoiceNo"]').fill(invoiceNo);
   await creditor.locator('input[name="issueDate"]').fill('2026-01-01');

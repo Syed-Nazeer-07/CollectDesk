@@ -64,7 +64,7 @@ export function pageInfo(page, pageSize, total) {
 /** Safe query scope for every role, including malformed/legacy user accounts. */
 export function scopeForUser(user) {
   if (user?.role === 'admin') return {};
-  if (user?.role === 'creditor') return user.organizationId ? {organizationId: user.organizationId} : {organizationId: {$exists: false}};
-  if (user?.role === 'operator') return user._id ? {assignedTo: user._id} : {assignedTo: {$exists: false}};
+  if (user?.role === 'creditor') return user.organizationId ? {organizationId: user.organizationId} : {_id: {$exists: false}};
+  if (user?.role === 'operator') return user._id ? {assignedTo: user._id} : {_id: {$exists: false}};
   return {_id: {$exists: false}};
 }

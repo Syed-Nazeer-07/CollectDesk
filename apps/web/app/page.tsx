@@ -45,13 +45,13 @@ const stages:Stage[]=[
   {title:'Draft',copy:'Create a case from an overdue invoice. Edit the details until they are right.',who:'Creditor',icon:'brief',code:'CC-1050 · DRAFT',pill:'Draft',pillTone:'s',heading:'Prepare the case',sub:'Fields stay editable until you submit.',
     rows:[['Invoice','INV-212'],['Amount due','₹1,80,000'],['Days overdue','47'],['Next action','Submit for review']]},
   {title:'Submitted',copy:'Send the case to the administrators. It waits in the queue with a clear status.',who:'Creditor',icon:'brief',code:'CC-1050 · SUBMITTED',pill:'Submitted',pillTone:'s',heading:'Sent to administrators',sub:'The creditor can follow progress from here.',
-    rows:[['Submitted by','Creditor'],['Queue position','3'],['Visible to creditor','Yes','ok'],['Next action','Administrator review']]},
+    rows:[['Submitted by','Creditor'],['Case status','Submitted'],['Visible to creditor','Yes','ok'],['Next action','Administrator review']]},
   {title:'Review',copy:'An administrator approves the case or asks for more information.',who:'Administrator',icon:'shield',code:'CC-1049 · REVIEW',pill:'In review',pillTone:'a',heading:'Review the request',sub:'Approve it, or ask the creditor for more.',
     rows:[['Invoice','INV-211'],['Documents check','Complete','ok'],['Decision','Approve · Request info'],['Next action','Assign an operator']]},
   {title:'Assigned',copy:'An operator takes ownership, so every case has one named person behind it.',who:'Administrator',icon:'shield',code:'CC-1049 · ASSIGNED',pill:'Assigned',pillTone:'a',heading:'One named owner',sub:'Operators only see the cases assigned to them.',
     rows:[['Assigned to','Case operator'],['Assigned by','Administrator'],['Creditor notified','Yes','ok'],['Next action','Begin work']]},
   {title:'Progress',copy:'The operator logs activity. Public updates reach the creditor, internal notes stay internal.',who:'Case operator',icon:'users',code:'CC-1048 · PROGRESS',pill:'In progress',pillTone:'g',heading:'Activity, by audience',sub:'Choose what the creditor sees and what stays internal.',
-    rows:[['Public update','Payment plan proposed'],['Internal note','Debtor asked for 30 days'],['Progress','72%'],['Next action','Record receipt']]},
+    rows:[['Public update','Payment plan proposed'],['Internal note','Debtor asked for 30 days'],['Case status','In progress'],['Next action','Record receipt']]},
   {title:'Reconciliation',copy:'Receipts are verified, rejected, or reversed. Only verified ones move the total.',who:'Administrator',icon:'shield',code:'CC-1048 · RECONCILIATION',pill:'Verifying',pillTone:'g',heading:'Receipts, checked',sub:'The recovery total counts verified entries only.',
     rows:[['Receipt R-01','+ ₹40,000 · verified','ok'],['Receipt R-02','₹25,000 · pending','dim'],['Reversal R-03','− ₹5,000','neg'],['Net verified recovery','₹35,000','','total']]},
   {title:'Closed',copy:'The case closes with its full ledger intact. Closing does not mean the invoice was paid in full.',who:'Administrator',icon:'clip',code:'CC-1031 · CLOSED',pill:'Closed',pillTone:'s',heading:'Closed with the full record',sub:'Outstanding balance and recovery stay separate.',
@@ -71,7 +71,7 @@ const capabilities=[
 ];
 
 const steps=[
-  {number:'01',title:'Create your account',copy:'Sign up with an email address or Google login to set up your workspace.'},
+  {number:'01',title:'Create your account',copy:'Use an available sign-up method, then enter your company details.'},
   {number:'02',title:'Submit an overdue invoice',copy:'Enter debtor and invoice details, confirm dates, and submit the claim for administrative review.'},
   {number:'03',title:'Follow verified progress',copy:'Monitor case milestones, public updates, and verified recovery receipts from one dashboard.'}
 ];

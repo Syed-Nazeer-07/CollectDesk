@@ -69,6 +69,15 @@ app.post('/api/v1/auth/login',authLimiter,async(req,res)=>{
 });
 app.post('/api/v1/auth/logout',(_req,res)=>{res.clearCookie(COOKIE_NAME,{...cookieOptions(),maxAge:undefined});res.json({ok:true});});
 app.get('/api/v1/auth/me',requireAuth,(req,res)=>res.json({user:publicUser(req.user)}));
+const profileBody = z.object({name:z.string().trim().min(2).max(90)}).strict();
+app.patch('/api/v1/auth/me', requireAuth, async (req, res) => {
+  const {name} = profileBody.parse(req.body);
+  const user = await User.findOneAndUpdate(
+    {_id:req.user._id, active:true}, {$set:{name}}, {new:true, runValidators:true}
+  );
+  if (!user) return res.status(401).json({error:'Please sign in again.'});
+  res.json({user:publicUser(user)});
+});
 installRegistrationRoutes(app,webOrigin);
 installPasswordRecoveryRoutes(app,webOrigin);
 installStaffRoutes(app,webOrigin);
@@ -119,9 +128,9 @@ route.get('/operators',requireRole('admin'),async(_req,res)=>{
   res.json({operators:operators.map(u=>({id:String(u._id),name:u.name,email:u.email}))});
 });
 route.get('/dashboard/summary',async(req,res)=>{
-  const cases=await Case.find(scope(req.user)).sort({createdAt:-1}).lean();
+  const cases=await Case.find(scope(req.user)).select('principalPaise feeRateBps status updatedAt caseCode debtorName invoiceNo').sort({updatedAt:-1,_id:-1}).lean();
   const ids=cases.map(c=>c._id);
-  const receipts=ids.length?await Receipt.find({caseId:{$in:ids},status:'verified'}).lean():[];
+  const receipts=ids.length?await Receipt.find({caseId:{$in:ids},status:'verified'}).select('caseId amountPaise kind status').lean():[];
   const byCase=new Map();for(const r of receipts){let a=byCase.get(String(r.caseId))||[];a.push(r);byCase.set(String(r.caseId),a);}
   const totals=cases.map(c=>({case:c,calc:calculateMoney(c.principalPaise,c.feeRateBps,byCase.get(String(c._id))||[])}));
   const live=totals.filter(t=>!['draft','rejected'].includes(t.case.status));
@@ -184,13 +193,16 @@ route.post('/cases',requireRole('creditor'),async(req,res)=>{
 });
 route.get('/cases/:id',getCase,async(req,res)=>{
   const item=req.caseItem;
-  const acts=await Activity.find({caseId:item._id,...(req.user.role==='creditor'?{visibility:'creditor'}:{})}).sort({createdAt:1}).populate('actorId','name role').lean();
-  const recs=await Receipt.find({caseId:item._id}).sort({createdAt:-1}).lean();
+  const [owner, acts, recs] = await Promise.all([
+    item.assignedTo ? User.findById(item.assignedTo).select('name').lean() : null,
+    Activity.find({caseId:item._id,...(req.user.role==='creditor'?{visibility:'creditor'}:{})}).sort({createdAt:1}).populate('actorId','name role').lean(),
+    Receipt.find({caseId:item._id}).sort({createdAt:-1}).lean()
+  ]);
   const calc=calculateMoney(item.principalPaise,item.feeRateBps,recs);
   // Unverified receipt references are internal reconciliation information.
   // Creditor dashboards receive verified ledger entries only.
   const visibleReceipts=req.user.role==='creditor'?recs.filter(r=>r.status==='verified'):recs;
-  res.json({case:{...item,id:String(item._id),organizationId:String(item.organizationId),assignedTo:item.assignedTo?String(item.assignedTo):null},
+  res.json({case:{...item,operatorName:owner?.name || null,id:String(item._id),organizationId:String(item.organizationId),assignedTo:item.assignedTo?String(item.assignedTo):null},
     financials:calc,activities:acts.map(a=>({id:String(a._id),kind:a.kind,text:a.text,visibility:a.visibility,createdAt:a.createdAt,actor:a.actorId?.name||'Team member'})),
     approvalPolicy:{separateReceiptApproval:process.env.SEPARATE_RECEIPT_APPROVAL==='true'},
     receipts:visibleReceipts.map(r=>({id:String(r._id),amountPaise:r.amountPaise,kind:r.kind,status:r.status,reference:r.reference,reversedFrom:r.reversedFrom?String(r.reversedFrom):null,
@@ -343,7 +355,9 @@ app.use((error,_req,res,_next)=>{
   if(error instanceof SyntaxError && 'body' in error) return res.status(400).json({error:'Invalid JSON request.'});
   if(error?.name==='CastError')return res.status(404).json({error:'Record not found.'});
   if(error?.type==='entity.too.large')return res.status(413).json({error:'Uploaded document is too large.'});
-  console.error('[API]',error?.message);
+  if (['MongoServerSelectionError','MongooseServerSelectionError','MongoNetworkError'].includes(error?.name))
+    return res.status(503).json({error:'Database temporarily unavailable. Please retry.'});
+  console.error('[API] Request failed', {name:error?.name});
   res.status(500).json({error:'Something went wrong. Please retry.'});
 });
 export default app;

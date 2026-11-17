@@ -1,5 +1,4 @@
 /* CollectDesk landing page. All selectors are scoped under .lp so nothing leaks into the app. */
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 .lp{--bg:#12171f; --bg-2:#19202b; --panel:#212a39; --line:rgba(244,238,221,.1);
   --fg:#f4eedd; --fg-dim:rgba(244,238,221,.62); --fg-faint:rgba(244,238,221,.3);
   --accent:#ff6a2b; --accent-ink:#1b0d05; --sky:#43c6e6; --mint:#5fd8a8; --amber:#ffc15e; --rose:#ff8a7a;

@@ -8,7 +8,7 @@ import {ThemeToggle} from '@/components/ThemeProvider';
 import BrandMark from '@/components/BrandMark';
 import NotificationBell from '@/components/NotificationBell';
 
-type Props={children:(user:User)=>React.ReactNode;title:string;subtitle?:string;action?:boolean};
+type Props={children:(user:User,onProfileSaved:(user:User)=>void)=>React.ReactNode;title:string;subtitle?:string;action?:boolean};
 
 const roleName:Record<User['role'],string>={admin:'Administrator',creditor:'Creditor',operator:'Case operator'};
 
@@ -60,12 +60,13 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     return()=>clearTimeout(timeout);
   },[ready]);
   async function logout(){
-    try{await api('/auth/logout',{method:'POST'});router.replace('/login');}
+    try{await api('/auth/logout',{method:'POST'});try {if(user)sessionStorage.removeItem('collectdesk-intake:'+user.id);} catch {} router.replace('/login');}
     catch(e:any){setAuthError(e.message);}
   }
   const initials=user?.name?.split(' ').map(part=>part[0]).slice(0,2).join('')||'CD';
   const displayRole=user?roleName[user.role]:'Workspace user';
   return <div className="app-root">
+    <a className="workspace-skip" href="#workspace-content">Skip to workspace content</a>
     {menu&&<button className="mobile-overlay" type="button" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}
     <aside id="workspace-sidebar" aria-label="Workspace navigation" className={`sidebar ${menu?'open':''}`}>
       <div className="sidebar-top">
@@ -111,9 +112,9 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
           </Link>
         </div>
       </header>
-      <div className="main-content">
+      <div className="main-content" id="workspace-content" tabIndex={-1}>
         <div className="page-heading"><div><div className="eyebrow">COLLECTDESK / WORKSPACE</div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
-        {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user)}
+        {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user,setUser)}
         <footer className="app-footer"><span>CollectDesk · Case management</span><span>Sample records only · No real payments</span></footer>
       </div>
     </main>
