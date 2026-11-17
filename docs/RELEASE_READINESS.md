@@ -3,6 +3,10 @@
 **Updated:** 2026-11-16  
 **Intended scope:** Fictional-data technical-evaluation MVP. This checklist is not permission to process actual invoices, collect payments or provide regulated debt-collection services.
 
+## 18 November 2026 candidate update
+
+The local workflow-quality branch passed the isolated API, production build, three-role Chromium, responsive and hosted-launcher checks described in the [demo acceptance report](DEMO_ACCEPTANCE.md). The live Render service still serves the baseline `b55067b6735c`. Record the approved candidate SHA and repeat the release checks after an authorized deploy.
+
 ## Current status
 
 The application contains the three-role case workflow, staff invitations, support handling, notification filters and opt-in **synthetic-only** PDF evidence. Automated test coverage exists, but a green build is **not** evidence that real account providers, all live flows, monitoring and business acceptance have been verified.

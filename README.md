@@ -40,10 +40,25 @@ Case is reconciled or closed
 | Collections oversight | Sample balances, verified receipt totals, reversals and activity history |
 | Organization isolation | Creditor records restricted to the appropriate organization |
 | Team operations | Staff invitations, support requests and role-scoped notifications |
+| Profile | Edit your own display name while signed in |
 | Onboarding and identity | Company setup; optional Google sign-in, email verification and password recovery |
 | Sample evidence | Private, feature-flagged PDF attachments for synthetic test data only |
 
 **Accounting behavior:** Pending receipts are not counted as recovered funds. A case marked closed does not necessarily mean its entire balance was paid. CSV exports are capped at 5,000 accessible rows and exclude internal notes and credentials.
+
+## Screens from the local demo
+
+![CollectDesk dashboard with balances, case queues and status breakdown](docs/screenshots/dashboard-light.webp)
+
+[More screenshots in light and dark mode](docs/screenshots/README.md)
+
+## Role permissions
+
+| Role | Cases | Account and operations |
+| --- | --- | --- |
+| Creditor | Create, edit and export company cases. Submit overdue drafts, respond to review requests and view shared updates and verified receipts. | Manage own display name and support requests. |
+| Administrator | Review, assign, hold and close cases. Record, verify, reject and reverse sample receipts. | Invite operators and manage the support queue. |
+| Operator | Open assigned cases and post internal notes or creditor-visible progress. | Manage own display name and support requests. |
 
 ## Tech stack
 
@@ -52,6 +67,8 @@ Case is reconciled or closed
 - **Data:** MongoDB and Mongoose
 - **Infrastructure:** Docker Compose for local demos; Render for the hosted preview
 - **Checks:** Node.js tests, TypeScript checks, Playwright browser audit and GitHub Actions
+
+Next.js serves the workspace and forwards same-origin API requests to Express. The API resolves signed session cookies against the current user record and applies company or assignment restrictions before loading case data. MongoDB stores cases, activity, receipt decisions and support history. The dashboard reads verified ledger totals and applies the same integer-paise fee calculation as case details.
 
 ## Repository layout
 
@@ -121,6 +138,8 @@ npm run build
 
 `npm run check` combines the API test suite and web build. `npm run smoke` and `npm run audit:browser` require a running, appropriately seeded test environment. **Never run the browser audit against a production database**: it creates and updates test records.
 
+For isolated API integration coverage, point `TEST_MONGODB_URI` at a disposable MongoDB database named `collectdesk_integration_test` or `collectdesk_ci_test`. The integration harness clears that database before running. Install `npx playwright install chromium` for the browser checks. With the fictional stack running at `http://localhost:3000`, set the fixture’s `DEMO_SEED_PASSWORD` and run `npm run audit:browser` and `node scripts/audit-layout.mjs`. See the [acceptance report](docs/DEMO_ACCEPTANCE.md) for fixture options, command results, and live-provider requirements.
+
 ## Configuration and hosting
 
 The hosted demo uses `Dockerfile.render` with `scripts/start-hosted.mjs` to run Express and Next.js together. Configure secrets in your hosting provider rather than the repository.
@@ -144,6 +163,8 @@ The [live diagnostic workflow](.github/workflows/live-preview.yml) checks public
 
 - [Product requirements (PDF)](docs/Commercial_Collections_PRD_v0.1.pdf)
 - [Competitor research (PDF)](docs/Commercial_Collections_Competitor_Research_Enhanced.pdf)
+- [Current demo acceptance and QA](docs/DEMO_ACCEPTANCE.md)
+- [Feature completion matrix](docs/FEATURE_MATRIX.md)
 - [Implementation checklist](docs/IMPLEMENTATION_CHECKLIST.md)
 - [Engineering audit and known limitations](docs/COMPREHENSIVE_AUDIT_2026-11-12.md)
 - [Release-readiness checklist](docs/RELEASE_READINESS.md)

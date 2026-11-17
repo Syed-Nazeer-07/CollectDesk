@@ -19,3 +19,6 @@ Baseline b55067b. Evidence uses the fictional-data PRD, repository checklist, ro
 | Session and request recovery | Partial | Distinguish DB errors from lost sessions, bound requests during navigation and body reads. |
 | Public site, themes and accessibility | Implemented, visual acceptance pending | Review real screenshots in both themes and five widths. |
 | Hosted readiness | Earlier 503 reported, cause unknown | Check health and release independently of local QA. Owner acceptance, backups and alerts remain external. |
+
+
+The [demo acceptance report](DEMO_ACCEPTANCE.md) records the completed verification for this branch. The isolated API suite passed 46 tests. The seeded three-role workflow and 150 Chromium layout combinations passed. See the report for the hosted container blocker and the remaining live-provider and owner approvals.
