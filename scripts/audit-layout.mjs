@@ -16,7 +16,7 @@ try {
   const page=await context.newPage();
   page.on('pageerror',error=>failures.push(error.message));
   const roles=[
-    ['public',[['/','.lp-hero'],['/login','.auth-form, .auth-field'],['/signup','.auth-unavailable, .auth-field'],['/forgot-password','.auth-unavailable, .auth-form']]],
+    ['public',[['/','.lp-hero'],['/login','.auth-form, .auth-field'],['/signup','.auth-unavailable, .auth-field'],['/forgot-password','.auth-unavailable, .auth-form'],['/reset-password?token=layout-test-only','.auth-card'],['/signup/verify?token=layout-test-only','.auth-card'],['/staff/activate?token=layout-test-only','.staff-activation-card']]],
     ['creditor',[['/dashboard','.metrics-grid'],['/cases','.cases-table'],['/cases/new','.new-case-form'],['/account','.profile-form'],['/support','.support-form'],['/notifications','[aria-label="Filter activity updates"]']]],
     ['admin',[['/staff','.staff-form']]]
   ];
@@ -46,7 +46,7 @@ try {
           if(overflow>1) failures.push({route,theme,width,overflow});
           checks++;
           if(width===390||width===1366){
-            const slug=route.startsWith('/cases/')&&route!=='/cases/new'?'case-detail':route.replaceAll('/','-').slice(1)||'landing';
+            const slug=route.startsWith('/cases/')&&route!=='/cases/new'?'case-detail':route.split('?')[0].replaceAll('/','-').slice(1)||'landing';
             await page.screenshot({path:output+'/'+slug+'-'+theme+'-'+width+'.png',animations:'disabled'});
           }
         }

@@ -402,11 +402,9 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
               <div className="auth-success" role="status">
                 <CheckCircle2 size={26} />
                 <div>
-                  <strong>Account created successfully!</strong>
-                  <p>
-                    If an email address was configured, a verification link has been sent. In local development mode,
-                    you can enter directly.
-                  </p>
+                  <strong>{devVerifyUrl ? 'Confirm your sample account' : 'Check your inbox'}</strong>
+                  <p>{devVerifyUrl ? 'Use the verification link for this local workspace.' :
+                    'If this address is eligible, you’ll receive a verification link. The link expires in 30 minutes.'}</p>
                   {devVerifyUrl && (
                     <a
                       href={devVerifyUrl}

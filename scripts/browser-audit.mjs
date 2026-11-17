@@ -262,8 +262,6 @@ try {
     await page.locator('input[type=email]').fill('registration-'+Date.now()+'@example.test');
     for(const field of await page.locator('input[type=password]').all()) await field.fill(password+'Aa1!');
     await page.locator('form button[type=submit]').click();
-    await page.getByRole('link',{name:/Verify & enter workspace/i}).click();
-    await page.getByRole('button',{name:'Verify email and continue'}).click();
     await page.waitForURL(/\/dashboard$/);
     await page.locator('.metrics-grid').waitFor();
     await page.getByRole('button',{name:'Sign out'}).click();
@@ -395,9 +393,28 @@ try {
   await creditor.locator('input[name="dueDate"]').fill('2026-02-01');
   await creditor.locator('input[name="amount"]').fill('1000.00');
   await creditor.locator('textarea[name="description"]').fill('Fictional QA record; do not contact a real debtor.');
-  await creditor.getByRole('button', { name: /Submit for review/i }).click();
+  await creditor.getByRole('button',{name:'Save draft',exact:true}).click();
   await creditor.waitForURL(/\/cases\/[0-9a-f]{24}(?:\?.*)?$/i);
   const caseUrl = creditor.url();
+  await statusIs(creditor,'Draft');
+  if(process.env.AUDIT_SAMPLE_EVIDENCE==='true'){
+    const attachment='fictional-invoice.pdf';
+    await creditor.getByLabel(/Add a sample PDF/i).setInputFiles({
+      name:attachment,mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\n% Fictional QA sample\n%%EOF\n')
+    });
+    await creditor.getByRole('button',{name:'Upload sample'}).click();
+    await creditor.getByText('Synthetic PDF added to this case.').waitFor();
+    const download=creditor.waitForEvent('download');
+    await creditor.getByRole('link',{name:'Download '+attachment}).click();
+    const downloaded=await download;
+    assert.equal(downloaded.suggestedFilename(),'collectdesk-sample-evidence.pdf');
+    assert.match(await fs.readFile(await downloaded.path(),'utf8'),/Fictional QA sample/);
+    creditor.once('dialog',dialog=>dialog.accept());
+    await creditor.getByRole('button',{name:'Delete '+attachment}).click();
+    await creditor.getByText('Synthetic PDF removed.').waitFor();
+    log('Creditor uploaded, downloaded and confirmed deletion of a synthetic draft attachment');
+  }
+  await creditor.getByRole('button',{name:'Submit for review'}).click();
   await statusIs(creditor, 'Submitted');
   log('Creditor created and submitted an overdue fictional invoice through the UI');
 
