@@ -13,6 +13,7 @@ const createBody=z.object({
 }).strict();
 const changeBody=z.object({
   status:z.enum(['open','in_progress','resolved']),
+  expectedUpdatedAt:z.iso.datetime().optional(),
   resolutionNote:z.string().trim().max(2000).optional()
 }).strict().superRefine((v,ctx)=>{
   if(v.status==='resolved' && (!v.resolutionNote || v.resolutionNote.length<10))
@@ -76,10 +77,12 @@ export function installSupportRoutes(route){
       handledBy:req.user._id
     };
     const updated=await SupportRequest.findOneAndUpdate(
-      {_id:req.params.id},{$set:changes,$push:{history:{
+      {_id:req.params.id,...(input.expectedUpdatedAt ? {updatedAt:new Date(input.expectedUpdatedAt)} : {})},{$set:changes,$push:{history:{
         status:input.status,note:input.resolutionNote||'',by:req.user._id,at:new Date()
-      }}},{new:true}
+      }}},{returnDocument:'after'}
     );
+    if(!updated && input.expectedUpdatedAt && await SupportRequest.exists({_id:req.params.id}))
+      return res.status(409).json({error:'Another administrator updated this request. Refresh the queue before saving.'});
     if(!updated)return res.status(404).json({error:'Support request not found.'});
     res.set('Cache-Control','no-store');
     res.json({ok:true,status:updated.status});

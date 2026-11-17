@@ -50,7 +50,8 @@ export default function EvidencePanel({caseId,role,status}:{caseId:string;role:R
     }catch(e){setError(e instanceof Error?e.message:'Could not upload file.');}
     finally{setBusy(false);}
   }
-  async function remove(id:string){
+  async function remove(id:string,name:string){
+    if(!window.confirm(`Delete the sample document “${name}”?`))return;
     setBusy(true);setError('');setNotice('');
     try{
       await api('/cases/'+encodeURIComponent(caseId)+'/evidence/'+encodeURIComponent(id),{method:'DELETE'});
@@ -75,7 +76,7 @@ export default function EvidencePanel({caseId,role,status}:{caseId:string;role:R
           <a className="button button-outline button-small" href={'/api/v1/cases/'+encodeURIComponent(caseId)+'/evidence/'+encodeURIComponent(x.id)}
             aria-label={'Download '+x.name}><Download size={16}/>Download</a>
           {editable&&<button type="button" className="button button-muted button-small"
-            disabled={busy} onClick={()=>remove(x.id)} aria-label={'Delete '+x.name}><Trash2 size={16}/></button>}
+            disabled={busy} onClick={()=>remove(x.id,x.name)} aria-label={'Delete '+x.name}><Trash2 size={16}/></button>}
         </li>)}</ul>}
       {editable&&data.files.length<data.maxFiles&&
         <form className="evidence-upload" onSubmit={upload}>

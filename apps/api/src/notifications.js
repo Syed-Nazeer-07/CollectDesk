@@ -13,22 +13,29 @@ const PAGE_SIZE = 20;
  * notification store that could disagree with the case timeline.
  * Access is checked against the CURRENT case assignment/company on every read.
  */
-export function notificationPipeline(user,page=1,unreadOnly=false) {
+function activityScope(user,unreadOnly=false) {
   const match={kind:{$in:KINDS},actorId:{$ne:user._id}};
   if(user.role==='creditor') {
     match.visibility='creditor';
     if(user.organizationId) match.organizationId=user.organizationId;
   }
   const access=user.role==='admin'?{}:
-    user.role==='creditor'?{'case.organizationId':user.organizationId}:
-    user.role==='operator'?{'case.assignedTo':user._id}:
+    user.role==='creditor' && user.organizationId?{'case.organizationId':user.organizationId}:
+    user.role==='operator' && user._id?{'case.assignedTo':user._id}:
     {_id:{$exists:false}};
-  const seenAt=user.notificationsSeenAt || new Date(0);
+  if (unreadOnly) match.createdAt={$gt:user.notificationsSeenAt || new Date(0)};
   return [
     {$match:match},
     {$lookup:{from:Case.collection.name,localField:'caseId',foreignField:'_id',as:'case'}},
     {$unwind:'$case'},
-    {$match:access},
+    {$match:access}
+  ];
+}
+
+export function notificationPipeline(user,page=1,unreadOnly=false) {
+  const seenAt=user.notificationsSeenAt || new Date(0);
+  return [
+    ...activityScope(user),
     {$facet:{
       items:[
         ...(unreadOnly?[{$match:{createdAt:{$gt:seenAt}}}]:[]),
@@ -48,6 +55,10 @@ export function notificationPipeline(user,page=1,unreadOnly=false) {
 }
 
 export function installNotificationRoutes(route) {
+  route.get('/notifications/count',async(req,res)=>{
+    const [count]=await Activity.aggregate([...activityScope(req.user,true),{$limit:100},{$count:'value'}]);
+    res.json({unreadCount:count?.value || 0});
+  });
   route.get('/notifications',async(req,res)=>{
     const {page,unread}=querySchema.parse(req.query);
     const [result]=await Activity.aggregate(notificationPipeline(req.user,page,unread==='1'));

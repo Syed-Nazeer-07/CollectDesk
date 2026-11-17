@@ -45,17 +45,17 @@ const stages:Stage[]=[
   {title:'Draft',copy:'Create a case from an overdue invoice. Edit the details until they are right.',who:'Creditor',icon:'brief',code:'CC-1050 · DRAFT',pill:'Draft',pillTone:'s',heading:'Prepare the case',sub:'Fields stay editable until you submit.',
     rows:[['Invoice','INV-212'],['Amount due','₹1,80,000'],['Days overdue','47'],['Next action','Submit for review']]},
   {title:'Submitted',copy:'Send the case to the administrators. It waits in the queue with a clear status.',who:'Creditor',icon:'brief',code:'CC-1050 · SUBMITTED',pill:'Submitted',pillTone:'s',heading:'Sent to administrators',sub:'The creditor can follow progress from here.',
-    rows:[['Submitted by','Creditor'],['Queue position','3'],['Visible to creditor','Yes','ok'],['Next action','Administrator review']]},
-  {title:'Review',copy:'An administrator approves the case or asks for more information.',who:'Administrator',icon:'shield',code:'CC-1049 · REVIEW',pill:'In review',pillTone:'a',heading:'Review the request',sub:'Approve it, or ask the creditor for more.',
-    rows:[['Invoice','INV-211'],['Documents check','Complete','ok'],['Decision','Approve · Request info'],['Next action','Assign an operator']]},
-  {title:'Assigned',copy:'An operator takes ownership, so every case has one named person behind it.',who:'Administrator',icon:'shield',code:'CC-1049 · ASSIGNED',pill:'Assigned',pillTone:'a',heading:'One named owner',sub:'Operators only see the cases assigned to them.',
+    rows:[['Submitted by','Creditor'],['Case status','Submitted'],['Visible to creditor','Yes','ok'],['Next action','Administrator review']]},
+  {title:'Review',copy:'An administrator approves the case or asks for more information.',who:'Administrator',icon:'shield',code:'CC-1050 · REVIEW',pill:'In review',pillTone:'a',heading:'Review the request',sub:'Approve it, or ask the creditor for more.',
+    rows:[['Invoice','INV-212'],['Documents check','Complete','ok'],['Decision','Approve · Request info'],['Next action','Assign an operator']]},
+  {title:'Assigned',copy:'An operator takes ownership, so every case has one named person behind it.',who:'Administrator',icon:'shield',code:'CC-1050 · ASSIGNED',pill:'Assigned',pillTone:'a',heading:'One named owner',sub:'Operators only see the cases assigned to them.',
     rows:[['Assigned to','Case operator'],['Assigned by','Administrator'],['Creditor notified','Yes','ok'],['Next action','Begin work']]},
-  {title:'Progress',copy:'The operator logs activity. Public updates reach the creditor, internal notes stay internal.',who:'Case operator',icon:'users',code:'CC-1048 · PROGRESS',pill:'In progress',pillTone:'g',heading:'Activity, by audience',sub:'Choose what the creditor sees and what stays internal.',
-    rows:[['Public update','Payment plan proposed'],['Internal note','Debtor asked for 30 days'],['Progress','72%'],['Next action','Record receipt']]},
-  {title:'Reconciliation',copy:'Receipts are verified, rejected, or reversed. Only verified ones move the total.',who:'Administrator',icon:'shield',code:'CC-1048 · RECONCILIATION',pill:'Verifying',pillTone:'g',heading:'Receipts, checked',sub:'The recovery total counts verified entries only.',
+  {title:'Progress',copy:'The operator logs activity. Public updates reach the creditor, internal notes stay internal.',who:'Case operator',icon:'users',code:'CC-1050 · PROGRESS',pill:'In progress',pillTone:'g',heading:'Activity, by audience',sub:'Choose what the creditor sees and what stays internal.',
+    rows:[['Public update','Payment plan proposed'],['Internal note','Debtor asked for 30 days'],['Case status','In progress'],['Next action','Record receipt']]},
+  {title:'Reconciliation',copy:'Receipts are verified, rejected, or reversed. Only verified ones move the total.',who:'Administrator',icon:'shield',code:'CC-1050 · RECONCILIATION',pill:'Verifying',pillTone:'g',heading:'Receipts, checked',sub:'The recovery total counts verified entries only.',
     rows:[['Receipt R-01','+ ₹40,000 · verified','ok'],['Receipt R-02','₹25,000 · pending','dim'],['Reversal R-03','− ₹5,000','neg'],['Net verified recovery','₹35,000','','total']]},
-  {title:'Closed',copy:'The case closes with its full ledger intact. Closing does not mean the invoice was paid in full.',who:'Administrator',icon:'clip',code:'CC-1031 · CLOSED',pill:'Closed',pillTone:'s',heading:'Closed with the full record',sub:'Outstanding balance and recovery stay separate.',
-    rows:[['Invoice amount','₹2,40,000'],['Net verified recovery','₹1,95,000','ok'],['Balance not recovered','₹45,000','neg'],['Closed on','Full ledger kept']]}
+  {title:'Closed',copy:'The case closes with its full ledger intact. Closing does not mean the invoice was paid in full.',who:'Administrator',icon:'clip',code:'CC-1050 · CLOSED',pill:'Closed',pillTone:'s',heading:'Closed with the full record',sub:'Outstanding balance and recovery stay separate.',
+    rows:[['Invoice amount','₹1,80,000'],['Net verified recovery','₹35,000','ok'],['Balance not recovered','₹1,45,000','neg'],['Case history','Full ledger kept']]}
 ];
 
 const orbitChips=[
@@ -71,7 +71,7 @@ const capabilities=[
 ];
 
 const steps=[
-  {number:'01',title:'Create your account',copy:'Sign up with an email address or Google login to set up your workspace.'},
+  {number:'01',title:'Create your account',copy:'Use an available sign-up method, then enter your company details.'},
   {number:'02',title:'Submit an overdue invoice',copy:'Enter debtor and invoice details, confirm dates, and submit the claim for administrative review.'},
   {number:'03',title:'Follow verified progress',copy:'Monitor case milestones, public updates, and verified recovery receipts from one dashboard.'}
 ];
@@ -101,6 +101,7 @@ export default function LandingPage(){
     <Sprite/>
     <LandingEffects/>
 
+    <a href="#main-content" className="workspace-skip">Skip to content</a>
     <header className="lp-nav">
       <nav className="lp-nav-pill" aria-label="Main navigation">
         <Brand/>
@@ -108,13 +109,22 @@ export default function LandingPage(){
         <a className="lp-nav-link" href="#stages">Lifecycle</a>
         <a className="lp-nav-link" href="#roles">Roles</a>
         <a className="lp-nav-link" href="#faq">FAQ</a>
+        <details className="lp-mobile-nav">
+          <summary>Menu</summary>
+          <div>
+            <a href="#features">Features</a>
+            <a href="#stages">Lifecycle</a>
+            <a href="#roles">Roles</a>
+            <a href="#faq">FAQ</a>
+          </div>
+        </details>
         <ThemeToggle className="lp-theme-toggle" />
         <Link className="lp-btn lp-btn-ghost" href="/login">Sign in</Link>
         <Link className="lp-btn lp-btn-accent" href="/login?mode=signup">Get started <Ic n="up"/></Link>
       </nav>
     </header>
 
-    <main id="main-content">
+    <main id="main-content" tabIndex={-1}>
       {/* HERO */}
       <section className="lp-hero" aria-labelledby="landing-title">
         <div className="lp-wrap">
@@ -132,33 +142,20 @@ export default function LandingPage(){
           </div>
 
           <div className="lp-hero-stage" aria-label="Illustrative CollectDesk workspace with sample cases">
-            <div className="lp-float lp-f2 lp-f-bars lp-gcard"><small>Active cases</small><strong>08</strong><div className="lp-bars" aria-hidden="true"><i/><i/><i/><i/><i/></div></div>
-            <div className="lp-float lp-f3 lp-f-line lp-gcard">
-              <small>Verified recovery</small><strong>₹3.5L</strong>
-              <svg className="lp-spark" viewBox="0 0 200 58" preserveAspectRatio="none" aria-hidden="true">
-                <defs><linearGradient id="lp-sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ff6a2b" stopOpacity=".45"/><stop offset="1" stopColor="#ff6a2b" stopOpacity="0"/></linearGradient></defs>
-                <path d="M0 48 L28 42 L56 46 L84 30 L112 34 L140 18 L170 22 L200 6 L200 58 L0 58Z" fill="url(#lp-sg)"/>
-                <path d="M0 48 L28 42 L56 46 L84 30 L112 34 L140 18 L170 22 L200 6" fill="none" stroke="#ff6a2b" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round"/>
-                <circle cx="200" cy="6" r="4" fill="#ff6a2b"/>
-              </svg>
-              <span className="lp-tag-sample">SAMPLE</span>
-            </div>
-
             <div className="lp-dash">
-              <div className="lp-dash-top"><span className="lp-dots" aria-hidden="true"><i/><i/><i/></span><span>Workspace overview</span><span className="lp-sample">ILLUSTRATIVE</span></div>
+              <div className="lp-dash-top"><span className="lp-dots" aria-hidden="true"><i/><i/><i/></span><span>Workspace overview</span><span className="lp-sample">SAMPLE DATA</span></div>
               <div className="lp-dash-body">
-                <span className="lp-over">CASE MANAGEMENT</span>
-                <h2>Stay on top of every case.</h2>
+                <h2>Case portfolio</h2>
                 <div className="lp-dstats">
-                  <div className="lp-dstat"><span>Active cases <Ic n="folder"/></span><strong>08</strong><small>In progress</small></div>
-                  <div className="lp-dstat"><span>Awaiting review <Ic n="clip"/></span><strong>03</strong><small>Needs attention</small></div>
-                  <div className="lp-dstat"><span>Verified entries <Ic n="check"/></span><strong>12</strong><small>Recorded in ledger</small></div>
+                  <div className="lp-dstat"><span>Active cases <Ic n="folder"/></span><strong>1</strong><small>Assigned to an operator</small></div>
+                  <div className="lp-dstat"><span>Awaiting review <Ic n="clip"/></span><strong>1</strong><small>In the review queue</small></div>
+                  <div className="lp-dstat"><span>Verified recovery <Ic n="check"/></span><strong>₹35,000</strong><small>Sample receipts less reversals</small></div>
                 </div>
                 <div className="lp-drows">
-                  <div className="lp-drow"><span>CASE</span><span>STATUS</span><span>PROGRESS</span></div>
-                  <div className="lp-drow"><span><b>CC-1048</b><small>Invoice INV-210</small></span><span className="lp-st lp-st-g">In progress</span><div className="lp-meter"><i style={{width:'72%'}}/></div></div>
-                  <div className="lp-drow"><span><b>CC-1049</b><small>Invoice INV-211</small></span><span className="lp-st lp-st-a">In review</span><div className="lp-meter"><i style={{width:'35%'}}/></div></div>
-                  <div className="lp-drow"><span><b>CC-1050</b><small>Invoice INV-212</small></span><span className="lp-st lp-st-s">Submitted</span><div className="lp-meter"><i style={{width:'18%'}}/></div></div>
+                  <div className="lp-drow"><span>Case</span><span>Status</span><span>Outstanding</span></div>
+                  <div className="lp-drow"><span><b>CC-1050</b><small>Invoice INV-212</small></span><span className="lp-st lp-st-g">In progress</span><span>₹1,45,000</span></div>
+                  <div className="lp-drow"><span><b>CC-1051</b><small>Invoice INV-213</small></span><span className="lp-st lp-st-a">Submitted</span><span>₹82,000</span></div>
+                  <div className="lp-drow"><span><b>CC-1052</b><small>Invoice INV-214</small></span><span className="lp-st lp-st-s">Needs info</span><span>₹48,000</span></div>
                 </div>
               </div>
             </div>
@@ -283,7 +280,7 @@ export default function LandingPage(){
               <div className="lp-note"><Ic n="lock"/><span>Public registration creates creditor accounts only. Administrator and operator access is set up by authorized staff.</span></div>
             </div>
             <aside className="lp-ledger lp-rv" aria-label="Sample recovery ledger">
-              <div className="lp-ledger-head"><span>CC-1048 · RECOVERY LEDGER</span><span className="lp-sample">SAMPLE</span></div>
+              <div className="lp-ledger-head"><span>CC-1050 · RECOVERY LEDGER</span><span className="lp-sample">SAMPLE</span></div>
               <h3>Recorded is not recovered.</h3>
               <p>Every receipt is listed. Only verified ones count.</p>
               <Ledger rows={[['R-01 · Receipt','+ ₹40,000','ok'],['R-02 · Pending verification','₹25,000','dim'],['R-03 · Reversal','− ₹5,000','neg'],['Net verified recovery','₹35,000','','total']]}/>

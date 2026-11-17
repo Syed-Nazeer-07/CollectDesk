@@ -72,8 +72,8 @@ function SupportWorkspace({user}:{user:User}){
     }catch(e){setFormError(e instanceof Error?e.message:'Could not submit request.');}
     finally{setSubmitting(false);}
   }
-  async function update(id:string,status:TicketStatus,resolutionNote:string){
-    await api(`/support/requests/${id}`,{method:'PATCH',body:JSON.stringify({status,resolutionNote})});
+  async function update(id:string,status:TicketStatus,resolutionNote:string,expectedUpdatedAt:string){
+    await api(`/support/requests/${id}`,{method:'PATCH',body:JSON.stringify({status,resolutionNote,expectedUpdatedAt})});
     setNotice('Support request status saved.');
     setRevision(v=>v+1);
   }
@@ -141,14 +141,14 @@ function SupportWorkspace({user}:{user:User}){
     </section>
   </div>;
 }
-function TicketCard({ticket,admin,onUpdate}:{ticket:Ticket;admin:boolean;onUpdate:(id:string,status:TicketStatus,resolutionNote:string)=>Promise<void>}){
+function TicketCard({ticket,admin,onUpdate}:{ticket:Ticket;admin:boolean;onUpdate:(id:string,status:TicketStatus,resolutionNote:string,expectedUpdatedAt:string)=>Promise<void>}){
   const [status,setStatus]=useState<TicketStatus>(ticket.status);
   const [note,setNote]=useState(ticket.resolutionNote);
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   async function save(){
     setSaving(true);setError('');
-    try{await onUpdate(ticket.id,status,note);}catch(e){setError(e instanceof Error?e.message:'Unable to update request.');}
+    try{await onUpdate(ticket.id,status,note,ticket.updatedAt);}catch(e){setError(e instanceof Error?e.message:'Unable to update request.');}
     finally{setSaving(false);}
   }
   return <article className="support-ticket">

@@ -192,7 +192,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
 
         <div className="story-content">
           <div className="story-tag">
-            {isSignup ? '✨ CREDITOR WORKSPACE SETUP' : 'COMMERCIAL COLLECTIONS · CASE MANAGEMENT'}
+            {isSignup ? 'CREDITOR WORKSPACE SETUP' : 'COMMERCIAL COLLECTIONS · CASE MANAGEMENT'}
           </div>
 
           <h2>
@@ -310,8 +310,8 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
                 : 'Sign in to access your cases, operational timelines, and recovery totals.'}
             </p>
 
-            {(!isSignup || (!optionsError && !!options && !signupSuccess && googleEnabled)) && (
-              <GoogleSignIn showDivider={!isSignup || emailSignupEnabled} onAuthenticated={onAuthenticated} />
+            {(!optionsError && options?.googleClientId && googleEnabled && !signupSuccess) && (
+              <GoogleSignIn clientId={options.googleClientId} showDivider={!isSignup || emailSignupEnabled} onAuthenticated={onAuthenticated} />
             )}
 
             {!isSignup ? (
@@ -402,11 +402,9 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
               <div className="auth-success" role="status">
                 <CheckCircle2 size={26} />
                 <div>
-                  <strong>Account created successfully!</strong>
-                  <p>
-                    If an email address was configured, a verification link has been sent. In local development mode,
-                    you can enter directly.
-                  </p>
+                  <strong>{devVerifyUrl ? 'Confirm your sample account' : 'Check your inbox'}</strong>
+                  <p>{devVerifyUrl ? 'Use the verification link for this local workspace.' :
+                    'If this address is eligible, you’ll receive a verification link. The link expires in 30 minutes.'}</p>
                   {devVerifyUrl && (
                     <a
                       href={devVerifyUrl}

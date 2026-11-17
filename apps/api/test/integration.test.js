@@ -61,6 +61,19 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const b = await signIn('creditorb@test.collectdesk.local');
     const admin = await signIn('admin@test.collectdesk.local');
     const operator = await signIn('operator@test.collectdesk.local');
+    await t.test('profile changes persist for the signed-in user only', async () => {
+      const path='/auth/me';
+      const patch=(cookie,body)=>call(path,{method:'PATCH',cookie,body});
+      assert.equal((await patch(undefined,{name:'Test Name'})).status,401);
+      assert.equal((await patch(a,{name:' '})).status,422);
+      assert.equal((await patch(a,{name:'Test Name',role:'admin'})).status,422);
+      const result=await patch(a,{name:'  Fictional Reviewer  '});
+      assert.equal(result.status,200);
+      assert.equal(result.data.user.name,'Fictional Reviewer');
+      assert.equal((await call(path,{cookie:a})).data.user.name,'Fictional Reviewer');
+      assert.equal((await call(path,{cookie:b})).data.user.name,'Creditor B');
+      await patch(a,{name:'Creditor A'});
+    });
     await t.test('notifications enforce live role scope, hide internal notes, and persist unread state',async()=>{
       const creditorA=await User.findOne({email:'creditora@test.collectdesk.local'});
       const creditorB=await User.findOne({email:'creditorb@test.collectdesk.local'});
@@ -88,6 +101,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         let result=await call('/notifications',{cookie:a});
         assert.equal(result.status,200,JSON.stringify(result.data));
         assert.equal(result.data.unreadCount,2,'creditor should see admin review and operator note only');
+        assert.equal((await call('/notifications/count',{cookie:a})).data.unreadCount,result.data.unreadCount);
         let unreadOnly=await call('/notifications?unread=1',{cookie:a});
         assert.equal(unreadOnly.status,200);
         assert.equal(unreadOnly.data.notifications.length,2);
@@ -188,13 +202,16 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         body:{status:'resolved',resolutionNote:'Too short'}});
       assert.equal(response.status,422,'resolutions need a meaningful note');
       response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
-        body:{status:'resolved',resolutionNote:'We corrected the case settings and verified the outcome.'}});
+        body:{status:'resolved',resolutionNote:'We corrected the case settings and verified the outcome.',expectedUpdatedAt:aList.data.requests[0].updatedAt}});
       assert.equal(response.status,200);
       const resolved=await call('/support/requests?status=resolved',{cookie:a});
       assert.equal(resolved.data.requests.length,1);
       assert.match(resolved.data.requests[0].resolutionNote,/verified the outcome/);
       assert.equal(resolved.data.requests[0].history.length,1,
         'admin decisions should create an auditable history entry');
+      response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
+        body:{status:'in_progress',expectedUpdatedAt:aList.data.requests[0].updatedAt}});
+      assert.equal(response.status,409,'stale triage must not overwrite a newer decision');
       const otherResolved=await call('/support/requests?status=resolved',{cookie:b});
       assert.equal(otherResolved.data.requests.length,0);
       response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,

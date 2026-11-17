@@ -4,28 +4,36 @@ export type CaseStatus='draft'|'submitted'|'needs_info'|'rejected'|'accepted'|'i
 export type CaseRow={id:string;caseCode:string;debtorName:string;invoiceNo:string;principalPaise:number;status:CaseStatus;dueDate:string;updatedAt:string;createdAt:string;assignedTo?:string|null};
 export type Activity={id:string;kind:string;text:string;visibility:'creditor'|'internal';actor:string;createdAt:string};
 export type Receipt={id:string;amountPaise:number;status:'recorded'|'verified'|'rejected';kind:'receipt'|'reversal';reference:string;reversedFrom?:string|null;recordedBy?:string|null;createdAt:string};
-export type Detail={case:CaseRow&{issueDate:string;description:string;disputed:boolean;decisionReason:string;feeRateBps:number;evidenceLabel:string};financials:{outstandingPaise:number;recoveredPaise:number;feePaise:number};activities:Activity[];receipts:Receipt[];approvalPolicy?:{separateReceiptApproval:boolean}};
+export type Detail={case:CaseRow&{operatorName?:string|null;issueDate:string;description:string;disputed:boolean;decisionReason:string;feeRateBps:number;evidenceLabel:string};financials:{outstandingPaise:number;recoveredPaise:number;feePaise:number};activities:Activity[];receipts:Receipt[];approvalPolicy?:{separateReceiptApproval:boolean}};
 export type Dashboard={summary:{totalCases:number;activeCases:number;awaitingReview:number;totalOutstandingPaise:number;verifiedRecoveredPaise:number;estimatedFeesPaise:number};recentCases:CaseRow[];statusBreakdown:{status:CaseStatus;count:number}[]};
 const API='/api/v1'; // Next.js proxies to Express (same-origin cookies).
 export class ApiError extends Error {status:number;issues?:{field:string;message:string}[];constructor(message:string,status:number,issues?:{field:string;message:string}[]){super(message);this.name='ApiError';this.status=status;this.issues=issues;}}
 export async function api<T>(path:string,options:RequestInit={}):Promise<T>{
-  let response:Response;
-  try{
-    const {headers:providedHeaders,...requestOptions}=options;
-    const headers=new Headers(providedHeaders);
-    if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-    // Free hosted instances can need a cold start; keep requests bounded so the UI never spins indefinitely.
-    response=await fetch(`${API}${path}`,{credentials:'include',cache:'no-store',...requestOptions,headers,signal:requestOptions.signal ?? AbortSignal.timeout(75_000)});
-  }
-  catch(error){
-    if(error instanceof Error && (error.name==='TimeoutError'||error.name==='AbortError'))
-      throw new ApiError('The server took too long to respond. A free demo may be waking up; please retry.',0);
+  const timeout = AbortSignal.timeout(75_000);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type','application/json');
+  try {
+    const response = await fetch(API + path, {credentials:'include',cache:'no-store',...options,headers,signal});
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new ApiError(`Unexpected server response (${response.status}). Please retry.`, response.status);
+    }
+    if (!response.ok) {
+      const issues = Array.isArray(data?.issues) ? data.issues : undefined;
+      const detail = issues?.map((issue:{field:string;message:string}) =>
+        [issue.field, issue.message].filter(Boolean).join(' — ')).join(' ');
+      throw new ApiError(detail || data?.error || `Request failed (${response.status})`,response.status,issues);
+    }
+    return data as T;
+  } catch (error) {
+    if (error instanceof ApiError || options.signal?.aborted) throw error;
+    if (timeout.aborted) throw new ApiError('The server took too long to respond. Please retry.',0);
     throw new ApiError('Cannot connect to the server. Please check your connection and retry.',0);
   }
-  let data:unknown;try{data=await response.json();}catch{data={};}
-  const parsed=data as {error?:string;issues?:{field:string;message:string}[]};
-  if(!response.ok)throw new ApiError(parsed?.error||`Request failed (${response.status})`,response.status,parsed?.issues);
-  return data as T;
 }
 export function money(paise:number){const decimals=paise%100===0?0:2;return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:decimals,maximumFractionDigits:2}).format(paise/100);}
 export function shortMoney(paise:number){const n=paise/100;if(n>=10000000)return `₹${(n/10000000).toFixed(2)}Cr`;if(n>=100000)return `₹${(n/100000).toFixed(2)}L`;return money(paise);}

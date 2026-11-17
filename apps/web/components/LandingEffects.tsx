@@ -19,6 +19,25 @@ export default function LandingEffects(){
     const nav=root.querySelector<HTMLElement>('.lp-nav');
     const onScrollNav=()=>nav?.classList.toggle('lp-scrolled',window.scrollY>24);
     onScrollNav();on('scroll',onScrollNav,{passive:true});
+    const mobileMenu=root.querySelector<HTMLDetailsElement>('.lp-mobile-nav');
+    if(mobileMenu){
+      const closeOnSelect=(event:MouseEvent)=>{
+        if(event.target instanceof Element && event.target.closest('a')) mobileMenu.open=false;
+      };
+      const closeOnEscape=(event:KeyboardEvent)=>{
+        if(event.key==='Escape' && mobileMenu.open){
+          mobileMenu.open=false;
+          mobileMenu.querySelector('summary')?.focus();
+        }
+      };
+      mobileMenu.addEventListener('click',closeOnSelect);
+      mobileMenu.addEventListener('keydown',closeOnEscape);
+      cleanups.push(()=>{
+        mobileMenu.removeEventListener('click',closeOnSelect);
+        mobileMenu.removeEventListener('keydown',closeOnEscape);
+      });
+    }
+
 
     // Keep primary navigation synchronized with the section in view.
     // The active state is a location indicator, not a separate route.

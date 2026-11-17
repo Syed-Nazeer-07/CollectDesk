@@ -1,9 +1,10 @@
 'use client';
 
+import {useState, type FormEvent} from 'react';
 import Link from 'next/link';
 import {ArrowRight,BriefcaseBusiness,CheckCircle2,FileText,LockKeyhole,ShieldCheck,UserRound} from 'lucide-react';
 import AppShell from '@/components/AppShell';
-import type {User} from '@/lib/api';
+import {api, type User} from '@/lib/api';
 
 const roleInfo:Record<User['role'],{name:string;summary:string;permissions:string[]}> = {
   creditor:{
@@ -25,7 +26,7 @@ const roleInfo:Record<User['role'],{name:string;summary:string;permissions:strin
 
 export default function AccountPage(){
   return <AppShell title="Account & access" subtitle="Your account information and assigned permissions." action={false}>
-    {(user:User)=>{
+    {(user,onProfileSaved)=>{
       const role=roleInfo[user.role];
       return <div className="demo-layout">
         <section className="panel demo-intro">
@@ -37,6 +38,7 @@ export default function AccountPage(){
             <span className="account-role-icon"><ShieldCheck size={21}/></span>
             <div><strong>{role.name}</strong><p>{role.summary}</p></div>
           </div>
+          <ProfileForm user={user} onSaved={onProfileSaved}/>
           <div className="demo-actions">
             <Link href="/cases" className="button button-primary">Open case register <ArrowRight size={17}/></Link>
             {user.role==='creditor'&&<Link href="/cases/new" className="button button-outline">Create a case</Link>}
@@ -61,4 +63,38 @@ export default function AccountPage(){
       </div>;
     }}
   </AppShell>;
+}
+
+function ProfileForm({user,onSaved}:{user:User;onSaved:(user:User)=>void}){
+  const [name,setName]=useState(user.name);
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
+  async function save(event:FormEvent){
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const result=await api<{user:User}>('/auth/me',{method:'PATCH',body:JSON.stringify({name})});
+      onSaved(result.user);
+      setName(result.user.name);
+      setNotice('Display name saved.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save profile.');
+    } finally {
+      setSaving(false);
+    }
+  }
+  return <form className="profile-form" onSubmit={save}>
+    <label className="field">Display name
+      <input required minLength={2} maxLength={90} autoComplete="name" value={name} disabled={saving}
+        onChange={e=>{setName(e.target.value);setNotice('');setError('');}}/>
+    </label>
+    <button className="button button-outline" disabled={saving || name.trim()===user.name}>
+      {saving?'Saving…':'Save display name'}
+    </button>
+    {error && <p className="message error" role="alert">{error}</p>}
+    {notice && <p role="status">{notice}</p>}
+  </form>;
 }

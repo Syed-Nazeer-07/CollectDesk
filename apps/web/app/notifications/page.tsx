@@ -70,13 +70,13 @@ function ActivityFeed({user}:{user:User}){
   return <div className={styles.layout}>
     <section className={styles.intro}>
       <div><span className={styles.eyebrow}>ACTIVITY CENTER</span>
-        <h2>Stay on top of every decision.</h2>
+        <h2>Case activity by audience</h2>
         <p>{user.role==='admin'?'Reviews, assignments, case changes, and receipt decisions across your workspace.':
           user.role==='operator'?'Updates from your currently assigned cases.':
           'Decisions and case updates from your company, without internal-only notes.'}</p>
       </div>
       <div className={styles.actions}>
-        <span className={styles.counter}>{unreadCount>=100?'99+':unreadCount} unread</span>
+        <span className={styles.counter}>{busy && items.length===0 ? 'Checking unread…' : (unreadCount>=100?'99+':unreadCount)+' unread'}</span>
         <button type="button" className="button button-outline" onClick={markRead}
           disabled={marking||busy||unreadCount===0}><CheckCheck size={16}/>{marking?'Saving…':'Mark all read'}</button>
       </div>

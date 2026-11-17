@@ -5,7 +5,6 @@
    Palette: Radiant Orange #ff6a2b, Deep Slate #12171f, Warm Cream #f4eedd, Mint #5fd8a8, Sky #43c6e6
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Manrope:wght@500;600;700;800&display=swap');
 
 /* --- Root & Color Tokens --- */
 :root {
@@ -3426,4 +3425,24 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 @media(max-width:650px){
   .case-tools .select-wrap{flex:1 1 145px}
   .case-tools>.button{flex:1 1 130px;justify-content:center;min-width:0}
+}
+
+.workspace-skip {position:fixed;top:8px;left:8px;transform:translateY(-180%);z-index:1000;background:var(--panel);color:var(--fg);padding:12px 18px;border:2px solid var(--border-focus);border-radius:8px;}
+.workspace-skip:focus {transform:translateY(0);}
+.profile-form {display:grid;gap:12px;border-block:1px solid var(--border);padding-block:20px;margin-block:20px;}
+.profile-form .button {justify-self:start;}
+.profile-form p {margin:0;}
+.detail-metric b,.detail-amount strong,.metric-value {font-variant-numeric:tabular-nums;}
+
+.queue-link {display:flex;align-items:center;gap:12px;min-height:44px;margin-inline:20px;padding:8px 2px;border-bottom:1px solid var(--line);color:var(--fg);}
+.queue-link strong {margin-inline-start:auto;font-variant-numeric:tabular-nums;}
+.queue-link:hover {color:var(--accent-text);}
+
+.metric-financial {border-block-start:3px solid var(--accent-text);}
+.metric-financial .metric-value {font-size:clamp(22px,2.15vw,32px);overflow-wrap:anywhere;}
+.page-heading h1 {margin-top:0;}
+.login-card {transition:none;}
+@media(max-width:768px) {
+  .sidebar-nav .nav-link {min-height:44px;}
+  .topbar-left .icon-button {min-width:44px;min-height:44px;}
 }
