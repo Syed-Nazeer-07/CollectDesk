@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus,Bell} from 'lucide-react';
 import {api,User} from '@/lib/api';
+import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 import {ThemeToggle} from '@/components/ThemeProvider';
 import BrandMark from '@/components/BrandMark';
 import NotificationBell from '@/components/NotificationBell';
@@ -13,35 +14,23 @@ type Props={children:(user:User,onProfileSaved:(user:User)=>void)=>React.ReactNo
 const roleName:Record<User['role'],string>={admin:'Administrator',creditor:'Creditor',operator:'Case operator'};
 
 export default function AppShell({children,title,subtitle,action=true}:Props){
-  const [user,setUser]=useState<User|null>(null);
-  const [ready,setReady]=useState(false);
+  const {user,ready,error:sessionError,ensureSession,retrySession,acceptUser,forgetSession}=useWorkspaceSession();
   const [menu,setMenu]=useState(false);
-  const [authError,setAuthError]=useState('');
+  const [logoutError,setLogoutError]=useState('');
   const [takingLong,setTakingLong]=useState(false);
   const pathname=usePathname();
   const router=useRouter();
-  const requestRef=useRef<AbortController|null>(null);
   const menuTriggerRef=useRef<HTMLButtonElement|null>(null);
-  const load=useCallback(()=>{
-    // Cancel stale /auth/me fetches before retrying. Do not let an old response
-    // overwrite a newer session check.
-    requestRef.current?.abort();
-    const controller=new AbortController();
-    requestRef.current=controller;
-    setReady(false);setTakingLong(false);setAuthError('');
-    api<{user:User}>('/auth/me',{signal:controller.signal})
-      .then(r=>{if(controller.signal.aborted)return;
-        if(r.user.role==='creditor'&&!r.user.organizationId&&pathname!=='/support'){router.replace('/onboarding');return;}
-        setUser(r.user);
-      })
-      .catch(e=>{
-        if(controller.signal.aborted)return;
-        if(e.status===401)router.replace('/login');
-        else setAuthError(e.message);
-      })
-      .finally(()=>{if(requestRef.current===controller && !controller.signal.aborted)setReady(true);});
-  },[router,pathname]);
-  useEffect(()=>{load();return()=>{requestRef.current?.abort();};},[load]);
+  const authError=sessionError||logoutError;
+  const load=()=>{setLogoutError('');retrySession();};
+  // The root session provider survives Next.js client-side route transitions.
+  // Revalidate only if its last successful check is old, without hiding content.
+  useEffect(()=>{ensureSession();},[pathname,ensureSession]);
+  useEffect(()=>{
+    if(ready && user?.role==='creditor' && !user.organizationId && pathname!=='/support' && pathname!=='/onboarding'){
+      router.replace('/onboarding');
+    }
+  },[ready,user,pathname,router]);
   useEffect(()=>{setMenu(false);},[pathname]);
   useEffect(()=>{
     if(!menu)return;
@@ -60,8 +49,8 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
     return()=>clearTimeout(timeout);
   },[ready]);
   async function logout(){
-    try{await api('/auth/logout',{method:'POST'});try {if(user)sessionStorage.removeItem('collectdesk-intake:'+user.id);} catch {} router.replace('/login');}
-    catch(e:any){setAuthError(e.message);}
+    try{await api('/auth/logout',{method:'POST'});try {if(user)sessionStorage.removeItem('collectdesk-intake:'+user.id);} catch {} forgetSession();router.replace('/login');}
+    catch(e:any){setLogoutError(e.message);}
   }
   const initials=user?.name?.split(' ').map(part=>part[0]).slice(0,2).join('')||'CD';
   const displayRole=user?roleName[user.role]:'Workspace user';
@@ -114,7 +103,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
       </header>
       <div className="main-content" id="workspace-content" tabIndex={-1}>
         <div className="page-heading"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
-        {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user,setUser)}
+        {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user,acceptUser)}
         <footer className="app-footer"><span>CollectDesk · Case management</span><span>Sample records only · No real payments</span></footer>
       </div>
     </main>

@@ -73,6 +73,7 @@ jobs:
           done
           npm run smoke
           npm run audit:browser
+          node scripts/audit-navigation.mjs
           node scripts/audit-layout.mjs
 
       - name: Verify hosted container serves frontend and authenticated API

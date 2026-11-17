@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { api, User } from '@/lib/api';
 import { ThemeToggle } from '@/components/ThemeProvider';
+import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 import BrandMark from '@/components/BrandMark';
 
 type AuthMode = 'login' | 'signup';
@@ -28,6 +29,7 @@ type AuthOptions = { emailSignupEnabled: boolean; googleEnabled: boolean; google
 
 export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }) {
   const router = useRouter();
+  const {acceptUser} = useWorkspaceSession();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [options, setOptions] = useState<AuthOptions | null>(null);
   const [optionsError, setOptionsError] = useState(false);
@@ -67,13 +69,13 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
     let active = true;
     api<{ user: User }>('/auth/me')
       .then(({ user }) => {
-        if (active) router.replace(user.role === 'creditor' && !user.organizationId ? '/onboarding' : '/dashboard');
+        if (active) {acceptUser(user); router.replace(user.role === 'creditor' && !user.organizationId ? '/onboarding' : '/dashboard');}
       })
       .catch(() => { });
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [router,acceptUser]);
 
   useEffect(() => {
     if (!loading) {
@@ -98,6 +100,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
   }
 
   function onAuthenticated(user: User) {
+    acceptUser(user);
     router.replace(user.role === 'creditor' && !user.organizationId ? '/onboarding' : '/dashboard');
   }
 

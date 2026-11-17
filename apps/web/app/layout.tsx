@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { WorkspaceSessionProvider } from '@/components/WorkspaceSessionProvider';
 
 export const metadata: Metadata = {
   title: 'collectDesk',
@@ -37,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider><WorkspaceSessionProvider>{children}</WorkspaceSessionProvider></ThemeProvider>
       </body>
     </html>
   );
