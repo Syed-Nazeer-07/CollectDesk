@@ -101,6 +101,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         let result=await call('/notifications',{cookie:a});
         assert.equal(result.status,200,JSON.stringify(result.data));
         assert.equal(result.data.unreadCount,2,'creditor should see admin review and operator note only');
+        assert.equal((await call('/notifications/count',{cookie:a})).data.unreadCount,result.data.unreadCount);
         let unreadOnly=await call('/notifications?unread=1',{cookie:a});
         assert.equal(unreadOnly.status,200);
         assert.equal(unreadOnly.data.notifications.length,2);
@@ -201,13 +202,16 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         body:{status:'resolved',resolutionNote:'Too short'}});
       assert.equal(response.status,422,'resolutions need a meaningful note');
       response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
-        body:{status:'resolved',resolutionNote:'We corrected the case settings and verified the outcome.'}});
+        body:{status:'resolved',resolutionNote:'We corrected the case settings and verified the outcome.',expectedUpdatedAt:aList.data.requests[0].updatedAt}});
       assert.equal(response.status,200);
       const resolved=await call('/support/requests?status=resolved',{cookie:a});
       assert.equal(resolved.data.requests.length,1);
       assert.match(resolved.data.requests[0].resolutionNote,/verified the outcome/);
       assert.equal(resolved.data.requests[0].history.length,1,
         'admin decisions should create an auditable history entry');
+      response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
+        body:{status:'in_progress',expectedUpdatedAt:aList.data.requests[0].updatedAt}});
+      assert.equal(response.status,409,'stale triage must not overwrite a newer decision');
       const otherResolved=await call('/support/requests?status=resolved',{cookie:b});
       assert.equal(otherResolved.data.requests.length,0);
       response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,

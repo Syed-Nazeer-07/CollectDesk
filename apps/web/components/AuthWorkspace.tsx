@@ -192,7 +192,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
 
         <div className="story-content">
           <div className="story-tag">
-            {isSignup ? '✨ CREDITOR WORKSPACE SETUP' : 'COMMERCIAL COLLECTIONS · CASE MANAGEMENT'}
+            {isSignup ? 'CREDITOR WORKSPACE SETUP' : 'COMMERCIAL COLLECTIONS · CASE MANAGEMENT'}
           </div>
 
           <h2>
@@ -310,8 +310,8 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
                 : 'Sign in to access your cases, operational timelines, and recovery totals.'}
             </p>
 
-            {(!isSignup || (!optionsError && !!options && !signupSuccess && googleEnabled)) && (
-              <GoogleSignIn showDivider={!isSignup || emailSignupEnabled} onAuthenticated={onAuthenticated} />
+            {(!optionsError && options?.googleClientId && googleEnabled && !signupSuccess) && (
+              <GoogleSignIn clientId={options.googleClientId} showDivider={!isSignup || emailSignupEnabled} onAuthenticated={onAuthenticated} />
             )}
 
             {!isSignup ? (

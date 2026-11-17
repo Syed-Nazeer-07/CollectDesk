@@ -3437,3 +3437,12 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 .queue-link {display:flex;align-items:center;gap:12px;min-height:44px;margin-inline:20px;padding:8px 2px;border-bottom:1px solid var(--line);color:var(--fg);}
 .queue-link strong {margin-inline-start:auto;font-variant-numeric:tabular-nums;}
 .queue-link:hover {color:var(--accent-text);}
+
+.metric-financial {border-block-start:3px solid var(--accent-text);}
+.metric-financial .metric-value {font-size:clamp(22px,2.15vw,32px);overflow-wrap:anywhere;}
+.page-heading h1 {margin-top:0;}
+.login-card {transition:none;}
+@media(max-width:768px) {
+  .sidebar-nav .nav-link {min-height:44px;}
+  .topbar-left .icon-button {min-width:44px;min-height:44px;}
+}

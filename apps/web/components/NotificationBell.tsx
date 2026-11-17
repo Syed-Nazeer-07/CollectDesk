@@ -12,11 +12,12 @@ export default function NotificationBell(){
   const [unread,setUnread]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();
-    let active=true;
+    let revision=0;
     async function refresh(){
+      const current=++revision;
       try{
-        const data=await api<{unreadCount:number}>('/notifications',{signal:controller.signal});
-        if(active)setUnread(data.unreadCount);
+        const data=await api<{unreadCount:number}>('/notifications/count',{signal:controller.signal});
+        if(current===revision)setUnread(data.unreadCount);
       }catch{/* Optional badge must never prevent workspace navigation. */}
     }
     void refresh();
@@ -24,7 +25,7 @@ export default function NotificationBell(){
     // that repeatedly wakes free hosting when the workspace is idle.
     window.addEventListener('focus',refresh);
     window.addEventListener('collectdesk:notifications-read',refresh);
-    return()=>{active=false;controller.abort();window.removeEventListener('focus',refresh);window.removeEventListener('collectdesk:notifications-read',refresh);};
+    return()=>{revision++;controller.abort();window.removeEventListener('focus',refresh);window.removeEventListener('collectdesk:notifications-read',refresh);};
   },[pathname]);
   return <Link href="/notifications" className={styles.link+(pathname==='/notifications'?' '+styles.active:'')}
     aria-label={unread>0?'Activity updates, '+(unread>=100?'99 or more':unread)+' unread':'Activity updates'}

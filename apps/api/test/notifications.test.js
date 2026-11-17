@@ -30,7 +30,7 @@ test('unknown roles and creditors without a company are denied by aggregation sc
   const unknown=stages({_id:id(),role:'guest'});
   assert.deepEqual(unknown[3].$match,{_id:{$exists:false}});
   const creditor=stages({_id:id(),role:'creditor',organizationId:null});
-  assert.deepEqual(creditor[3].$match,{'case.organizationId':null});
+  assert.deepEqual(creditor[3].$match,{_id:{$exists:false}});
 });
 
 test('unread filter changes items, not the global unread badge count',()=>{

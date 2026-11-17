@@ -526,3 +526,12 @@ html.light .lp .lp-nav-link.lp-active {
 @media (prefers-reduced-motion:reduce) {
   .lp .lp-nav-link { transition: none; }
 }
+
+.lp-mobile-nav {position:relative;}
+.lp-mobile-nav summary {cursor:pointer;list-style:none;display:grid;place-items:center;min-height:44px;padding:0 8px;color:var(--fg);font-weight:650;}
+.lp-mobile-nav summary::-webkit-details-marker {display:none;}
+.lp-mobile-nav > div {position:absolute;inset-inline-start:0;top:calc(100% + 8px);display:grid;min-width:146px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:0 12px 26px #0003;}
+.lp-mobile-nav a {display:flex;align-items:center;min-height:44px;padding-inline:12px;border-radius:6px;color:var(--fg);}
+.lp-mobile-nav a:hover,.lp-mobile-nav a:focus-visible {background:var(--bg-2);}
+@media(min-width:760px) {.lp-mobile-nav {display:none;}}
+@media(max-width:420px) {.lp-nav .lp-btn-accent {display:none;}}

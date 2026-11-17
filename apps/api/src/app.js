@@ -16,7 +16,7 @@ import {installStaffRoutes} from './staff-invites.js';
 import {installEvidenceRoutes} from './evidence.js';
 import {caseSort,caseFilters,casesCsv} from './case-register.js';
 import {installNotificationRoutes} from './notifications.js';
-import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser} from './rules.js';
+import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,financialTotals,CASE_STATUSES,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
 const app=express();
 // Requests reach Express through the internal Next.js reverse proxy.
@@ -73,7 +73,7 @@ const profileBody = z.object({name:z.string().trim().min(2).max(90)}).strict();
 app.patch('/api/v1/auth/me', requireAuth, async (req, res) => {
   const {name} = profileBody.parse(req.body);
   const user = await User.findOneAndUpdate(
-    {_id:req.user._id, active:true}, {$set:{name}}, {new:true, runValidators:true}
+    {_id:req.user._id, active:true}, {$set:{name}}, {returnDocument:'after', runValidators:true}
   );
   if (!user) return res.status(401).json({error:'Please sign in again.'});
   res.json({user:publicUser(user)});
@@ -122,27 +122,42 @@ async function withFinancialLock(req,res,operation) {
     catch (error) {console.error('[API] Ledger lease cleanup failed; it will expire:',error?.message);}
   }
 }
-const moneySummary=(items)=>items.reduce((sum,i)=>sum+i,0);
 route.get('/operators',requireRole('admin'),async(_req,res)=>{
   const operators=await User.find({role:'operator',active:true}).select('name email').lean();
   res.json({operators:operators.map(u=>({id:String(u._id),name:u.name,email:u.email}))});
 });
 route.get('/dashboard/summary',async(req,res)=>{
-  const cases=await Case.find(scope(req.user)).select('principalPaise feeRateBps status updatedAt caseCode debtorName invoiceNo').sort({updatedAt:-1,_id:-1}).lean();
-  const ids=cases.map(c=>c._id);
-  const receipts=ids.length?await Receipt.find({caseId:{$in:ids},status:'verified'}).select('caseId amountPaise kind status').lean():[];
-  const byCase=new Map();for(const r of receipts){let a=byCase.get(String(r.caseId))||[];a.push(r);byCase.set(String(r.caseId),a);}
-  const totals=cases.map(c=>({case:c,calc:calculateMoney(c.principalPaise,c.feeRateBps,byCase.get(String(c._id))||[])}));
-  const live=totals.filter(t=>!['draft','rejected'].includes(t.case.status));
-  res.json({
-    summary:{totalCases:cases.length,activeCases:cases.filter(c=>['accepted','in_progress','on_hold'].includes(c.status)).length,
-      awaitingReview:cases.filter(c=>c.status==='submitted').length,
-      totalOutstandingPaise:moneySummary(live.map(t=>t.calc.outstandingPaise)),
-      verifiedRecoveredPaise:moneySummary(totals.map(t=>t.calc.recoveredPaise)),
-      estimatedFeesPaise:moneySummary(totals.map(t=>t.calc.feePaise))},
-    recentCases:cases.slice(0,6).map(c=>({id:String(c._id),caseCode:c.caseCode,debtorName:c.debtorName,invoiceNo:c.invoiceNo,principalPaise:c.principalPaise,status:c.status,updatedAt:c.updatedAt})),
-    statusBreakdown:['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed'].map(status=>({status,count:cases.filter(c=>c.status===status).length}))
-  });
+  const summary={totalCases:0,activeCases:0,awaitingReview:0,totalOutstandingPaise:0,verifiedRecoveredPaise:0,estimatedFeesPaise:0};
+  const counts=new Map(CASE_STATUSES.map(status=>[status,0]));
+  const recentCases=[];
+  // Only one net ledger amount crosses the database boundary per accessible case.
+  const cursor=Case.aggregate([
+    {$match:scope(req.user)},
+    {$sort:{updatedAt:-1,_id:-1}},
+    {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,updatedAt:1}},
+    {$lookup:{from:Receipt.collection.name,localField:'_id',foreignField:'caseId',as:'ledger',pipeline:[
+      {$match:{status:'verified'}},
+      {$group:{_id:null,net:{$sum:{$cond:[{$eq:['$kind','reversal']},{$multiply:[-1,'$amountPaise']},'$amountPaise']}}}}
+    ]}}
+  ]).allowDiskUse(true).cursor({batchSize:128});
+  try {
+    for await (const item of cursor) {
+      const {_id,ledger,feeRateBps,...row}=item;
+      const totals=financialTotals(row.principalPaise,feeRateBps,ledger[0]?.net ?? 0);
+      counts.set(row.status,(counts.get(row.status)||0)+1);
+      summary.totalCases++;
+      if (['accepted','in_progress','on_hold'].includes(row.status)) summary.activeCases++;
+      if (row.status==='submitted') summary.awaitingReview++;
+      if (!['draft','rejected'].includes(row.status)) summary.totalOutstandingPaise+=totals.outstandingPaise;
+      summary.verifiedRecoveredPaise+=totals.recoveredPaise;
+      summary.estimatedFeesPaise+=totals.feePaise;
+      if (recentCases.length<6) recentCases.push({...row,id:String(_id)});
+    }
+  } finally {
+    await cursor.close();
+  }
+  if (!Object.values(summary).every(Number.isSafeInteger)) throw new Error('Unsafe portfolio total');
+  res.json({summary,recentCases,statusBreakdown:Array.from(counts,([status,count])=>({status,count}))});
 });
 const caseListQuery=z.object({
   status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {ArrowRight,ArrowUpRight,FolderKanban,Wallet,Clock3,CheckCircle2,TrendingUp} from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import {CaseTable} from '@/components/Widgets';
-import {api,Dashboard,shortMoney,User,label} from '@/lib/api';
+import {api,Dashboard,money,User,label} from '@/lib/api';
 
 const statusColors:Record<string,string>={
   draft:'#94a3b8',submitted:'#d8a558',needs_info:'#bf8167',accepted:'#6d90bc',
@@ -24,25 +24,16 @@ export default function DashboardPage(){
       .catch(e=>{if(active&&!controller.signal.aborted)setError(e.message);});
     return()=>{active=false;controller.abort();};
   },[refresh]);
-  return <AppShell title="Overview" subtitle="Portfolio health, case progress and verified recovery.">
+  return <AppShell title="Overview" subtitle="Case status, outstanding balances and verified recoveries.">
     {(user:User)=><div className="dashboard-content">
-      <section className="dashboard-overview" aria-label="Workspace introduction">
-        <div><div className="eyebrow">OPERATIONS SNAPSHOT</div>
-          <h2>{user.role==='creditor'?'Your company case overview':user.role==='admin'?'Collections operations overview':'Your assigned case overview'}</h2>
-          <p>{user.role==='creditor'?'Follow your submitted invoices, case activity, and verified recoveries.':
-            user.role==='admin'?'Review incoming cases, coordinate operators, and oversee verified receipts.':
-            'Stay on top of assigned cases, operational updates, and next actions.'}</p>
-        </div>
-        <Link href="/cases" className="button button-outline dashboard-overview-action">Open case register <ArrowUpRight size={17}/></Link>
-      </section>
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
         {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
         <section className="metrics-grid" aria-label="Key metrics">
-          <Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={19}/>} sub="Cases you can access"/>
+          <Stat name="Outstanding balance" value={money(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} priority sub="Excludes drafts and rejected cases"/>
+          <Stat name="Verified recovered" value={money(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} priority sub="Verified receipts less reversals"/>
           <Stat name="Active cases" value={String(data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub="Accepted, in progress or on hold"/>
-          <Stat name="Outstanding balance" value={shortMoney(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} sub="Excludes drafts and rejected cases"/>
-          <Stat name="Verified recovered" value={shortMoney(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} sub="Verified receipts less reversals"/>
+          <Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={19}/>} sub="Cases you can access"/>
         </section>
         <div className="middle-grid">
           <section className="panel status-panel">
@@ -61,7 +52,7 @@ export default function DashboardPage(){
             </div>
           </section>
           <section className="panel focus-panel">
-            <div className="panel-head"><div><h3>Next actions</h3><p>Where your attention is useful</p></div></div>
+            <div className="panel-head"><div><h3>{user.role==='creditor'?'Your next actions':user.role==='admin'?'Operations queues':'Assigned work'}</h3></div></div>
             <Link href={user.role==='creditor'?'/cases/new':user.role==='admin'?'/cases?status=submitted':'/cases'} className="action-row">
               <span className="action-row-symbol"><Clock3 size={19}/></span>
               <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Open assigned cases'}</strong><small>{user.role==='creditor'?'Prepare a sample overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'See all cases assigned to your operator account'}</small></span>
@@ -76,7 +67,7 @@ export default function DashboardPage(){
             })}
             <div className="finance-totals">
               <span>Estimated service fees</span>
-              <strong>{shortMoney(data.summary.estimatedFeesPaise)}</strong>
+              <strong>{money(data.summary.estimatedFeesPaise)}</strong>
               <p>Illustrative fees on verified recoveries only. No real funds are handled.</p>
             </div>
           </section>
@@ -90,8 +81,8 @@ export default function DashboardPage(){
   </AppShell>;
 }
 
-function Stat({name,value,sub,icon}:{name:string;value:string;sub:string;icon:React.ReactNode}){
-  return <div className="metric-card"><div className="metric-top"><span>{name}</span><span className="metric-icon">{icon}</span></div><div className="metric-value">{value}</div><p>{sub}</p></div>;
+function Stat({name,value,sub,icon,priority=false}:{name:string;value:string;sub:string;icon:React.ReactNode;priority?:boolean}){
+  return <div className={priority?"metric-card metric-financial":"metric-card"}><div className="metric-top"><span>{name}</span><span className="metric-icon">{icon}</span></div><div className="metric-value">{value}</div><p>{sub}</p></div>;
 }
 
 

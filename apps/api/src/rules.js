@@ -24,14 +24,18 @@ export function canResume(status) { return status === 'on_hold'; }
 export function canClose(status) { return ['accepted','in_progress','on_hold'].includes(status); }
 
 export function calculateMoney(principalPaise, feeRateBps, receipts = []) {
-  if (!Number.isSafeInteger(principalPaise) || principalPaise < 0) throw new Error('Invalid principal');
-  if (!Number.isInteger(feeRateBps) || feeRateBps < 0 || feeRateBps > 10000) throw new Error('Invalid fee rate');
   let recoveredPaise = 0;
   for (const r of receipts) {
     if (r.status !== 'verified') continue;
     if (!Number.isSafeInteger(r.amountPaise)) throw new Error('Invalid receipt amount');
     recoveredPaise += r.kind === 'reversal' ? -r.amountPaise : r.amountPaise;
   }
+  return financialTotals(principalPaise,feeRateBps,recoveredPaise);
+}
+
+export function financialTotals(principalPaise,feeRateBps,recoveredPaise) {
+  if (!Number.isSafeInteger(principalPaise) || principalPaise < 0) throw new Error('Invalid principal');
+  if (!Number.isInteger(feeRateBps) || feeRateBps < 0 || feeRateBps > 10000) throw new Error('Invalid fee rate');
   if (!Number.isSafeInteger(recoveredPaise) || recoveredPaise < 0 || recoveredPaise > principalPaise) throw new Error('Invalid recovery total');
   // Half-up to the nearest paisa; avoid floating point using integer math.
   const feePaise = Number((BigInt(recoveredPaise) * BigInt(feeRateBps) + 5000n) / 10000n);

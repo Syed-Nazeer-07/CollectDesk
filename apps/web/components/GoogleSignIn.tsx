@@ -4,7 +4,7 @@ import {useEffect,useRef,useState} from 'react';
 import {api,User} from '@/lib/api';
 import {useTheme} from '@/components/ThemeProvider';
 
-type Options={emailSignupEnabled:boolean;googleEnabled:boolean;googleClientId:string|null};
+
 type GoogleResponse={credential:string};
 declare global {
   interface Window {
@@ -15,9 +15,8 @@ declare global {
   }
 }
 
-export default function GoogleSignIn({onAuthenticated,showDivider=true}:{onAuthenticated:(user:User)=>void;showDivider?:boolean}){
+export default function GoogleSignIn({clientId,onAuthenticated,showDivider=true}:{clientId:string;onAuthenticated:(user:User)=>void;showDivider?:boolean}){
   const {theme}=useTheme();
-  const [options,setOptions]=useState<Options|null>(null);
   const [scriptReady,setScriptReady]=useState(false);
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
@@ -26,19 +25,14 @@ export default function GoogleSignIn({onAuthenticated,showDivider=true}:{onAuthe
   const callback=useRef(onAuthenticated);
   useEffect(()=>{callback.current=onAuthenticated;},[onAuthenticated]);
   useEffect(()=>{
-    let alive=true;
-    api<Options>('/auth/options').then(d=>{if(alive)setOptions(d)}).catch(()=>{if(alive)setOptions({emailSignupEnabled:false,googleEnabled:false,googleClientId:null})});
-    return()=>{alive=false};
-  },[]);
-  useEffect(()=>{
-    if(!options?.googleEnabled||!options.googleClientId||!scriptReady||!window.google||!target.current)return;
+    if(!scriptReady||!window.google||!target.current)return;
     let cancelled=false;
     async function setup(){
       try{
         const {nonce}=await api<{nonce:string}>('/auth/google/nonce');
         if(cancelled||!target.current||!window.google)return;
         window.google.accounts.id.initialize({
-          client_id:options!.googleClientId!,
+          client_id:clientId,
           nonce,ux_mode:'popup',
           callback:async (response:GoogleResponse)=>{
             if(cancelled)return;
@@ -68,13 +62,12 @@ export default function GoogleSignIn({onAuthenticated,showDivider=true}:{onAuthe
     }
     setup();
     return()=>{cancelled=true;};
-  },[options,scriptReady,attempt,theme]);
-  if(!options?.googleEnabled)return null;
+  },[clientId,scriptReady,attempt,theme]);
   return <div className="auth-google">
-    <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={()=>setScriptReady(true)}/>
+    <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={()=>setScriptReady(true)} onError={()=>setError("Google sign-in could not load. Check your connection and retry.")}/>
     <div ref={target} className="auth-google-button" aria-label="Google sign-in"/>
     {busy&&<p className="auth-note">Verifying Google account…</p>}
-    {error&&<div role="alert" className="auth-error">{error} <button type="button" className="auth-retry-link" onClick={()=>{setError('');setAttempt(n=>n+1)}}>Try Google again</button></div>}
+    {error&&<div role="alert" className="auth-error">{error} <button type="button" className="auth-retry-link" onClick={()=>{if(!scriptReady){window.location.reload();return;}setError('');setAttempt(n=>n+1)}}>Try Google again</button></div>}
     {showDivider&&<div className="auth-divider"><span>or continue with email</span></div>}
   </div>;
 }

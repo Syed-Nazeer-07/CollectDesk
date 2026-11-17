@@ -123,6 +123,13 @@ async function session(email, mobile = false) {
       'Feature cards should be real links into the case lifecycle');
     assert.equal(await page.locator('.lp-chip[href^="#stage-"]').count(),7,
       'Rotating lifecycle labels should link to their stages');
+    if(mobile){
+      await page.locator('.lp-mobile-nav summary').click();
+      await page.locator('.lp-mobile-nav').getByRole('link',{name:'FAQ'}).click();
+      await page.waitForURL(/#faq$/);
+      assert.equal(await page.locator('.lp-mobile-nav').getAttribute('open'),null);
+      await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+    }
     const roleColor=await page.locator('#roles h2').evaluate(el=>getComputedStyle(el).color);
     assert.notEqual(roleColor,'rgb(244, 238, 221)',
       'Roles heading must remain readable on the cream-colored section');
@@ -244,9 +251,41 @@ async function statusIs(page, status) {
 }
 function log(message) { console.log('PASS ' + message); }
 try {
+  if(process.env.AUDIT_LOCAL_REGISTRATION==='true'){
+    step='local registration and email verification';
+    const context=await browser.newContext();
+    sessions.push(context);
+    const page=await context.newPage();
+    await page.goto(base+'/login?mode=signup');
+    await page.getByLabel('Your full name').fill('Fictional QA Creditor');
+    await page.getByLabel('Company / Creditor name').fill('Fictional QA Company');
+    await page.locator('input[type=email]').fill('registration-'+Date.now()+'@example.test');
+    for(const field of await page.locator('input[type=password]').all()) await field.fill(password+'Aa1!');
+    await page.locator('form button[type=submit]').click();
+    await page.getByRole('link',{name:/Verify & enter workspace/i}).click();
+    await page.getByRole('button',{name:'Verify email and continue'}).click();
+    await page.waitForURL(/\/dashboard$/);
+    await page.locator('.metrics-grid').waitFor();
+    await page.getByRole('button',{name:'Sign out'}).click();
+    await page.waitForURL(/\/login$/);
+    await context.close();
+    sessions.pop();
+    log('Local email verification creates a creditor workspace and sign-out clears the session');
+  }
+
   step = 'creditor login and case creation';
   const creditor = await session('creditor@demo.collectdesk.test');
   await creditor.screenshot({ path: 'browser-audit-results/creditor-dashboard.png', fullPage: true });
+  step='dashboard retry after a server failure';
+  const summaryPattern='**/api/v1/dashboard/summary';
+  await creditor.route(summaryPattern,route=>route.fulfill({status:503,json:{error:'Fixture: summary unavailable.'}}));
+  await creditor.reload();
+  await creditor.getByRole('alert').filter({hasText:'Fixture: summary unavailable.'}).waitFor();
+  await creditor.unroute(summaryPattern);
+  await creditor.getByRole('button',{name:'Retry',exact:true}).click();
+  await creditor.locator('.metrics-grid').waitFor();
+  log('Dashboard recovers from an HTTP 503 via Retry');
+
 
   step = 'support request intake and navigation';
   const supportSubject='Browser audit request '+Date.now();
@@ -394,6 +433,20 @@ try {
   step = 'admin review and assignment';
   await admin.goto(caseUrl, { waitUntil: 'domcontentloaded' });
   await statusIs(admin, 'Submitted');
+  await admin.getByLabel('Review decision').selectOption('request_info');
+  await admin.locator('.actions-panel textarea').first().fill('Please add a fictional purchase order reference.');
+  await admin.getByRole('button',{name:/Save review decision/i}).click();
+  await statusIs(admin,'Needs Info');
+  await creditor.reload();
+  await statusIs(creditor,'Needs Info');
+  await creditor.getByRole('button',{name:'Edit draft details'}).click();
+  await creditor.locator('.edit-panel textarea').first().fill('Sample invoice confirmed against fictional purchase order PO-572.');
+  await creditor.getByRole('button',{name:'Save changes'}).click();
+  await creditor.getByText('Draft updated successfully.').waitFor();
+  await creditor.getByRole('button',{name:'Submit for review'}).click();
+  await statusIs(creditor,'Submitted');
+  await admin.reload();
+  await statusIs(admin,'Submitted');
   await admin.locator('.actions-panel textarea').first().fill('Approved fictional claim for UI audit.');
   await admin.getByRole('button', { name: /Save review decision/i }).click();
   await statusIs(admin, 'Accepted');
