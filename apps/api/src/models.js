@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: {type: String, required: true, select: false}, googleSub: {type:String,unique:true,sparse:true,select:false}, role: {type: String, enum: ['creditor','operator','admin'], required: true},
   organizationId: {...id, ref: 'Organization'}, active: {type: Boolean, default: true},
   sessionVersion: {type:Number,default:0,min:0},
+  emailDigestSince: {type:Date,default:null},
   notificationsSeenAt: {type:Date,default:null},
   organizationRole:{type:String,enum:['owner','member'],default:'member'},
   accessChangedAt:Date,
@@ -180,3 +181,15 @@ const documentEventSchema=new mongoose.Schema({
 },options);
 documentEventSchema.index({organizationId:1,createdAt:-1});
 export const DocumentEvent=mongoose.model('DocumentEvent',documentEventSchema);
+
+
+const digestDeliverySchema=new mongoose.Schema({
+  userId:{...id,ref:'User',required:true},
+  utcDay:{type:String,required:true},
+  through:{type:Date,required:true},
+  status:{type:String,enum:['claimed','sent','unconfirmed'],required:true},
+  expiresAt:{type:Date,required:true}
+},options);
+digestDeliverySchema.index({userId:1,utcDay:1},{unique:true});
+digestDeliverySchema.index({expiresAt:1},{expireAfterSeconds:0});
+export const DigestDelivery=mongoose.model('DigestDelivery',digestDeliverySchema);

@@ -967,6 +967,56 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         }
       }
     });
+    await t.test('workspace digest requires consent and claims each delivery window once',async()=>{
+      const {sendWorkspaceDigests}=await import('../src/workspace-digest.js');
+      const {DigestDelivery}=await import('../src/models.js');
+      const preferences='/auth/notification-preferences';
+      const opt=(cookie,emailDigest)=>call(preferences,{method:'PATCH',cookie,body:{emailDigest}});
+      assert.equal((await opt(a,true)).status,503);
+      const saved={WORKSPACE_DIGEST_ENABLED:process.env.WORKSPACE_DIGEST_ENABLED,
+        BREVO_API_KEY:process.env.BREVO_API_KEY,BREVO_FROM_EMAIL:process.env.BREVO_FROM_EMAIL};
+      const original=globalThis.fetch;
+      const sent=[];
+      let providerAvailable=true;
+      process.env.WORKSPACE_DIGEST_ENABLED='true';
+      process.env.BREVO_API_KEY='fixture-only';
+      process.env.BREVO_FROM_EMAIL='qa@example.test';
+      globalThis.fetch=(url,options)=>{
+        if(String(url)==='https://api.brevo.com/v3/smtp/email'){
+          sent.push(JSON.parse(options.body));
+          return Promise.resolve(new Response('{}',{status:providerAvailable?201:503}));
+        }
+        return original(url,options);
+      };
+      try{
+        assert.equal((await opt(undefined,true)).status,401);
+        assert.equal((await opt(a,true)).data.emailDigest,true);
+        const now=new Date(Date.now()+1000);
+        await Activity.create({caseId,organizationId:orgA._id,actorId:recordedBy,kind:'review',
+          visibility:'creditor',text:'Private fictional amount excluded from email.',createdAt:now});
+        const worker=(time=now)=>sendWorkspaceDigests({origin:'http://localhost:3000',now:time});
+        const reports=await Promise.all([worker(),worker()]);
+        assert.equal(reports.reduce((sum,report)=>sum+report.sent,0),1);
+        assert.equal(sent.length,1);
+        assert.equal(sent[0].to[0].email,'creditora@test.collectdesk.local');
+        assert.ok(!sent[0].textContent.includes('Private fictional amount'));
+        assert.equal((await worker(new Date(now.getTime()+86_400_000))).sent,0);
+        assert.equal(await DigestDelivery.countDocuments(),1);
+        providerAvailable=false;
+        const nextDay=new Date(now.getTime()+86_400_000);
+        await Activity.create({caseId,organizationId:orgA._id,actorId:recordedBy,kind:'review',
+          visibility:'creditor',text:'Another fictional change.',createdAt:nextDay});
+        assert.equal((await worker(nextDay)).unconfirmed,1);
+        assert.equal((await worker(nextDay)).unconfirmed,0,'failed deliveries must not be retried automatically');
+        assert.equal(sent.length,2);
+        assert.equal((await opt(a,false)).data.emailDigest,false);
+      }finally{
+        globalThis.fetch=original;
+        for(const [key,value] of Object.entries(saved)){
+          if(value===undefined)delete process.env[key];else process.env[key]=value;
+        }
+      }
+    });
     await t.test('administrator operator access changes revoke sessions',async()=>{
       const staff=await User.findOne({email:'operator@test.collectdesk.local'});
       const path='/staff/operators/'+staff._id+'/access';

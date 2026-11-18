@@ -11,6 +11,7 @@ import {User,Case,Activity,Receipt} from './models.js';
 import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRole} from './auth.js';
 import {installRegistrationRoutes} from './registration.js';
 import {installPasswordRecoveryRoutes} from './password-recovery.js';
+import {installDigestPreferenceRoutes} from './workspace-digest.js';
 import {installSupportRoutes} from './support.js';
 import {installOrganizationRoutes} from './organizations.js';
 import {installStaffRoutes} from './staff-invites.js';
@@ -111,6 +112,7 @@ app.patch('/api/v1/auth/me', requireAuth, async (req, res) => {
 installRegistrationRoutes(app,webOrigin);
 installPasswordRecoveryRoutes(app,webOrigin);
 installStaffRoutes(app,webOrigin);
+installDigestPreferenceRoutes(app,requireAuth);
 
 const route=express.Router();
 route.use(requireAuth);

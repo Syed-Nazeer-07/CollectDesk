@@ -8,7 +8,7 @@ CollectDesk is a B2B workflow platform for creditor organizations and collection
 | --- | --- | --- |
 | Financial reliability | Replica-set transactions for receipt recording, verification, rejection, reversal and close/hold/resume. Same-transaction activity and idempotency receipts. | Stage on the target Atlas topology. Inventory historical receipt totals, take a backup and drain all lease-only writers before enabling transactions. |
 | Organization management | One organization per creditor account, owner and member access, company profile, owner-issued one-time invitations, member deactivation, operator workload and access changes. | Assign owners to existing organizations after confirming account ownership. Verify Brevo delivery on staging. |
-| Operational queues | Admin priorities, internal follow-ups, overdue work indicators, unassigned queue, operator workload and case-level reconciliation CSV. | Due follow-ups and latest support decisions now appear in the authorized activity feed. Email subscriptions and scheduled delivery remain open. |
+| Operational queues | Admin priorities, internal follow-ups, overdue work indicators, unassigned queue, operator workload and case-level reconciliation CSV. | Due follow-ups and latest support decisions now appear in the authorized activity feed. Users can opt into an email digest. Scheduling and real-provider acceptance remain open. |
 | Document infrastructure | Private S3 objects with SSE-S3, scanner-first PDF screening, quarantine metadata, scoped download and audit event, category and explicit expiration, repeatable cleanup task. | Deploy private bucket and scanner, verify IAM and malware handling, approve file policy, configure scheduled retention and backup lifecycle. |
 | Account continuity | Preserved Google, Brevo and existing sessions. The persistent provider receives updated onboarding and activation results and rechecks immediately after a protected request is rejected. Transaction mode covers token consumption in creditor verification, operator activation and password reset. | Verify Google and mail using authorized accounts in configured staging. |
 | Deployment | MongoDB ping readiness and API-first hosted startup, with a bounded failure deadline. | Validate the candidate container and uptime from a deployed staging service before production promotion. |
@@ -64,6 +64,12 @@ Schedule `node apps/api/src/purge-documents.js` in the approved environment. It 
 
 Private object storage, managed database backups, an always-on compute plan and a scanner worker may incur fees. Estimate cost using expected capacity, file size, scanning CPU, request count and download volume. This branch creates no paid infrastructure.
 
+## Transactional digest
+
+Keep `WORKSPACE_DIGEST_ENABLED=false` until an approved sender and job schedule are ready. Set it to true and schedule `node apps/api/src/send-digests.js` daily in the intended environment. Users opt in or out under Account & access. The worker checks authorized case, support and due-follow-up activity, considers at most the previous 24 hours, and sends a generic sign-in link without case or debtor details. A unique account/day claim caps sends. A subsequent window starts after the previous claim. This keeps recurring jobs low-noise and avoids resending the same window.
+
+Records are retained for 31 days. Monitor the `claimed` and `unconfirmed` statuses. Ambiguous outcomes are reserved for operator review to avoid duplicate delivery. Configure the worker as a singleton schedule and verify provider bounces and sender configuration in staging.
+
 ## Hosting and recovery
 
 The live Render Free service `CollectDesk` tracks `main` and its configured HTTP health check path is empty. The repo Blueprint already has `/api/health` for a differently named service. Review the deployed service's configuration before changing either source. The confirmed launcher race started Next.js before the API listener. The candidate waits for an internal health response backed by a MongoDB ping. Readiness and API traffic use the same build-time proxy target. Staging should also verify wake-up, disconnect and restart behavior.
@@ -78,7 +84,7 @@ Define RPO and RTO with the business. Back up MongoDB and the document bucket un
 
 `node scripts/benchmark-portfolio.mjs` creates disposable fictional portfolios of 100, 1,000 and 20,000 cases. Seven warm loopback HTTP samples per operation were taken after an initial request. Two register indexes reduced the 20,000-case median from 65.4 ms to 5.0 ms and its status-filtered variant from 43.0 ms to 4.1 ms. Exact dashboard totals still took about 1.7 s at 20,000 cases. A higher-scale dashboard needs a verified balance projection or measured aggregation revision before promising a latency target.
 
-Review authentication, authorization, browser headers, session revocation, HTTP rate policy, audit integrity, IAM, tenant isolation, secrets and dependency management with an independent ASVS assessment. Current process-local limits need a shared limiter behind multi-instance hosting. Verify accessibility with keyboard and screen-reader users. Report subscriptions, durable event delivery, production monitoring, a backup restore drill and staging provider verification remain open.
+Review authentication, authorization, browser headers, session revocation, HTTP rate policy, audit integrity, IAM, tenant isolation, secrets and dependency management with an independent ASVS assessment. Current process-local limits need a shared limiter behind multi-instance hosting. Verify accessibility with keyboard and screen-reader users. Continuous monitoring, a backup restore drill, staging provider verification and per-event delivery policies remain open.
 
 For the intended operating jurisdictions, obtain review of controller and processor responsibilities, data transfers, collection licensing and communications, document retention, dispute procedures, audit access and incident reporting. For an Indian deployment, have qualified counsel assess the applicability of the Digital Personal Data Protection framework and any sector rules applying to the creditor or collection operator. Enable real onboarding only after independent security, business, privacy and operational approval.
 
@@ -87,7 +93,7 @@ For the intended operating jurisdictions, obtain review of controller and proces
 - Local Chromium passed the creditor, administrator and operator workflow with the transactional ledger enabled. The responsive suite checked 200 route, viewport and theme combinations.
 - Sidebar navigation reused its initial session check over six routes. Local click-to-heading durations ranged from 60 to 125 ms, and deleting the test cookie sent the next protected request back to sign-in.
 - The hosted readiness regression reproduced 503 from the old health route and 200 from the API using a deliberately wrong runtime proxy target. The revised shared rewrite returned 200 for both endpoints with the same test configuration. A paused local MongoDB process then returned readiness 503 in 1.508 s and recovered to 200 in 0.005 s after resuming.
-- The isolated replica-set suite passed 16 tests. Provider checks use fictional Google signatures, mail doubles, and storage and scanner fixtures. The test suite also exercises the ClamAV wire framing against a local fake daemon.
+- The isolated replica-set suite passed 17 tests. Provider checks use fictional Google signatures, mail doubles, and storage and scanner fixtures. The test suite also exercises the ClamAV wire framing against a local fake daemon.
 - The production dependency audit had zero reported advisories after the Nodemailer upgrade. This audit covers the resolved dependency tree on the check date.
 
 [Browser captures](screenshots/README.md)

@@ -14,7 +14,7 @@ const PAGE_SIZE = 20;
  * notification store that could disagree with the case timeline.
  * Access is checked against the CURRENT case assignment/company on every read.
  */
-function activityScope(user,unreadOnly=false) {
+function activityScope(user,unreadOnly=false,until) {
   const match={kind:{$in:KINDS},actorId:{$ne:user._id}};
   if(user.role==='creditor') {
     match.visibility='creditor';
@@ -24,7 +24,7 @@ function activityScope(user,unreadOnly=false) {
     user.role==='creditor' && user.organizationId?{'case.organizationId':user.organizationId}:
     user.role==='operator' && user._id?{'case.assignedTo':user._id}:
     {_id:{$exists:false}};
-  if (unreadOnly) match.createdAt={$gt:user.notificationsSeenAt || new Date(0)};
+  if (unreadOnly) match.createdAt={$gt:user.notificationsSeenAt || new Date(0),...(until?{$lte:until}:{})};
   return [
     {$match:match},
     {$lookup:{from:Case.collection.name,localField:'caseId',foreignField:'_id',as:'case'}},
@@ -55,13 +55,13 @@ export function notificationPipeline(user,page=1,unreadOnly=false) {
   ];
 }
 
-function operationsQueries(user, unreadOnly){
+function operationsQueries(user, unreadOnly, now=new Date()){
   const seen=user.notificationsSeenAt || new Date(0);
   const support={createdBy:user._id,'history.0':{$exists:true},handledBy:{$ne:user._id}};
   if(unreadOnly) support.updatedAt={$gt:seen};
   const deadline={
     ...scopeForUser(user),status:{$in:['accepted','in_progress','on_hold']},
-    followUpAt:{$type:'date',$lte:new Date(),...(unreadOnly?{$gt:seen}:{})}
+    followUpAt:{$type:'date',$lte:now,...(unreadOnly?{$gt:seen}:{})}
   };
   return {support,deadline,staff:['admin','operator'].includes(user.role),seen};
 }
@@ -87,6 +87,18 @@ async function operationNotices(user,unreadOnly){
     ...cases.map(row=>({id:'follow-up-'+row._id,kind:'follow_up',title:row.caseCode,
       href:'/cases/'+row._id,createdAt:row.followUpAt,unread:row.followUpAt>seen}))
   ].sort((a,b)=>b.createdAt-a.createdAt).slice(0,10);
+}
+
+export async function hasRecentWorkspaceActivity(user,since,now){
+  const window={...user,notificationsSeenAt:since};
+  const {support,deadline,staff}=operationsQueries(window,true,now);
+  support.updatedAt.$lte=now;
+  const [activity,ticket,followUp]=await Promise.all([
+    Activity.aggregate([...activityScope(window,true,now),{$limit:1},{$project:{_id:1}}]),
+    SupportRequest.exists(support),
+    staff ? Case.exists(deadline) : null
+  ]);
+  return Boolean(activity.length||ticket||followUp);
 }
 
 export function installNotificationRoutes(route) {

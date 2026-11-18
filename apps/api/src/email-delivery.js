@@ -36,6 +36,10 @@ export async function sendOrganizationInviteEmail(email,url,options={}){
   return sendAccountEmail(email,url,'organization-invite',options);
 }
 
+export async function sendWorkspaceDigestEmail(email,url,options={}){
+  return sendAccountEmail(email,url,'workspace-digest',options);
+}
+
 async function sendAccountEmail(email,url,kind,{
   env=process.env,httpFetch=fetch,createTransport=nodemailer.createTransport
 }={}){
@@ -44,26 +48,30 @@ async function sendAccountEmail(email,url,kind,{
   const passwordReset=kind==='password-reset';
   const staffInvite=kind==='staff-invite';
   const orgInvite=kind==='organization-invite';
-  const subject=orgInvite?'Join your organization on CollectDesk':staffInvite?'Your CollectDesk case operator invitation':
+  const digest=kind==='workspace-digest';
+  const subject=digest?'Your CollectDesk workspace digest':orgInvite?'Join your organization on CollectDesk':staffInvite?'Your CollectDesk case operator invitation':
     passwordReset?'Reset your CollectDesk password':'Verify your CollectDesk account';
-  const text=(orgInvite
+  const intro=digest?'New activity is available in your CollectDesk workspace. Sign in to review it.':
+    orgInvite
     ?'You have been invited to your company’s CollectDesk workspace. Use this link to set up your account:\n'
     :staffInvite
     ?'A CollectDesk administrator has invited you as a case operator to the operations workspace. Use the link to set your password:\n'
     :passwordReset
     ?'Someone requested a password reset for your CollectDesk account. Use this link to set a new password:\n'
-    :'Confirm your email to activate your CollectDesk creditor workspace:\n')+url+
-    '\n\nThis link expires in '+(staffInvite||orgInvite?'24 hours':'30 minutes')+
+    :'Confirm your email to activate your CollectDesk creditor workspace:';
+  const footer=digest?'You can turn off this daily digest in Account & access.':
+    'This link expires in '+(staffInvite||orgInvite?'24 hours':'30 minutes')+
     ' and can be used once. If you did not request this, ignore this email.';
+  const text=intro.trim()+'\n'+url+'\n\n'+footer;
 
   const escape=value=>value.replace(/[&<>"']/g,character=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[character]);
-  const [intro, , expiry]=text.split('\n').filter(Boolean);
+
   const html='<div style="max-width:560px;margin:auto;font:16px/1.6 Arial,sans-serif;color:#172033">'+
     '<p style="color:#9d3817;font-weight:bold">CollectDesk</p><h1 style="font-size:24px">'+escape(subject)+'</h1>'+
     '<p>'+escape(intro)+'</p><p><a href="'+escape(url)+'" style="display:inline-block;background:#9d3817;color:#fff;padding:12px 18px;border-radius:6px">Continue to CollectDesk</a></p>'+
-    '<p>'+escape(expiry)+'</p></div>';
+    '<p>'+escape(footer)+'</p></div>';
 
   if(provider==='resend'){
     const response=await httpFetch('https://api.resend.com/emails',{
