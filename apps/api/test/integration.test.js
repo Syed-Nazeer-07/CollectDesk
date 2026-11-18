@@ -628,6 +628,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       }))).status,500);
       assert.equal(await Activity.countDocuments({caseId:draftId,kind:'note',text:note}),0,
         'failed note audit must not persist a partial activity event');
+      // The outer workflow asserts case counts and exact pagination. Clean up
+      // this isolated rollback fixture rather than changing those baselines.
+      await Activity.deleteMany({caseId:draftId});
+      await Case.deleteOne({_id:draftId});
     });
 
     // A creditor can edit their own draft, but never an accepted/submitted claim.
