@@ -44,6 +44,8 @@ jobs:
         env:
           NODE_ENV: test
         run: npm test
+      - name: Verify MongoDB transaction and replay behavior
+        run: node scripts/test-replica.mjs
       - name: Build Next.js frontend
         run: npm run build
 

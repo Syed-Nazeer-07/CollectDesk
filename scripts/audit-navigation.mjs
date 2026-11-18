@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
 const base=process.env.AUDIT_BASE_URL || 'http://localhost:3000';
+assert.ok(['localhost','127.0.0.1','[::1]'].includes(new URL(base).hostname),'Use an isolated local fixture.');
 const password=process.env.DEMO_SEED_PASSWORD;
 if(!password || password.length<12)throw new Error('Set a private DEMO_SEED_PASSWORD for local test fixtures.');
 
@@ -28,16 +29,28 @@ try{
   assert.ok(sessionRequests>=1,'Initial workspace visit must verify the session');
   const initialChecks=sessionRequests;
 
+  await page.evaluate(()=>{
+    window.__collectDeskNavigationAudit={loadingFlash:false};
+    const observer=new MutationObserver(()=>{
+      if(document.body.innerText.includes('Loading your workspace…'))
+        window.__collectDeskNavigationAudit.loadingFlash=true;
+    });
+    observer.observe(document.body,{childList:true,subtree:true});
+  });
+  const durations=[];
   for(const [path,title] of [
     ['/cases','All cases'],
     ['/notifications','Activity updates'],
     ['/account','Account & access'],
+    ['/organization','Organization'],
     ['/support','Help & support'],
     ['/dashboard','Overview']
   ]){
+    const start=performance.now();
     await page.locator('.sidebar-nav a[href="'+path+'"]').click();
     await page.waitForURL(base+path,{timeout:15000});
     await page.getByRole('heading',{name:title,exact:true}).first().waitFor({timeout:15000});
+    durations.push({path,ms:Math.round(performance.now()-start)});
     const fullPageLoader=page.getByText('Loading your workspace…');
     assert.equal(await fullPageLoader.count(),0,
       'Sidebar navigation unexpectedly blanked the workspace on '+path);
@@ -45,8 +58,11 @@ try{
 
   assert.equal(sessionRequests,initialChecks,
     'Sidebar navigation should reuse the recent session instead of asking /auth/me again');
+  const observed=await page.evaluate(()=>window.__collectDeskNavigationAudit);
+  assert.deepEqual(observed,{loadingFlash:false},'Navigation must stay in the same document without a loader flash.');
+  console.table(durations);
   await context.close();
-  console.log('Persistent workspace navigation passed: 5 routes, no auth loading flash, no repeated session fetch.');
+  console.log('Persistent workspace navigation passed: 6 routes, no auth loading flash, no repeated session fetch.');
 } finally{
   await browser.close();
 }
