@@ -10,3 +10,11 @@ Chromium captured these screens on the local seeded demo with fictional records.
 | Invoice case | Dark | [Case detail](case-detail-dark.webp) |
 | Register on mobile | Light | [Case register](case-register-mobile.webp) |
 | Activity on mobile | Dark | [Activity feed](activity-mobile-dark.webp) |
+
+## Production foundations
+
+These screens were captured with a disposable replica-set fixture. The scheduled follow-up and all organization records are fictional.
+
+- [Organization profile and membership, light theme](organization-desktop.png)
+- [Administrator operations queue, dark theme](operations-desktop.png)
+- [Assigned operator follow-up, mobile](follow-up-mobile.png)

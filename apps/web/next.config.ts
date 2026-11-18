@@ -19,7 +19,11 @@ const config: NextConfig = {
     ]}];
   },
   async rewrites() {
-    return [{source:'/api/v1/:path*',destination:`${process.env.API_PROXY_TARGET || 'http://localhost:4000'}/api/v1/:path*`}];
+    const target=process.env.API_PROXY_TARGET || 'http://127.0.0.1:4000';
+    return [
+      {source:'/api/health',destination:`${target}/readiness`},
+      {source:'/api/v1/:path*',destination:`${target}/api/v1/:path*`}
+    ];
   }
 };
 export default config;

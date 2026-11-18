@@ -66,9 +66,9 @@ Private object storage, managed database backups, an always-on compute plan and 
 
 ## Hosting and recovery
 
-The live Render Free service `CollectDesk` tracks `main` and its configured HTTP health check path is empty. The repo Blueprint already has `/api/health` for a differently named service. Review the deployed service's configuration before changing either source. The confirmed launcher race started Next.js before the API listener. The candidate waits for an internal health response backed by a MongoDB ping. Staging should also verify wake-up, disconnect and restart behavior.
+The live Render Free service `CollectDesk` tracks `main` and its configured HTTP health check path is empty. The repo Blueprint already has `/api/health` for a differently named service. Review the deployed service's configuration before changing either source. The confirmed launcher race started Next.js before the API listener. The candidate waits for an internal health response backed by a MongoDB ping. Readiness and API traffic use the same build-time proxy target. Staging should also verify wake-up, disconnect and restart behavior.
 
-During the live probe on 18 November 2026 IST, the first health request returned 503 after 30.106 s. The next release request returned 200 in 0.591 s and the homepage returned 200 in 0.707 s. Render reported `d5245132e781` live. The scoped 503 query returned no matching Render logs. These observations establish a slow failing request followed by a warm recovery. They do not prove which system emitted the failure or establish an uptime rate.
+During the live probe on 18 November 2026 IST, the first health request returned 503 after 30.106 s. The next release request returned 200 in 0.591 s and the homepage returned 200 in 0.707 s. Render reported `d5245132e781` live. The scoped 503 query returned no matching Render logs. A second probe returned 503 for readiness after 31.475 s and again after 0.874 s, while release metadata returned 200 with MongoDB connected. A local reproduction set a different runtime proxy target and reproduced simultaneous readiness 503 and API 200. This confirms a configuration failure mode. The live runtime variable value was unavailable and the live root cause remains unproven.
 
 For an authorized staging rollout, configure the HTTP health path, collect repeated cold and warm timing samples, and watch startup, memory, restart count and Atlas connection events. A paid always-on service is a candidate if measured sleep or resource limits conflict with the agreed service objective. Keep credentials and release flags in the service's secret store.
 
@@ -81,3 +81,13 @@ Define RPO and RTO with the business. Back up MongoDB and the document bucket un
 Review authentication, authorization, browser headers, session revocation, HTTP rate policy, audit integrity, IAM, tenant isolation, secrets and dependency management with an independent ASVS assessment. Current process-local limits need a shared limiter behind multi-instance hosting. Verify accessibility with keyboard and screen-reader users. Report subscriptions, durable event delivery, production monitoring, a backup restore drill and staging provider verification remain open.
 
 For the intended operating jurisdictions, obtain review of controller and processor responsibilities, data transfers, collection licensing and communications, document retention, dispute procedures, audit access and incident reporting. For an Indian deployment, have qualified counsel assess the applicability of the Digital Personal Data Protection framework and any sector rules applying to the creditor or collection operator. Enable real onboarding only after independent security, business, privacy and operational approval.
+
+## Verification recorded for this branch
+
+- Local Chromium passed the creditor, administrator and operator workflow with the transactional ledger enabled. The responsive suite checked 200 route, viewport and theme combinations.
+- Sidebar navigation reused its initial session check over six routes. Local click-to-heading durations ranged from 60 to 125 ms, and deleting the test cookie sent the next protected request back to sign-in.
+- The hosted readiness regression reproduced 503 from the old health route and 200 from the API using a deliberately wrong runtime proxy target. The revised shared rewrite returned 200 for both endpoints with the same test configuration.
+- The isolated replica-set suite passed 15 tests. Provider checks use fictional Google signatures, mail doubles, and storage and scanner fixtures. The test suite also exercises the ClamAV wire framing against a local fake daemon.
+- The production dependency audit had zero reported advisories after the Nodemailer upgrade. This audit covers the resolved dependency tree on the check date.
+
+[Browser captures](screenshots/README.md)

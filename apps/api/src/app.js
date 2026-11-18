@@ -45,7 +45,7 @@ app.use((req,res,next)=>{
   }
   next();
 });
-app.get('/health',async(_req,res)=>{
+app.get(['/health','/readiness'],async(req,res)=>{
   let connected=false;
   if (mongoose.connection.readyState===1) {
     try {
@@ -56,7 +56,8 @@ app.get('/health',async(_req,res)=>{
     }
   }
   res.set('Cache-Control','no-store');
-  return res.status(connected?200:503).json({ok:connected,database:connected?'connected':'unavailable'});
+  const data=req.path==='/readiness'?{ok:connected}:{ok:connected,database:connected?'connected':'unavailable'};
+  return res.status(connected?200:503).json(data);
 });
 /** Non-sensitive version metadata for external deployment verification. */
 app.get('/api/v1/meta/release',(_req,res)=>{
