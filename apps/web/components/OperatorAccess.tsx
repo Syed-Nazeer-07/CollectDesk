@@ -5,6 +5,8 @@ import {api} from '@/lib/api';
 
 type Operator={id:string;name:string;email:string;active:boolean;assigned:number};
 type Data={operators:Operator[];hasMore:boolean};
+type AccessEvent={id:string;operator:string;actor:string;action:'restored'|'deactivated';at:string};
+type AccessHistory={events:AccessEvent[];hasMore:boolean};
 
 export default function OperatorAccess(){
   const [page,setPage]=useState(1);
@@ -12,6 +14,20 @@ export default function OperatorAccess(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [historyPage,setHistoryPage]=useState(1);
+  const [history,setHistory]=useState<AccessHistory|null>(null);
+  const [historyError,setHistoryError]=useState('');
+  const loadHistory=useCallback(async(signal?:AbortSignal)=>{
+    const result=await api<AccessHistory>('/staff/operators/access-history?page='+historyPage,{signal});
+    if(!signal?.aborted){setHistory(result);setHistoryError('');}
+  },[historyPage]);
+  useEffect(()=>{
+    const controller=new AbortController();
+    loadHistory(controller.signal).catch(error=>{
+      if(!controller.signal.aborted)setHistoryError(error instanceof Error?error.message:'Access history unavailable.');
+    });
+    return ()=>controller.abort();
+  },[loadHistory]);
   const load=useCallback(async(signal?:AbortSignal)=>{
     const result=await api<Data>('/staff/operators?page='+page,{signal});
     if(!signal?.aborted)setData(result);
@@ -31,6 +47,8 @@ export default function OperatorAccess(){
       });
       setNotice(operator.active?'Operator access removed.':'Operator access restored.');
       await load();
+      if(historyPage!==1){setHistoryPage(1);setHistory(null);}
+      else await loadHistory().catch(error=>setHistoryError(error instanceof Error?error.message:'Could not refresh access history.'));
     }catch(error){setError(error instanceof Error?error.message:'Could not change access.');}
     finally{setBusy(false);}
   }
@@ -53,5 +71,25 @@ export default function OperatorAccess(){
       <span>Page {page}</span>
       <button className="button button-outline" disabled={!data.hasMore||busy} onClick={()=>{setData(null);setPage(n=>n+1);}}>Next</button>
     </div>}
+    <details className="operator-access-history">
+      <summary>Operator access history</summary>
+      <p>Admin-only record of access revocations and restorations.</p>
+      {historyError&&<p className="message error" role="alert">{historyError} <button type="button" onClick={()=>void loadHistory().catch(error=>setHistoryError(error.message))}>Retry</button></p>}
+      {!history&&!historyError&&<p role="status">Loading access history…</p>}
+      {history&&history.events.length===0&&<p>No access changes recorded yet.</p>}
+      {history&&history.events.length>0&&<ul className="workspace-list">
+        {history.events.map(event=><li key={event.id}>
+          <div><strong>{event.operator}</strong><p>{event.action==='deactivated'?'Access revoked':'Access restored'} by {event.actor}</p></div>
+          <time dateTime={event.at}>{new Date(event.at).toLocaleString()}</time>
+        </li>)}
+      </ul>}
+      {history&&(historyPage>1||history.hasMore)&&<div className="form-actions">
+        <button type="button" className="button button-outline" disabled={historyPage===1||busy}
+          onClick={()=>{setHistory(null);setHistoryPage(n=>n-1);}}>Previous</button>
+        <span>Page {historyPage}</span>
+        <button type="button" className="button button-outline" disabled={!history.hasMore||busy}
+          onClick={()=>{setHistory(null);setHistoryPage(n=>n+1);}}>Next</button>
+      </div>}
+    </details>
   </section>;
 }
