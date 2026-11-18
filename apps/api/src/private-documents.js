@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import {Case,CaseDocument,DocumentEvent} from './models.js';
 import {requireRole} from './auth.js';
 import {canEditDraft,scopeForUser} from './rules.js';
+import {transactionalLedger} from './financial-write.js';
 
 export const MAX_DOCUMENT_BYTES=5*1024*1024;
 const MAX_DOCUMENTS=5;
@@ -149,7 +150,19 @@ export function installPrivateDocumentRoutes(route,{getCase,getService=privateDo
             ContentType:'application/pdf',ServerSideEncryption:'AES256'}),{abortSignal:AbortSignal.timeout(12000)});
           row.status='clean';
           row.expiresAt=new Date(Date.now()+config.retentionDays*86_400_000);
-          await row.save();
+          const recordUpload=async session=>{
+            await row.save({session});
+            await new DocumentEvent({...keys,documentId:row._id,actorId:req.user._id,
+              kind:'uploaded'}).save({session});
+          };
+          // S3 cannot join a Mongo transaction. An aborted metadata commit
+          // leaves quarantined metadata for the retention job to clean up,
+          // never a published document without its audit event.
+          if(transactionalLedger()){
+            await mongoose.connection.transaction(recordUpload,{writeConcern:{w:'majority'}});
+          }else{
+            await recordUpload(null);
+          }
           res.status(201).json({document:view(row)});
         } finally {
           await Case.updateOne({_id:keys.caseId,financialLockToken:token},
