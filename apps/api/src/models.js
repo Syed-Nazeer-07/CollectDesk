@@ -177,7 +177,7 @@ const documentEventSchema=new mongoose.Schema({
   organizationId:{...id,ref:'Organization',required:true},
   documentId:{...id,ref:'CaseDocument',required:true},
   actorId:{...id,ref:'User',required:true},
-  kind:{type:String,enum:['download_authorized'],required:true}
+  kind:{type:String,enum:['download_authorized','scan_rejected'],required:true}
 },options);
 documentEventSchema.index({organizationId:1,createdAt:-1});
 export const DocumentEvent=mongoose.model('DocumentEvent',documentEventSchema);
