@@ -15,7 +15,7 @@ Next.js 16 · React 19 · TypeScript · Express 5 · MongoDB
 </div>
 
 > [!IMPORTANT]
-> **Technical-evaluation MVP — fictional data only.** This is not a payment processor or an authorized debt-collection platform. Never upload real invoices, debtor details, payment information, or other sensitive records. The Render demo may need a cold start; optional sign-in methods depend on provider configuration.
+> **Public and seeded environments are fictional-data only.** CollectDesk manages creditor and operations workflows. Real customer onboarding requires independent security, business, and privacy approval. The public Render deployment may need a cold start.
 
 ## What it does
 
@@ -39,10 +39,12 @@ Case is reconciled or closed
 | Case register | Server-side search, status filters, sorting, pagination and permission-scoped CSV export |
 | Collections oversight | Sample balances, verified receipt totals, reversals and activity history |
 | Organization isolation | Creditor records restricted to the appropriate organization |
+| Organization access | Company profiles, owner-issued member invitations, role-based access and session revocation |
+| Financial operations | Replica-set transactions, idempotent receipt mutations and reconciliation exports when configured |
 | Team operations | Staff invitations, support requests and role-scoped notifications |
 | Profile | Edit your own display name while signed in |
 | Onboarding and identity | Company setup; optional Google sign-in, email verification and password recovery |
-| Sample evidence | Private, feature-flagged PDF attachments for synthetic test data only |
+| Documents | Configurable private, scanned PDF storage with access audit and expiry. The public preview retains synthetic-only evidence. |
 
 **Accounting behavior:** Pending receipts are not counted as recovered funds. A case marked closed does not necessarily mean its entire balance was paid. CSV exports are capped at 5,000 accessible rows and exclude internal notes and credentials.
 
@@ -163,6 +165,7 @@ The [live diagnostic workflow](.github/workflows/live-preview.yml) checks public
 
 - [Product requirements (PDF)](docs/Commercial_Collections_PRD_v0.1.pdf)
 - [Competitor research (PDF)](docs/Commercial_Collections_Competitor_Research_Enhanced.pdf)
+- [Production foundations, API reference and runbooks](docs/PRODUCTION_FOUNDATIONS.md)
 - [Current demo acceptance and QA](docs/DEMO_ACCEPTANCE.md)
 - [Feature completion matrix](docs/FEATURE_MATRIX.md)
 - [Implementation checklist](docs/IMPLEMENTATION_CHECKLIST.md)
@@ -171,7 +174,7 @@ The [live diagnostic workflow](.github/workflows/live-preview.yml) checks public
 
 ## Limitations and release status
 
-This repository is a **sample-data MVP**, not a production financial service. It does not transfer money or contact debtors. Evidence handling is not approved for real files; production use would require legal and privacy review, malware scanning, retention controls, transaction integrity review, monitored infrastructure, tested backups and live role-based acceptance testing.
+The application is being developed for real B2B operations. Customer onboarding and real document processing require independent review and an approved deployment. Consult the production foundations runbook for the technical and business release gates.
 
 The GitHub Actions badge reflects automated checks on `main`, **not** compliance certification or live-provider readiness. See the release-readiness checklist for what is still unverified.
 
