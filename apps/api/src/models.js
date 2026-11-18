@@ -41,6 +41,17 @@ const organizationEventSchema=new mongoose.Schema({
 },options);
 organizationEventSchema.index({organizationId:1,_id:-1});
 export const OrganizationEvent=mongoose.model('OrganizationEvent',organizationEventSchema);
+
+// Administrative operator access decisions are retained separately from
+// per-organization events and never exposed to creditor or operator accounts.
+const staffAccessEventSchema=new mongoose.Schema({
+  actorId:{...id,ref:'User',required:true},
+  operatorId:{...id,ref:'User',required:true},
+  action:{type:String,enum:['deactivated','restored'],required:true}
+},options);
+staffAccessEventSchema.index({createdAt:-1,_id:-1});
+staffAccessEventSchema.index({operatorId:1,createdAt:-1});
+export const StaffAccessEvent=mongoose.model('StaffAccessEvent',staffAccessEventSchema);
 const caseSchema = new mongoose.Schema({
   caseCode: {type: String, required: true, unique: true}, organizationId: {...id, ref: 'Organization', required: true, index: true},
   createdBy: {...id, ref:'User', required: true}, debtorName: {type: String, required: true}, invoiceNo: {type: String, required: true},
