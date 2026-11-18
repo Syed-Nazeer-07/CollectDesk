@@ -3454,6 +3454,20 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
   align-items: start;
 }
 .organization-panel { padding: clamp(1rem,3vw,1.5rem); overflow-wrap: anywhere; }
+.operator-access-history {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.operator-access-history summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: .35rem 0;
+}
+.operator-access-history summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.operator-access-history time { font-size: .82rem; color: var(--muted); }
+.operator-access-history > p { margin: .7rem 0; }
+
 .organization-panel h2 { font-size: 1.2rem; margin: 0 0 .75rem; }
 .organization-panel > p { margin: 0 0 .75rem; }
 .workspace-list { list-style: none; padding: 0; margin: .8rem 0 0; }
