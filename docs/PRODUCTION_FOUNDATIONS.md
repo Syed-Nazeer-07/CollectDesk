@@ -6,10 +6,10 @@ CollectDesk is a B2B workflow platform for creditor organizations and collection
 
 | Priority | Delivered in this branch | Remaining gate |
 | --- | --- | --- |
-| Financial reliability | Replica-set transactions for receipt recording, verification, rejection, reversal and close/hold/resume. Same-transaction activity and idempotency receipts. | Stage on the target Atlas topology. Inventory historical receipt totals, take a backup and drain all lease-only writers before enabling transactions. |
+| Financial reliability | Replica-set transactions for creation, edits, submission, review, assignment, staff notes, receipts and close/hold/resume. State changes and audit events commit together. Financial actions support operation-scoped idempotency keys. | Stage on the target Atlas topology. Inventory historical receipt totals, take a backup and drain all lease-only writers before enabling transactions. |
 | Organization management | One organization per creditor account, owner and member access, company profile, owner-issued one-time invitations, member deactivation, operator workload and access changes. | Assign owners to existing organizations after confirming account ownership. Verify Brevo delivery on staging. |
 | Operational queues | Admin priorities, internal follow-ups, overdue work indicators, unassigned queue, operator workload and case-level reconciliation CSV. | Due follow-ups and latest support decisions now appear in the authorized activity feed. Users can opt into an email digest. Scheduling and real-provider acceptance remain open. |
-| Document infrastructure | Private S3 objects with SSE-S3, scanner-first PDF screening, quarantine metadata, scoped download and audit event, category and explicit expiration, repeatable cleanup task. | Deploy private bucket and scanner, verify IAM and malware handling, approve file policy, configure scheduled retention and backup lifecycle. |
+| Document infrastructure | Private S3 objects with SSE-S3, scanner-first PDF screening, quarantine metadata, audited upload/download/rejection, scoped access, category and explicit expiration. Rejected PDFs release quota without retaining their bytes. | Deploy private bucket and scanner, verify IAM and malware handling, approve file policy, configure scheduled retention and backup lifecycle. |
 | Account continuity | Preserved Google, Brevo and existing sessions. The persistent provider receives updated onboarding and activation results and rechecks immediately after a protected request is rejected. Transaction mode covers token consumption in creditor verification, operator activation and password reset. | Verify Google and mail using authorized accounts in configured staging. |
 | Deployment | MongoDB ping readiness and API-first hosted startup, with a bounded failure deadline. | Validate the candidate container and uptime from a deployed staging service before production promotion. |
 
@@ -44,6 +44,14 @@ All routes have the `/api/v1` prefix. Mutations use JSON and a matching `Origin`
 | `GET /cases/:id/documents/:documentId` | Existing case authorization. Audited, server-proxied attachment for a clean, unexpired file. |
 
 Financial POST routes accept a scoped `Idempotency-Key` of 16–128 URL-safe characters in transaction mode. Keep the same key for retries of the same action and body. A changed body returns 409. The financial API returns success after majority commit. Idempotency records remain available for operator reconciliation. Their retention policy needs approval before real use. Case editors send the observed update timestamp and receive a conflict when another edit has changed the record.
+
+## Verified consistency guarantees
+
+When `LEDGER_TRANSACTIONS_REQUIRED=true` on a replica-set-backed deployment, the case state and its append-only activity event share a MongoDB transaction for creation, draft edits, submission, administrator review, assignment, and staff notes. The same rule applies to financial transitions and receipt decisions. Regression tests inject audit-write errors and assert that changes roll back instead of leaving unaudited state.
+
+Private PDF upload first requires a clean ClamAV verdict. A rejected scan leaves an audit event without storing the bytes or occupying one of the five active slots. After a successful S3 write, publication of clean metadata and its upload audit event share a transaction in transactional mode. Since object storage and MongoDB cannot share one atomic transaction, failed publication can leave quarantined metadata and an orphan object until the controlled retention cleanup executes; monitor this queue and exercise failure recovery in staging.
+
+These guarantees do not apply to standalone-mode writes. Never use standalone mode for customer financial records.
 
 ## Database and financial rollout
 
