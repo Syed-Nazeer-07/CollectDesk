@@ -1,8 +1,9 @@
 import {z} from 'zod';
-import {Case,User} from './models.js';
+import mongoose from 'mongoose';
+import {Case,User,StaffAccessEvent} from './models.js';
 import {requireRole} from './auth.js';
 import {scopeForUser} from './rules.js';
-import {FinancialError,writeFinancial} from './financial-write.js';
+import {FinancialError,writeFinancial,transactionalLedger} from './financial-write.js';
 
 const activeStatuses=['accepted','in_progress','on_hold'];
 const priorities=['urgent','high','normal'];
@@ -64,13 +65,36 @@ export function installWorkQueueRoutes(route,{getCase,logEvent}){
       active:row.active,assigned:workload.get(String(row._id))||0})),hasMore:rows.length>25});
   });
 
+  route.get('/staff/operators/access-history',requireRole('admin'),async(req,res)=>{
+    const {page}=z.object({page:z.coerce.number().int().min(1).max(200).default(1)})
+      .strict().parse(req.query);
+    const rows=await StaffAccessEvent.find().sort({createdAt:-1,_id:-1})
+      .skip((page-1)*20).limit(21)
+      .populate('actorId','name').populate('operatorId','name').lean();
+    res.json({events:rows.slice(0,20).map(row=>({
+      id:String(row._id),action:row.action,at:row.createdAt,
+      actor:row.actorId?.name||'Former administrator',
+      operator:row.operatorId?.name||'Former operator'
+    })),hasMore:rows.length>20});
+  });
+
   route.post('/staff/operators/:id/access',requireRole('admin'),async(req,res)=>{
     const {id}=z.object({id:z.string().regex(/^[a-f0-9]{24}$/i)}).parse(req.params);
     const {active}=z.object({active:z.boolean()}).strict().parse(req.body);
-    const result=await User.updateOne({_id:id,role:'operator',active:!active},{
-      $set:{active,accessChangedBy:req.user._id,accessChangedAt:new Date()},$inc:{sessionVersion:1}
-    });
-    if(!result.matchedCount)return res.status(409).json({error:'Operator access has already changed.'});
+    const change=async session=>{
+      const result=await User.updateOne({_id:id,role:'operator',active:!active},{
+        $set:{active,accessChangedBy:req.user._id,accessChangedAt:new Date()},
+        $inc:{sessionVersion:1}
+      },{session});
+      if(!result.matchedCount)return false;
+      await new StaffAccessEvent({actorId:req.user._id,operatorId:id,
+        action:active?'restored':'deactivated'}).save({session});
+      return true;
+    };
+    const updated=transactionalLedger()
+      ? await mongoose.connection.transaction(change,{writeConcern:{w:'majority'}})
+      : await change(null);
+    if(!updated)return res.status(409).json({error:'Operator access has already changed.'});
     res.json({ok:true});
   });
 }
