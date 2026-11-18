@@ -557,6 +557,8 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         const {document}=await result.json();
         assert.equal(document.status,'clean');
         assert.equal(document.objectKey,undefined);
+        assert.equal(await DocumentEvent.countDocuments({caseId:folder._id,kind:'uploaded'}),1,
+          'published documents must have a durable upload audit event');
         const download=await fetch(base+'/api/v1'+path+'/'+document.id,{headers:{cookie:a}});
         assert.equal(download.status,200);
         assert.deepEqual(Buffer.from(await download.arrayBuffer()),bytes);
