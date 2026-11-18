@@ -569,6 +569,61 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         await Case.deleteOne({_id:folder._id});
       }
     });
+    await t.test('case lifecycle and audit entries commit atomically in transaction mode',
+      {skip:process.env.LEDGER_TRANSACTIONS_REQUIRED!=='true'},async()=>{
+      const initial={...invoice,invoiceNo:'TX-CASE-AUDIT-001',description:'Original fictional draft'};
+      const originalSave=Activity.prototype.save;
+      async function failAudit(kind,request){
+        Activity.prototype.save=function(...args){
+          if(this.kind===kind)throw new Error('Injected '+kind+' audit failure');
+          return originalSave.apply(this,args);
+        };
+        try{return await request();}
+        finally{Activity.prototype.save=originalSave;}
+      }
+      const create=()=>call('/cases',{method:'POST',cookie:a,body:initial});
+      assert.equal((await failAudit('created',create)).status,500);
+      assert.equal(await Case.countDocuments({invoiceNo:initial.invoiceNo}),0,
+        'a failed creation audit must roll back the case itself');
+      const saved=await create();
+      assert.equal(saved.status,201);
+      const draftId=saved.data.id;
+      const update={...initial,description:'Changed without audit'};
+      assert.equal((await failAudit('updated',()=>call('/cases/'+draftId,{
+        method:'PATCH',cookie:a,body:update
+      }))).status,500);
+      assert.equal((await Case.findById(draftId).lean()).description,initial.description,
+        'a failed draft-edit audit must roll back the edited fields');
+      assert.equal((await failAudit('submitted',()=>call('/cases/'+draftId+'/submit',{
+        method:'POST',cookie:a
+      }))).status,500);
+      assert.equal((await Case.findById(draftId).lean()).status,'draft',
+        'failed submission audit must not submit a draft');
+      assert.equal((await call('/cases/'+draftId+'/submit',{method:'POST',cookie:a})).status,200);
+      const review=()=>call('/cases/'+draftId+'/review',{method:'POST',cookie:admin,
+        body:{decision:'accept',reason:'Valid fictional invoice'}});
+      assert.equal((await failAudit('review',review)).status,500);
+      assert.equal((await Case.findById(draftId).lean()).status,'submitted',
+        'failed review audit must leave the case awaiting review');
+      assert.equal((await review()).status,200);
+      const operatorAccount=await User.findOne({role:'operator',active:true}).lean();
+      assert.ok(operatorAccount,'operator fixture must exist');
+      const assign=()=>call('/cases/'+draftId+'/assign',{method:'POST',cookie:admin,
+        body:{operatorId:String(operatorAccount._id)}});
+      assert.equal((await failAudit('assigned',assign)).status,500);
+      const afterAssign=await Case.findById(draftId).lean();
+      assert.equal(afterAssign.status,'accepted');
+      assert.equal(afterAssign.assignedTo??null,null,
+        'failed assignment audit must not assign an operator');
+      assert.equal((await assign()).status,200);
+      const note='This note must not survive an aborted case transaction';
+      assert.equal((await failAudit('note',()=>call('/cases/'+draftId+'/activity',{
+        method:'POST',cookie:operator,body:{text:note,visibility:'internal'}
+      }))).status,500);
+      assert.equal(await Activity.countDocuments({caseId:draftId,kind:'note',text:note}),0,
+        'failed note audit must not persist a partial activity event');
+    });
+
     // A creditor can edit their own draft, but never an accepted/submitted claim.
     const editableInvoice={...invoice,description:'Corrected draft description'};
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:editableInvoice});
