@@ -547,6 +547,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         verdict=false;
         assert.equal((await upload(a)).status,422);
         assert.equal(blobs.size,0,'rejected bytes must not reach object storage');
+        assert.equal(await CaseDocument.countDocuments({caseId:folder._id}),0,
+          'rejected scanning must immediately release private document quota');
+        assert.equal(await DocumentEvent.countDocuments({caseId:folder._id,kind:'scan_rejected'}),1,
+          'rejected file scans must leave an audit event');
         verdict=true;
         const result=await upload(a);
         assert.equal(result.status,201);
@@ -557,10 +561,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(download.status,200);
         assert.deepEqual(Buffer.from(await download.arrayBuffer()),bytes);
         assert.equal((await call(path+'/'+document.id,{cookie:b})).status,404);
-        assert.equal(await DocumentEvent.countDocuments({caseId:folder._id}),1);
+        assert.equal(await DocumentEvent.countDocuments({caseId:folder._id,kind:'download_authorized'}),1);
         await CaseDocument.updateMany({caseId:folder._id},{$set:{expiresAt:new Date(0)}});
         assert.equal((await call(path+'/'+document.id,{cookie:a})).status,404);
-        assert.equal(await purgeExpiredDocuments(provider),2);
+        assert.equal(await purgeExpiredDocuments(provider),1);
         assert.equal(blobs.size,0);
       }finally{
         delete app.locals.documentService;
