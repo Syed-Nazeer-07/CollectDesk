@@ -15,7 +15,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   process.env.JWT_SECRET = 'integration-test-only-secret-replace-for-real-production';
   const mongoose = (await import('mongoose')).default;
   const bcrypt = (await import('bcryptjs')).default;
-  const {Organization, User, Case, Activity, Receipt, CaseDocument, DocumentEvent} = await import('../src/models.js');
+  const {Organization, OrganizationEvent, User, Case, Activity, Receipt, CaseDocument, DocumentEvent} = await import('../src/models.js');
 
   // Hard block before any data deletion. Never run against the demo or production DB.
   const parsed = new URL(uri);
@@ -101,6 +101,20 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       assert.equal((await patch(b,{name:'Unauthorized rename'})).status,403);
       assert.equal((await patch(a,{name:'Fictional updated company',organizationId:String(orgB._id)})).status,422);
       assert.equal((await patch(a,{name:'Fictional updated company'})).status,200);
+      assert.equal(await OrganizationEvent.countDocuments({organizationId:orgA._id,
+        kind:'organization_renamed'}),1,'company edits must leave an owner-visible audit entry');
+      if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+        const originalSave=OrganizationEvent.prototype.save;
+        OrganizationEvent.prototype.save=function(...args){
+          if(this.kind==='organization_renamed')throw new Error('Injected organization audit failure');
+          return originalSave.apply(this,args);
+        };
+        try{
+          assert.equal((await patch(a,{name:'Unaudited company rename'})).status,500);
+        }finally{OrganizationEvent.prototype.save=originalSave;}
+        assert.equal((await Organization.findById(orgA._id).lean()).name,'Fictional updated company',
+          'failed audit write must roll back company rename');
+      }
       const path='/organization/invitations';
       const invitation={email:'invited-member@example.test'};
       const send=(cookie,body=invitation)=>call(path,{method:'POST',cookie,body});
@@ -137,9 +151,31 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal((await call('/organization',{cookie:joined.cookie})).data.owner,false);
         assert.equal((await call('/cases',{cookie:joined.cookie})).status,200);
         assert.equal((await call(path+'/'+invited.data.invitation.id+'/revoke',{method:'POST',cookie:a})).status,404);
+        const second=await send(a,{email:'revoked-member@example.test'});
+        assert.equal(second.status,201);
+        const revoke=path+'/'+second.data.invitation.id+'/revoke';
+        assert.equal((await call(revoke,{method:'POST',cookie:a})).status,200);
+        assert.equal(await OrganizationEvent.countDocuments({organizationId:orgA._id,
+          kind:'invitation_revoked'}),1,'invitation revocation must be audited');
+        assert.equal((await call(revoke,{method:'POST',cookie:a})).status,404);
         const deactivate='/organization/members/'+joined.data.user.id+'/deactivate';
         assert.equal((await call(deactivate,{method:'POST',cookie:b})).status,403);
+        if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+          const originalSave=OrganizationEvent.prototype.save;
+          OrganizationEvent.prototype.save=function(...args){
+            if(this.kind==='member_deactivated')throw new Error('Injected member audit failure');
+            return originalSave.apply(this,args);
+          };
+          try{assert.equal((await call(deactivate,{method:'POST',cookie:a})).status,500);}
+          finally{OrganizationEvent.prototype.save=originalSave;}
+          assert.equal((await User.findById(joined.data.user.id).lean()).active,true,
+            'an audit failure must not revoke an account without a record');
+          assert.equal((await call('/cases',{cookie:joined.cookie})).status,200,
+            'member session must remain valid after rolled-back deactivation');
+        }
         assert.equal((await call(deactivate,{method:'POST',cookie:a})).status,200);
+        assert.equal(await OrganizationEvent.countDocuments({organizationId:orgA._id,
+          kind:'member_deactivated'}),1,'member revocations must appear in audit trail');
         assert.equal((await call('/cases',{cookie:joined.cookie})).status,401);
       }finally{
         globalThis.fetch=previousFetch;
