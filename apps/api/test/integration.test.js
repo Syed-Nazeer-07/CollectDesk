@@ -15,7 +15,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   process.env.JWT_SECRET = 'integration-test-only-secret-replace-for-real-production';
   const mongoose = (await import('mongoose')).default;
   const bcrypt = (await import('bcryptjs')).default;
-  const {Organization, OrganizationEvent, User, Case, Activity, Receipt, CaseDocument, DocumentEvent} = await import('../src/models.js');
+  const {Organization, OrganizationEvent, StaffAccessEvent, User, Case, Activity, Receipt, CaseDocument, DocumentEvent} = await import('../src/models.js');
 
   // Hard block before any data deletion. Never run against the demo or production DB.
   const parsed = new URL(uri);
@@ -1118,15 +1118,42 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         }
       }
     });
-    await t.test('administrator operator access changes revoke sessions',async()=>{
+    await t.test('administrator operator access changes revoke sessions and retain audit records',async()=>{
       const staff=await User.findOne({email:'operator@test.collectdesk.local'});
       const path='/staff/operators/'+staff._id+'/access';
       const change=(cookie,active)=>call(path,{method:'POST',cookie,body:{active}});
+      const history=()=>call('/staff/operators/access-history',{cookie:admin});
       assert.equal((await change(operator,false)).status,403);
+      assert.equal((await call('/staff/operators/access-history',{cookie:a})).status,403);
+      assert.equal((await call('/staff/operators/access-history',{cookie:operator})).status,403);
+      if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+        const originalSave=StaffAccessEvent.prototype.save;
+        StaffAccessEvent.prototype.save=function(...args){
+          if(this.action==='deactivated')throw new Error('Injected access audit failure');
+          return originalSave.apply(this,args);
+        };
+        try{assert.equal((await change(admin,false)).status,500);}
+        finally{StaffAccessEvent.prototype.save=originalSave;}
+        assert.equal((await User.findById(staff._id).lean()).active,true,
+          'audit failure must roll back operator deactivation');
+        assert.equal((await call('/auth/me',{cookie:operator})).status,200,
+          'operator session must survive a rolled-back access change');
+      }
       assert.equal((await change(admin,false)).status,200);
       assert.equal((await call('/auth/me',{cookie:operator})).status,401);
+      let result=await history();
+      assert.equal(result.status,200);
+      assert.equal(result.data.events[0].action,'deactivated');
+      assert.equal(result.data.events[0].operator,'Operator');
+      assert.equal(result.data.events[0].actor,'Admin');
       assert.equal((await change(admin,true)).status,200);
       assert.equal((await call('/auth/me',{cookie:operator})).status,401);
+      result=await history();
+      assert.equal(result.data.events[0].action,'restored');
+      assert.equal(result.data.events[1].action,'deactivated');
+      assert.equal((await change(admin,true)).status,409,
+        'repeat restoration must not create a duplicate audit record');
+      assert.equal(await StaffAccessEvent.countDocuments({operatorId:staff._id}),2);
     });
     await t.test('logout sends a clearing cookie', async()=>{
       const logout=await call('/auth/logout',{method:'POST',cookie:a});
