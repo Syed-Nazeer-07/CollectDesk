@@ -34,6 +34,22 @@ function ownerOnly(req,res,next){
   next();
 }
 
+// Organization changes are security-sensitive: a state change without its
+// owner-visible audit record is not an acceptable production outcome.
+// Always use the same MongoDB transaction for both when enabled.
+async function auditedOrganizationChange(req,kind,detail,change){
+  const apply=async session=>{
+    const result=await change(session);
+    if(!result)return null;
+    await new OrganizationEvent({organizationId:req.user.organizationId,actorId:req.user._id,
+      kind,detail}).save({session});
+    return result;
+  };
+  return transactionalLedger()
+    ? mongoose.connection.transaction(apply,{writeConcern:{w:'majority'}})
+    : apply(null);
+}
+
 export function installOrganizationRoutes(app, route, origin) {
   route.get('/organizations',requireRole('admin'),async(req,res)=>{
     const {page}=z.object({page:z.coerce.number().int().min(1).max(200).default(1)}).strict().parse(req.query);
@@ -58,10 +74,11 @@ export function installOrganizationRoutes(app, route, origin) {
 
   route.patch('/organization',ownerOnly,async(req,res)=>{
     const {name}=z.object({name:z.string().trim().min(3).max(120)}).strict().parse(req.body);
-    const organization=await Organization.findOneAndUpdate(
-      {_id:req.user.organizationId,active:true}, {$set:{name}},
-      {returnDocument:'after'}
-    ).lean();
+    const organization=await auditedOrganizationChange(req,'organization_renamed',
+      'Company name changed to '+name,session=>
+        Organization.findOneAndUpdate({_id:req.user.organizationId,active:true},
+          {$set:{name}},{returnDocument:'after',session}).lean()
+      );
     if (!organization) return res.status(404).json({error:'Organization not found.'});
     res.json({organization:orgView(organization)});
   });
@@ -95,21 +112,30 @@ export function installOrganizationRoutes(app, route, origin) {
 
   route.post('/organization/invitations/:id/revoke',ownerOnly,async(req,res)=>{
     if (!mongoose.isObjectIdOrHexString(req.params.id)) return res.status(404).json({error:'Invitation not found.'});
-    const updated=await OrganizationInvite.updateOne(
-      {_id:req.params.id,organizationId:req.user.organizationId,status:'pending'},
-      {$set:{status:'revoked'}}
-    );
-    if (!updated.matchedCount) return res.status(404).json({error:'Pending invitation not found.'});
+    const updated=await auditedOrganizationChange(req,'invitation_revoked',
+      'Revoked invitation '+req.params.id,async session=>{
+        const result=await OrganizationInvite.updateOne(
+          {_id:req.params.id,organizationId:req.user.organizationId,status:'pending'},
+          {$set:{status:'revoked'}},{session}
+        );
+        return result.matchedCount ? result : null;
+      });
+    if (!updated) return res.status(404).json({error:'Pending invitation not found.'});
     res.json({ok:true});
   });
 
   route.post('/organization/members/:id/deactivate',ownerOnly,async(req,res)=>{
     if (!mongoose.isObjectIdOrHexString(req.params.id)) return res.status(404).json({error:'Member not found.'});
-    const updated=await User.updateOne({_id:req.params.id,organizationId:req.user.organizationId,
-      role:'creditor',organizationRole:{$ne:'owner'},active:true}, {
-      $set:{active:false,deactivatedBy:req.user._id,deactivatedAt:new Date()},$inc:{sessionVersion:1}
-    });
-    if (!updated.matchedCount) return res.status(404).json({error:'Active member not found.'});
+    const updated=await auditedOrganizationChange(req,'member_deactivated',
+      'Deactivated member '+req.params.id,async session=>{
+        const result=await User.updateOne({_id:req.params.id,organizationId:req.user.organizationId,
+          role:'creditor',organizationRole:{$ne:'owner'},active:true}, {
+          $set:{active:false,deactivatedBy:req.user._id,deactivatedAt:new Date()},
+          $inc:{sessionVersion:1}
+        },{session});
+        return result.matchedCount ? result : null;
+      });
+    if (!updated) return res.status(404).json({error:'Active member not found.'});
     res.json({ok:true});
   });
 
