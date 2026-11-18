@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {useEffect,useRef,useState} from 'react';
-import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus,Bell} from 'lucide-react';
+import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus,Bell,CalendarDays} from 'lucide-react';
 import {api,User} from '@/lib/api';
 import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 import {ThemeToggle} from '@/components/ThemeProvider';
@@ -76,7 +76,9 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname.startsWith('/cases')&&pathname!=='/cases/new'?'active':''}`} aria-current={pathname.startsWith('/cases')&&pathname!=='/cases/new'?'page':undefined} href="/cases"><FolderKanban size={18}/> All cases</Link>
         {user?.role==='creditor'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/cases/new'?'active':''}`} aria-current={pathname==='/cases/new'?'page':undefined} href="/cases/new"><Plus size={18}/> Create case</Link>}
         <Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/notifications'?'active':'')} aria-current={pathname==='/notifications'?'page':undefined} href="/notifications"><Bell size={18}/> Activity updates</Link>
+        {user && user.role!=='creditor' && <Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/work-queue'?'active':'')} aria-current={pathname==='/work-queue'?'page':undefined} href="/work-queue"><CalendarDays size={18}/> Work queue</Link>}
         <span className="nav-caption nav-caption-second">ACCOUNT</span>
+        {user && user.role!=='operator' && <Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/organization'?'active':'')} aria-current={pathname==='/organization'?'page':undefined} href="/organization"><BriefcaseBusiness size={18}/> Organization</Link>}
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/account'?'active':''}`} aria-current={pathname==='/account'?'page':undefined} href="/account"><UserRound size={18}/> Account & access</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/support'?'active':''}`} aria-current={pathname==='/support'?'page':undefined} href="/support"><LifeBuoy size={18}/> Help & support</Link>
         {user?.role==='admin'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/staff'?'active':''}`} aria-current={pathname==='/staff'?'page':undefined} href="/staff"><UserPlus size={18}/> Staff invitations</Link>}

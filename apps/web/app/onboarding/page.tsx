@@ -5,24 +5,23 @@ import Link from 'next/link';
 import {Building2,CheckCircle2} from 'lucide-react';
 import BrandLockup from '@/components/BrandLockup';
 import {api,User} from '@/lib/api';
+import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 
 export default function Onboarding(){
   const [company,setCompany]=useState('');
-  const [user,setUser]=useState<User|null>(null);
-  const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const router=useRouter();
-  useEffect(()=>{let active=true;api<{user:User}>('/auth/me').then(({user})=>{
-    if(!active)return;
-    if(user.role!=='creditor'||user.organizationId)router.replace('/dashboard');
-    else setUser(user);
-  }).catch(()=>{if(active)router.replace('/login')}).finally(()=>{if(active)setLoading(false)});
-  return()=>{active=false}},[router]);
+  const {user,ready,error:sessionError,ensureSession,retrySession,acceptUser}=useWorkspaceSession();
+  useEffect(()=>{ensureSession();},[ensureSession]);
+  useEffect(()=>{
+    if(ready && user && (user.role!=='creditor'||user.organizationId))router.replace('/dashboard');
+  },[ready,user,router]);
   async function submit(e:React.FormEvent){
     e.preventDefault();setBusy(true);setError('');
     try{
-      await api('/auth/organization',{method:'POST',body:JSON.stringify({organizationName:company})});
+      const {user}=await api<{user:User}>('/auth/organization',{method:'POST',body:JSON.stringify({organizationName:company})});
+      acceptUser(user);
       router.replace('/dashboard');
     }catch(e){setError(e instanceof Error?e.message:'Could not create your workspace.');}
     finally{setBusy(false);}
@@ -32,7 +31,8 @@ export default function Onboarding(){
     <span className="auth-mark"><Building2 size={22}/></span>
     <div className="eyebrow">COMPANY SETUP</div>
     <h1>Set up your company</h1>
-    {loading?<p className="auth-note">Checking your session…</p>:<>
+    {sessionError?<p role="alert" className="auth-error">{sessionError} <button onClick={retrySession}>Retry</button></p>:!ready||!user||user.organizationId?
+      <p className="auth-note" role="status">Checking your session…</p>:<>
       <p className="auth-lead">Welcome{user?.name?', '+user.name:''}. Your account is ready. Add a company name before entering your creditor workspace.</p>
       <form onSubmit={submit} className="auth-form">
         <label>Company name<input value={company} onChange={e=>setCompany(e.target.value)} required minLength={3} maxLength={140} autoComplete="organization" placeholder="Your business name"/></label>

@@ -131,7 +131,7 @@ export function installRegistrationRoutes(app,webOrigin){
     const organization=await Organization.create({name:pending.organizationName,country:'IN'});
     try{
       const user=await User.create({name:pending.name,email:pending.email,
-        passwordHash:pending.passwordHash,role:'creditor',organizationId:organization._id,active:true});
+        passwordHash:pending.passwordHash,role:'creditor',organizationId:organization._id,organizationRole:'owner',active:true});
       res.cookie(COOKIE_NAME,issueSession(user),cookieOptions());
       return res.status(201).json({user:publicUser(user)});
     }catch(error){
@@ -196,7 +196,7 @@ export function installRegistrationRoutes(app,webOrigin){
     const org=await Organization.create({name:organizationName,country:'IN'});
     const updated=await User.findOneAndUpdate({
       _id:req.user._id,role:'creditor',organizationId:null
-    },{$set:{organizationId:org._id}},{returnDocument:'after'});
+    },{$set:{organizationId:org._id,organizationRole:'owner'}},{returnDocument:'after'});
     if(!updated){await Organization.deleteOne({_id:org._id});return res.status(409).json({error:'Workspace setup has already been completed.'});}
     res.json({user:publicUser(updated)});
   });

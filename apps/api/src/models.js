@@ -3,13 +3,43 @@ import mongoose from 'mongoose';
 const options = {timestamps: true, versionKey: false};
 const id = {type: mongoose.Schema.Types.ObjectId};
 export const Organization = mongoose.model('Organization', new mongoose.Schema({name: {type: String, required: true}, country: {type: String, default: 'IN'}, active: {type: Boolean, default: true}}, options));
-export const User = mongoose.model('User', new mongoose.Schema({
+const userSchema = new mongoose.Schema({
   name: {type: String, required: true}, email: {type: String, required: true, lowercase: true, unique: true},
   passwordHash: {type: String, required: true, select: false}, googleSub: {type:String,unique:true,sparse:true,select:false}, role: {type: String, enum: ['creditor','operator','admin'], required: true},
   organizationId: {...id, ref: 'Organization'}, active: {type: Boolean, default: true},
   sessionVersion: {type:Number,default:0,min:0},
-  notificationsSeenAt: {type:Date,default:null}
-}, options));
+  notificationsSeenAt: {type:Date,default:null},
+  organizationRole:{type:String,enum:['owner','member'],default:'member'},
+  accessChangedAt:Date,
+  accessChangedBy:{...id,ref:'User'},
+  deactivatedAt:Date,
+  deactivatedBy:{...id,ref:'User'}
+}, options);
+userSchema.index({organizationId:1,active:-1,name:1,_id:1});
+export const User = mongoose.model('User', userSchema);
+
+const organizationInviteSchema=new mongoose.Schema({
+  organizationId:{...id,ref:'Organization',required:true},
+  invitedBy:{...id,ref:'User',required:true},
+  email:{type:String,required:true},
+  tokenHash:{type:String,required:true,unique:true,select:false},
+  status:{type:String,enum:['pending','accepted','revoked'],required:true},
+  expiresAt:{type:Date,required:true},
+  acceptedAt:Date
+},options);
+organizationInviteSchema.index({organizationId:1,email:1},{unique:true,partialFilterExpression:{status:'pending'}});
+organizationInviteSchema.index({organizationId:1,_id:-1});
+organizationInviteSchema.index({expiresAt:1},{expireAfterSeconds:30*86_400});
+export const OrganizationInvite=mongoose.model('OrganizationInvite',organizationInviteSchema);
+
+const organizationEventSchema=new mongoose.Schema({
+  organizationId:{...id,ref:'Organization',required:true},
+  actorId:{...id,ref:'User',required:true},
+  kind:{type:String,required:true},
+  detail:{type:String,required:true}
+},options);
+organizationEventSchema.index({organizationId:1,_id:-1});
+export const OrganizationEvent=mongoose.model('OrganizationEvent',organizationEventSchema);
 const caseSchema = new mongoose.Schema({
   caseCode: {type: String, required: true, unique: true}, organizationId: {...id, ref: 'Organization', required: true, index: true},
   createdBy: {...id, ref:'User', required: true}, debtorName: {type: String, required: true}, invoiceNo: {type: String, required: true},
@@ -18,15 +48,21 @@ const caseSchema = new mongoose.Schema({
   disputed: {type:Boolean, default: false}, status: {type:String, enum:['draft','submitted','needs_info','rejected','accepted','in_progress','on_hold','closed'], default:'draft'},
   feeRateBps: {type:Number, min:1500, max:3000, default:2000}, assignedTo: {...id, ref:'User'},
   decisionReason: {type:String, default:''}, submittedAt: Date, acceptedAt: Date,
-  // Demo-only lease prevents simultaneous financial mutations on the same case.
-  // Production still needs multi-document transactions and audited reconciliation.
+  priority:{type:String,enum:['normal','high','urgent'],default:'normal'},
+  followUpAt:Date,
+  followUpNote:{type:String,default:''},
+  ledgerRevision: {type:Number, default:0, select:false},
+  // Shared with sample evidence and used by the standalone demo ledger.
   financialLockToken: {type:String, default:null, select:false},
   financialLockExpiresAt: {type:Date, default:null, select:false},
   evidenceLabel: {type:String, default:''} // demo-only text label; NOT an uploaded file
 }, options);
 caseSchema.index({organizationId:1,invoiceNo:1},{unique:true});
 caseSchema.index({organizationId:1,status:1,createdAt:-1});
+caseSchema.index({organizationId:1,updatedAt:-1,_id:-1});
+caseSchema.index({organizationId:1,status:1,updatedAt:-1,_id:-1});
 caseSchema.index({assignedTo:1,status:1});
+caseSchema.index({assignedTo:1,followUpAt:1,_id:1},{partialFilterExpression:{followUpAt:{$type:'date'}}});
 export const Case = mongoose.model('Case', caseSchema);
 export const Activity = mongoose.model('Activity', new mongoose.Schema({
   caseId: {...id, ref:'Case', required:true, index:true}, organizationId: {...id, ref:'Organization', required:true},
@@ -44,6 +80,18 @@ const receiptSchema = new mongoose.Schema({
 receiptSchema.index({caseId:1,reference:1},{unique:true});
 receiptSchema.index({reversedFrom:1},{unique:true,partialFilterExpression:{reversedFrom:{$exists:true}}});
 export const Receipt = mongoose.model('Receipt',receiptSchema);
+
+const financialRequestSchema = new mongoose.Schema({
+  caseId:{...id, required:true},
+  actorId:{...id, required:true},
+  action:{type:String, required:true},
+  key:{type:String, required:true},
+  fingerprint:{type:String, required:true},
+  status:{type:Number, required:true},
+  body:{type:mongoose.Schema.Types.Mixed, required:true}
+}, options);
+financialRequestSchema.index({caseId:1, actorId:1, action:1, key:1}, {unique:true});
+export const FinancialRequest = mongoose.model('FinancialRequest', financialRequestSchema);
 
 // Unverified signups never become active users or organizations. One-time tokens
 // are stored as hashes and expire after 30 minutes (MongoDB TTL cleanup is async).
@@ -105,3 +153,29 @@ const staffInviteSchema=new mongoose.Schema({
 staffInviteSchema.index({email:1,status:1});
 staffInviteSchema.index({expiresAt:1},{expireAfterSeconds:30*24*60*60});
 export const StaffInvite=mongoose.model('StaffInvite',staffInviteSchema);
+
+const caseDocumentSchema=new mongoose.Schema({
+  caseId:{...id,ref:'Case',required:true},
+  organizationId:{...id,ref:'Organization',required:true},
+  createdBy:{...id,ref:'User',required:true},
+  objectKey:{type:String,required:true,select:false},
+  slot:{type:Number,required:true},
+  name:{type:String,required:true},
+  category:{type:String,enum:['invoice','contract','correspondence','other'],required:true},
+  status:{type:String,enum:['quarantined','clean','rejected'],required:true},
+  size:{type:Number,required:true},
+  expiresAt:{type:Date,required:true}
+},options);
+caseDocumentSchema.index({caseId:1,slot:1},{unique:true});
+caseDocumentSchema.index({expiresAt:1});
+export const CaseDocument=mongoose.model('CaseDocument',caseDocumentSchema);
+
+const documentEventSchema=new mongoose.Schema({
+  caseId:{...id,ref:'Case',required:true},
+  organizationId:{...id,ref:'Organization',required:true},
+  documentId:{...id,ref:'CaseDocument',required:true},
+  actorId:{...id,ref:'User',required:true},
+  kind:{type:String,enum:['download_authorized'],required:true}
+},options);
+documentEventSchema.index({organizationId:1,createdAt:-1});
+export const DocumentEvent=mongoose.model('DocumentEvent',documentEventSchema);

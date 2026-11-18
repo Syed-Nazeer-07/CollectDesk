@@ -75,7 +75,7 @@ export function installStaffRoutes(app,webOrigin) {
   app.post('/api/v1/staff/invitations/:id/revoke',requireAuth,requireRole('admin'),async(req,res)=>{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(404).json({error:'Invitation not found.'});
     const updated=await StaffInvite.findOneAndUpdate(
-      {_id:req.params.id,status:'pending'},{$set:{status:'revoked'}},{new:true}
+      {_id:req.params.id,status:'pending'},{$set:{status:'revoked'}},{returnDocument:'after'}
     );
     if(!updated)return res.status(409).json({error:'This invitation is no longer active.'});
     return res.json({ok:true});
@@ -107,7 +107,7 @@ export function installStaffRoutes(app,webOrigin) {
     // Consume the token atomically so two parallel activations cannot both succeed.
     const consumed=await StaffInvite.findOneAndUpdate({
       _id:pending._id,tokenHash,status:'pending',expiresAt:{$gt:new Date()}
-    },{$set:{status:'consumed',consumedAt:new Date()}},{new:true});
+    },{$set:{status:'consumed',consumedAt:new Date()}},{returnDocument:'after'});
     if(!consumed)return res.status(400).json({error:'Invitation is no longer valid.'});
     let user;
     try {

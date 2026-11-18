@@ -12,9 +12,13 @@ import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRol
 import {installRegistrationRoutes} from './registration.js';
 import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
+import {installOrganizationRoutes} from './organizations.js';
 import {installStaffRoutes} from './staff-invites.js';
+import {installPrivateDocumentRoutes,privateDocumentService} from './private-documents.js';
 import {installEvidenceRoutes} from './evidence.js';
-import {caseSort,caseFilters,casesCsv} from './case-register.js';
+import {caseSort,caseFilters,casesCsv,csvCell} from './case-register.js';
+import {FinancialError,transactionalLedger,writeFinancial} from './financial-write.js';
+import {installWorkQueueRoutes} from './work-queue.js';
 import {installNotificationRoutes} from './notifications.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,financialTotals,CASE_STATUSES,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser} from './rules.js';
 
@@ -41,8 +45,16 @@ app.use((req,res,next)=>{
   }
   next();
 });
-app.get('/health',(_req,res)=>{
-  const connected=mongoose.connection.readyState===1;
+app.get('/health',async(_req,res)=>{
+  let connected=false;
+  if (mongoose.connection.readyState===1) {
+    try {
+      await mongoose.connection.db.command({ping:1},{timeoutMS:1500});
+      connected=true;
+    } catch {
+      // Readiness requires a successful round trip to the database.
+    }
+  }
   res.set('Cache-Control','no-store');
   return res.status(connected?200:503).json({ok:connected,database:connected?'connected':'unavailable'});
 });
@@ -87,6 +99,7 @@ route.use(requireAuth);
 // Help requests remain available while a new creditor completes company setup.
 installSupportRoutes(route);
 route.use((req,res,next)=>req.user.role==='creditor'&&!req.user.organizationId?res.status(403).json({error:'Complete your company setup before using the workspace.'}):next());
+installOrganizationRoutes(app,route,webOrigin);
 const scope=scopeForUser;
 async function getCase(req,res,next) {
   if(!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({error:'Case not found.'});
@@ -94,33 +107,21 @@ async function getCase(req,res,next) {
   if(!item || !assertAccess(req.user,item)) return res.status(404).json({error:'Case not found.'});
   req.caseItem=item;next();
 }
-async function logEvent(item,user,kind,text,visibility='creditor',metadata={}) {
-  await Activity.create({caseId:item._id,organizationId:item.organizationId,actorId:user._id,kind,text,visibility,metadata});
+async function logEvent(item,user,kind,text,visibility='creditor',metadata={},session=null) {
+  await new Activity({caseId:item._id,organizationId:item.organizationId,actorId:user._id,kind,text,visibility,metadata}).save({session});
 }
 installEvidenceRoutes(route,{getCase,logEvent});
+installPrivateDocumentRoutes(route,{
+  getCase,
+  getService:()=> app.locals.documentService?.() ?? privateDocumentService()
+});
 installNotificationRoutes(route);
-// Short-lived per-case lease serializes demo ledger updates. Without this guard,
-// two parallel verifications could each read the same unverified balance.
-// It is NOT a substitute for an ACID transaction in a real financial platform.
-async function withFinancialLock(req,res,operation) {
-  const token=randomUUID();
-  const acquired=await Case.updateOne({
-    _id:req.caseItem._id,
-    $or:[{financialLockToken:null},{financialLockExpiresAt:{$lt:new Date()}}]
-  },{$set:{financialLockToken:token,financialLockExpiresAt:new Date(Date.now()+120_000)}});
-  if(!acquired.modifiedCount) return res.status(409).json({error:'Another financial update is in progress. Refresh and retry.'});
-  try {
-    // The authorization middleware loaded a case before this lease was acquired.
-    // Re-read inside the lease so financial operations validate its CURRENT state.
-    const current=await Case.findOne({_id:req.caseItem._id,financialLockToken:token}).lean();
-    if(!current)return res.status(409).json({error:'Case changed during this update. Refresh and retry.'});
-    req.caseItem=current;
-    return await operation();
-  }
-  finally {
-    try {await Case.updateOne({_id:req.caseItem._id,financialLockToken:token},{$set:{financialLockToken:null,financialLockExpiresAt:null}});}
-    catch (error) {console.error('[API] Ledger lease cleanup failed; it will expire:',error?.message);}
-  }
+installWorkQueueRoutes(route,{getCase,logEvent});
+function financialAction(operation) {
+  return async (req,res) => {
+    const result = await writeFinancial(req, (item,session)=>operation(req,item,session));
+    return res.status(result.status).json(result.body);
+  };
 }
 route.get('/operators',requireRole('admin'),async(_req,res)=>{
   const operators=await User.find({role:'operator',active:true}).select('name email').lean();
@@ -217,11 +218,34 @@ route.get('/cases/:id',getCase,async(req,res)=>{
   // Unverified receipt references are internal reconciliation information.
   // Creditor dashboards receive verified ledger entries only.
   const visibleReceipts=req.user.role==='creditor'?recs.filter(r=>r.status==='verified'):recs;
-  res.json({case:{...item,operatorName:owner?.name || null,id:String(item._id),organizationId:String(item.organizationId),assignedTo:item.assignedTo?String(item.assignedTo):null},
+  const {priority,followUpAt,followUpNote,...caseFields}=item;
+  const workPlan=req.user.role==='creditor'?undefined:{priority:priority||'normal',followUpAt,followUpNote};
+  res.json({workPlan,case:{...caseFields,operatorName:owner?.name || null,id:String(item._id),organizationId:String(item.organizationId),assignedTo:item.assignedTo?String(item.assignedTo):null},
     financials:calc,activities:acts.map(a=>({id:String(a._id),kind:a.kind,text:a.text,visibility:a.visibility,createdAt:a.createdAt,actor:a.actorId?.name||'Team member'})),
-    approvalPolicy:{separateReceiptApproval:process.env.SEPARATE_RECEIPT_APPROVAL==='true'},
+    approvalPolicy:{separateReceiptApproval:process.env.SEPARATE_RECEIPT_APPROVAL==='true',transactionalLedger:transactionalLedger()},
     receipts:visibleReceipts.map(r=>({id:String(r._id),amountPaise:r.amountPaise,kind:r.kind,status:r.status,reference:r.reference,reversedFrom:r.reversedFrom?String(r.reversedFrom):null,
       recordedBy:req.user.role==='admin'?String(r.recordedBy):null,createdAt:r.createdAt}))});
+});
+route.get('/cases/:id/reconciliation.csv',getCase,requireRole('admin'),async(req,res)=>{
+  const item=req.caseItem;
+  const receipts=await Receipt.find({caseId:item._id,organizationId:item.organizationId})
+    .sort({createdAt:1,_id:1}).limit(5001).lean();
+  if(receipts.length>5000) return res.status(413).json({error:'This ledger exceeds the 5,000-row export limit.'});
+  const totals=calculateMoney(item.principalPaise,item.feeRateBps,receipts);
+  const rows=[
+    ['Case','Principal (paise)','Verified recovery (paise)','Outstanding (paise)','Estimated fee (paise)'],
+    [item.caseCode,item.principalPaise,totals.recoveredPaise,totals.outstandingPaise,totals.feePaise],
+    [],
+    ['Receipt ID','Reference','Kind','Status','Amount (paise)','Verified effect (paise)','Reversed entry','Recorded at','Verified at'],
+    ...receipts.map(receipt=>[
+      receipt._id,receipt.reference,receipt.kind,receipt.status,receipt.amountPaise,
+      receipt.status==='verified' ? (receipt.kind==='reversal' ? -receipt.amountPaise : receipt.amountPaise) : 0,
+      receipt.reversedFrom,receipt.createdAt?.toISOString(),receipt.verifiedAt?.toISOString()
+    ])
+  ];
+  res.set({'Content-Type':'text/csv; charset=utf-8',
+    'Content-Disposition':'attachment; filename="collectdesk-reconciliation.csv"'});
+  res.send('\uFEFF'+rows.map(row=>row.map(value=>typeof value==='number'?String(value):csvCell(value)).join(',')).join('\r\n')+'\r\n');
 });
 route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canEditDraft(req.user.role,req.caseItem.status))return res.status(409).json({error:'Only draft or information-requested cases can be edited.'});
@@ -281,24 +305,24 @@ const transitionBody=z.object({
   action:z.enum(['hold','resume','close']),
   reason:z.string().trim().min(4).max(400)
 }).strict();
-route.post('/cases/:id/status',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
+route.post('/cases/:id/status',getCase,requireRole('admin'),financialAction(async(req,item,session)=>{
   const {action,reason}=transitionBody.parse(req.body);
-  const previous=req.caseItem.status;
+  const previous=item.status;
   const permitted=action==='hold'?canHold(previous):action==='resume'?canResume(previous):canClose(previous);
-  if(!permitted) return res.status(409).json({error:'This case cannot be moved to the requested status. Refresh first.'});
+  if(!permitted) throw new FinancialError(409,'This case cannot be moved to the requested status. Refresh first.');
   // Prevent closing an open reconciliation item. Receipts remain demonstrative,
   // but pending review must not silently disappear behind a terminal status.
-  if(action==='close'&&await Receipt.exists({caseId:req.caseItem._id,status:'recorded'})){
-    return res.status(409).json({error:'Verify or reject all pending receipts before closing this case.'});
+  if(action==='close'&&await Receipt.exists({caseId:item._id,status:'recorded'}).session(session)){
+    throw new FinancialError(409,'Verify or reject all pending receipts before closing this case.');
   }
-  const nextStatus=action==='hold'?'on_hold':action==='close'?'closed':req.caseItem.assignedTo?'in_progress':'accepted';
+  const nextStatus=action==='hold'?'on_hold':action==='close'?'closed':item.assignedTo?'in_progress':'accepted';
   const updated=await Case.updateOne(
-    {_id:req.caseItem._id,status:previous},
-    {$set:{status:nextStatus}}
+    {_id:item._id,status:previous},
+    {$set:{status:nextStatus}}, {session}
   );
-  if(!updated.matchedCount)return res.status(409).json({error:'Case status changed. Refresh and retry.'});
-  await logEvent(req.caseItem,req.user,'status',`Case ${action==='hold'?'placed on hold':action==='resume'?'resumed':'closed'}: ${reason}`);
-  res.json({ok:true,status:nextStatus});
+  if(!updated.matchedCount)throw new FinancialError(409,'Case status changed. Refresh and retry.');
+  await logEvent(item,req.user,'status',`Case ${action==='hold'?'placed on hold':action==='resume'?'resumed':'closed'}: ${reason}`,'creditor',{},session);
+  return {status:200,body:{ok:true,status:nextStatus}};
 }));
 const activityBody=z.object({text:z.string().trim().min(3).max(1200),visibility:z.enum(['creditor','internal'])}).strict();
 route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(req,res)=>{
@@ -309,62 +333,64 @@ route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(r
   await logEvent(current,req.user,'note',text,visibility);res.status(201).json({ok:true});
 });
 const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120)}).strict();
-route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
-  if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return res.status(409).json({error:'Case must be accepted first.'});
+route.post('/cases/:id/receipts',getCase,requireRole('admin'),financialAction(async(req,item,session)=>{
+  if(!['accepted','in_progress','on_hold'].includes(item.status))throw new FinancialError(409,'Case must be accepted first.');
   const input=receiptBody.parse(req.body);
-  const existing=await Receipt.find({caseId:req.caseItem._id}).lean();
-  const totals=calculateMoney(req.caseItem.principalPaise,req.caseItem.feeRateBps,existing);
+  const existing=await Receipt.find({caseId:item._id}).session(session).lean();
+  const totals=calculateMoney(item.principalPaise,item.feeRateBps,existing);
   const awaiting=existing.filter(r=>r.status==='recorded'&&r.kind==='receipt').reduce((a,r)=>a+r.amountPaise,0);
-  if(input.amountPaise>totals.outstandingPaise-awaiting)return res.status(422).json({error:'Amount exceeds principal remaining after pending receipts.'});
-  const r=await Receipt.create({...input,kind:'receipt',status:'recorded',caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,recordedBy:req.user._id});
-  await logEvent(req.caseItem,req.user,'receipt','Receipt recorded, awaiting verification.');
-  res.status(201).json({id:String(r._id),status:'recorded'});
+  if(input.amountPaise>totals.outstandingPaise-awaiting)throw new FinancialError(422,'Amount exceeds principal remaining after pending receipts.');
+  const r=await new Receipt({...input,kind:'receipt',status:'recorded',caseId:item._id,organizationId:item.organizationId,recordedBy:req.user._id}).save({session});
+  await logEvent(item,req.user,'receipt','Receipt recorded, awaiting verification.','creditor',{receiptId:r._id},session);
+  return {status:201,body:{id:String(r._id),status:'recorded'}};
 }));
 // Reject an erroneous pending fictional receipt so it no longer blocks case
 // reconciliation or closure. A verified receipt requires a reversal instead.
-route.post('/cases/:id/receipts/:receiptId/reject',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
+route.post('/cases/:id/receipts/:receiptId/reject',getCase,requireRole('admin'),financialAction(async(req,item,session)=>{
   const {reason}=z.object({reason:z.string().trim().min(4).max(400)}).strict().parse(req.body);
-  if(!mongoose.isValidObjectId(req.params.receiptId))return res.status(404).json({error:'Receipt not found.'});
+  if(!mongoose.isValidObjectId(req.params.receiptId))throw new FinancialError(404,'Receipt not found.');
   const result=await Receipt.updateOne({
     _id:req.params.receiptId,
-    caseId:req.caseItem._id,
+    caseId:item._id,
     kind:'receipt',
     status:'recorded'
-  },{$set:{status:'rejected'}});
-  if(!result.matchedCount)return res.status(409).json({error:'Only pending receipts may be rejected.'});
-  await logEvent(req.caseItem,req.user,'receipt_rejected',`Pending receipt rejected: ${reason}`,'internal');
-  res.json({ok:true});
+  },{$set:{status:'rejected'}}, {session});
+  if(!result.matchedCount)throw new FinancialError(409,'Only pending receipts may be rejected.');
+  await logEvent(item,req.user,'receipt_rejected',`Pending receipt rejected: ${reason}`,'internal',{receiptId:req.params.receiptId},session);
+  return {status:200,body:{ok:true}};
 }));
-route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
-  if(!mongoose.isValidObjectId(req.params.receiptId))return res.status(404).json({error:'Receipt not found.'});
-  const r=await Receipt.findOne({caseId:req.caseItem._id,_id:req.params.receiptId});
-  if(!r)return res.status(404).json({error:'Receipt not found.'});
-  if(r.status!=='recorded')return res.status(409).json({error:'Receipt has already been processed.'});
+route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),financialAction(async(req,item,session)=>{
+  if(!mongoose.isValidObjectId(req.params.receiptId))throw new FinancialError(404,'Receipt not found.');
+  const r=await Receipt.findOne({caseId:item._id,_id:req.params.receiptId}).session(session);
+  if(!r)throw new FinancialError(404,'Receipt not found.');
+  if(r.status!=='recorded')throw new FinancialError(409,'Receipt has already been processed.');
   // Optional strict maker/checker mode for teams with at least two admins.
   // Disabled by default so existing single-admin demo workspaces keep working.
   if(process.env.SEPARATE_RECEIPT_APPROVAL==='true' && String(r.recordedBy)===String(req.user._id))
-    return res.status(403).json({error:'A different administrator must verify this receipt.'});
-  const others=await Receipt.find({caseId:req.caseItem._id,status:'verified'}).lean();
-  const totals=calculateMoney(req.caseItem.principalPaise,req.caseItem.feeRateBps,others);
-  if(r.amountPaise>totals.outstandingPaise)return res.status(422).json({error:'Verified total would exceed invoice principal.'});
-  const result=await Receipt.updateOne({_id:r._id,status:'recorded'},{$set:{status:'verified',verifiedBy:req.user._id,verifiedAt:new Date()}});
-  if(!result.modifiedCount)return res.status(409).json({error:'Receipt already processed.'});
-  await logEvent(req.caseItem,req.user,'verified','Receipt verified; financial totals updated.');
-  res.json({ok:true});
+    throw new FinancialError(403,'A different administrator must verify this receipt.');
+  const others=await Receipt.find({caseId:item._id,status:'verified'}).session(session).lean();
+  const totals=calculateMoney(item.principalPaise,item.feeRateBps,others);
+  if(r.amountPaise>totals.outstandingPaise)throw new FinancialError(422,'Verified total would exceed invoice principal.');
+  const result=await Receipt.updateOne({_id:r._id,status:'recorded'},{$set:{status:'verified',verifiedBy:req.user._id,verifiedAt:new Date()}}, {session});
+  if(!result.modifiedCount)throw new FinancialError(409,'Receipt already processed.');
+  await logEvent(item,req.user,'verified','Receipt verified; financial totals updated.','creditor',{receiptId:r._id},session);
+  return {status:200,body:{ok:true}};
 }));
-route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
+route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin'),financialAction(async(req,item,session)=>{
   const body=z.object({reason:z.string().trim().min(4).max(400)}).strict().parse(req.body);
-  if(!mongoose.isValidObjectId(req.params.receiptId))return res.status(404).json({error:'Receipt not found.'});
-  const r=await Receipt.findOne({_id:req.params.receiptId,caseId:req.caseItem._id,kind:'receipt',status:'verified'});
-  if(!r)return res.status(404).json({error:'Verified receipt not found.'});
-  const prior=await Receipt.findOne({reversedFrom:r._id,status:'verified'});
-  if(prior)return res.status(409).json({error:'Receipt has already been reversed.'});
-  await Receipt.create({caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,amountPaise:r.amountPaise,kind:'reversal',status:'verified',reference:`REV-${r.reference}`,reversedFrom:r._id,recordedBy:req.user._id,verifiedBy:req.user._id,verifiedAt:new Date()});
-  await logEvent(req.caseItem,req.user,'reversal',`Verified receipt correction: ${body.reason}`,'creditor');res.json({ok:true});
+  if(!mongoose.isValidObjectId(req.params.receiptId))throw new FinancialError(404,'Receipt not found.');
+  const r=await Receipt.findOne({_id:req.params.receiptId,caseId:item._id,kind:'receipt',status:'verified'}).session(session);
+  if(!r)throw new FinancialError(404,'Verified receipt not found.');
+  const prior=await Receipt.findOne({reversedFrom:r._id,status:'verified'}).session(session);
+  if(prior)throw new FinancialError(409,'Receipt has already been reversed.');
+  const reversal = await new Receipt({caseId:item._id,organizationId:item.organizationId,amountPaise:r.amountPaise,kind:'reversal',status:'verified',reference:`REV-${r.reference}`,reversedFrom:r._id,recordedBy:req.user._id,verifiedBy:req.user._id,verifiedAt:new Date()}).save({session});
+  await logEvent(item,req.user,'reversal',`Verified receipt correction: ${body.reason}`,'creditor',{receiptId:reversal._id,reversedFrom:r._id},session);
+  return {status:200,body:{ok:true}};
 }));
 app.use('/api/v1',route);
 app.use((_req,res)=>res.status(404).json({error:'Not found.'}));
 app.use((error,_req,res,_next)=>{
+  if(error instanceof FinancialError)return res.status(error.status).json({error:error.message});
   if(error instanceof ZodError)return res.status(422).json({error:'Please correct the highlighted information.',issues:error.issues.map(i=>({field:i.path.join('.'),message:i.message}))});
   if(error?.code===11000)return res.status(409).json({error:'This invoice or reference already exists.'});
   if(error instanceof SyntaxError && 'body' in error) return res.status(400).json({error:'Invalid JSON request.'});
