@@ -127,7 +127,10 @@ export function installPrivateDocumentRoutes(route,{getCase,getService=privateDo
       try {
         const clean=await scan(req.body,config);
         if(!clean){
-          await CaseDocument.updateOne({_id:row._id},{$set:{status:'rejected'}});
+          // Preserve the rejected-scan audit without consuming the limited
+          // document slots for an entire retention period.
+          await DocumentEvent.create({...keys,documentId:row._id,actorId:req.user._id,kind:'scan_rejected'});
+          await CaseDocument.deleteOne({_id:row._id,status:'quarantined'});
           return res.status(422).json({error:'This PDF did not pass security scanning.'});
         }
         // Recheck ownership and edit state after the scan. Use the same case lease
@@ -136,8 +139,11 @@ export function installPrivateDocumentRoutes(route,{getCase,getService=privateDo
         const lock=await Case.updateOne({_id:keys.caseId,organizationId:keys.organizationId,
           status:{$in:['draft','needs_info']},financialLockToken:null},
         {$set:{financialLockToken:token,financialLockExpiresAt:new Date(Date.now()+120_000)}});
-        if (!lock.modifiedCount)
+        if (!lock.modifiedCount) {
+          // The document never reached storage; release the reservation.
+          await CaseDocument.deleteOne({_id:row._id,status:'quarantined'});
           return res.status(409).json({error:'Case changed while scanning. Retry if the case is editable.'});
+        }
         try {
           await storage.send(new PutObjectCommand({Bucket:config.bucket,Key:row.objectKey,Body:req.body,
             ContentType:'application/pdf',ServerSideEncryption:'AES256'}),{abortSignal:AbortSignal.timeout(12000)});
