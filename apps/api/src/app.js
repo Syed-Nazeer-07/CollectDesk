@@ -130,6 +130,14 @@ async function getCase(req,res,next) {
 async function logEvent(item,user,kind,text,visibility='creditor',metadata={},session=null) {
   await new Activity({caseId:item._id,organizationId:item.organizationId,actorId:user._id,kind,text,visibility,metadata}).save({session});
 }
+// In real transactional mode, a case mutation and its activity trail must
+// either both commit or both roll back. Standalone fictional fixtures retain
+// their existing behavior.
+async function writeAuditedCase(operation) {
+  return transactionalLedger()
+    ? mongoose.connection.transaction(operation,{writeConcern:{w:'majority'}})
+    : operation(null);
+}
 installEvidenceRoutes(route,{getCase,logEvent});
 installPrivateDocumentRoutes(route,{
   getCase,
@@ -223,8 +231,12 @@ const caseBody=z.object({debtorName:z.string().trim().min(2).max(160),invoiceNo:
   description:z.string().trim().max(1200).default(''), disputed:z.boolean().default(false),evidenceLabel:z.string().trim().max(120).default('')}).strict().refine(x=>x.dueDate>=x.issueDate,{message:'Due date must be on or after issue date.',path:['dueDate']});
 route.post('/cases',requireRole('creditor'),async(req,res)=>{
   const input=caseBody.parse(req.body);
-  const item=await Case.create({...input,organizationId:req.user.organizationId,createdBy:req.user._id,caseCode:formatCaseCode(randomUUID().slice(0,8))});
-  await logEvent(item,req.user,'created','Draft case created.');
+  const item=await writeAuditedCase(async session=>{
+    const item=await new Case({...input,organizationId:req.user.organizationId,
+      createdBy:req.user._id,caseCode:formatCaseCode(randomUUID().slice(0,8))}).save({session});
+    await logEvent(item,req.user,'created','Draft case created.','creditor',{},session);
+    return item;
+  });
   res.status(201).json({id:String(item._id),caseCode:item.caseCode});
 });
 route.get('/cases/:id',getCase,async(req,res)=>{
@@ -275,30 +287,35 @@ route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
   const input=caseBody.parse(fields);
   // Match the editable state on the write itself. An administrator or another
   // request could have submitted the case after getCase loaded its old status.
-  const result=await Case.updateOne({
+  await writeAuditedCase(async session=>{
+    const result=await Case.updateOne({
     _id:req.caseItem._id,
     organizationId:req.user.organizationId,
     status:{$in:['draft','needs_info']},
     ...(expectedUpdatedAt ? {updatedAt:new Date(expectedUpdatedAt)} : {}),
     financialLockToken:null
-  },{$set:input});
-  if(!result.matchedCount)return res.status(409).json({error:'This case changed or is no longer editable. Refresh before continuing.'});
-  await logEvent(req.caseItem,req.user,'updated','Draft case details updated.');
+  },{$set:input},{session});
+    if(!result.matchedCount)throw new FinancialError(409,'This case changed or is no longer editable. Refresh before continuing.');
+    await logEvent(req.caseItem,req.user,'updated','Draft case details updated.','creditor',{},session);
+  });
   res.json({ok:true});
 });
 route.post('/cases/:id/submit',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canSubmit(req.caseItem.status))return res.status(409).json({error:'Case has already been submitted.'});
   if(!isOverdue(req.caseItem.dueDate))return res.status(422).json({error:'Only overdue invoices can be submitted. Check the due date.'});
-  const updated=await Case.updateOne({
+  await writeAuditedCase(async session=>{
+    const updated=await Case.updateOne({
     _id:req.caseItem._id,
     status:{$in:['draft','needs_info']},
     financialLockToken:null,
     // Date-only invoices are stored at UTC midnight. Match the current Indian
     // business day at the actual write, not just the earlier getCase snapshot.
     dueDate:{$lt:new Date(indiaDateKey()+'T00:00:00.000Z')}
-  },{$set:{status:'submitted',submittedAt:new Date()}});
-  if(!updated.modifiedCount)return res.status(409).json({error:'This case changed or is processing an attachment. Refresh and retry.'});
-  await logEvent(req.caseItem,req.user,'submitted','Invoice submitted for review.');res.json({ok:true});
+  },{$set:{status:'submitted',submittedAt:new Date()}},{session});
+    if(!updated.modifiedCount)throw new FinancialError(409,'This case changed or is processing an attachment. Refresh and retry.');
+    await logEvent(req.caseItem,req.user,'submitted','Invoice submitted for review.','creditor',{},session);
+  });
+  res.json({ok:true});
 });
 const reviewBody=z.object({decision:z.enum(['accept','reject','request_info']),reason:z.string().trim().min(4).max(600),feeRateBps:z.number().int().min(1500).max(3000).optional()}).strict();
 route.post('/cases/:id/review',getCase,requireRole('admin'),async(req,res)=>{
@@ -306,9 +323,11 @@ route.post('/cases/:id/review',getCase,requireRole('admin'),async(req,res)=>{
   const input=reviewBody.parse(req.body);
   const update={status:REVIEW_DECISIONS[input.decision],decisionReason:input.reason};
   if(input.decision==='accept'){update.feeRateBps=input.feeRateBps??2000;update.acceptedAt=new Date();}
-  const result=await Case.updateOne({_id:req.caseItem._id,status:'submitted'},{$set:update});
-  if(!result.modifiedCount)return res.status(409).json({error:'Case review changed. Refresh and retry.'});
-  await logEvent(req.caseItem,req.user,'review',`Review: ${update.status.replace('_',' ')}. ${input.reason}`);
+  await writeAuditedCase(async session=>{
+    const result=await Case.updateOne({_id:req.caseItem._id,status:'submitted'},{$set:update},{session});
+    if(!result.modifiedCount)throw new FinancialError(409,'Case review changed. Refresh and retry.');
+    await logEvent(req.caseItem,req.user,'review',`Review: ${update.status.replace('_',' ')}. ${input.reason}`,'creditor',{},session);
+  });
   res.json({ok:true});
 });
 const assignBody=z.object({operatorId:z.string().refine(mongoose.isValidObjectId,'Invalid operator ID')}).strict();
@@ -319,11 +338,14 @@ route.post('/cases/:id/assign',getCase,requireRole('admin'),async(req,res)=>{
   if(!operator)return res.status(422).json({error:'Operator does not exist.'});
   // The case may have been closed/held or entered a ledger update while the
   // operator lookup was running. Check state and lease atomically on the write.
-  const updated=await Case.updateOne({
+  await writeAuditedCase(async session=>{
+    const updated=await Case.updateOne({
     _id:req.caseItem._id,status:{$in:['accepted','in_progress']},financialLockToken:null
-  },{$set:{assignedTo:operator._id,status:'in_progress'}});
-  if(!updated.matchedCount)return res.status(409).json({error:'Case changed while assigning. Refresh and retry.'});
-  await logEvent(req.caseItem,req.user,'assigned',`Case assigned to ${operator.name}.`);res.json({ok:true});
+  },{$set:{assignedTo:operator._id,status:'in_progress'}},{session});
+    if(!updated.matchedCount)throw new FinancialError(409,'Case changed while assigning. Refresh and retry.');
+    await logEvent(req.caseItem,req.user,'assigned',`Case assigned to ${operator.name}.`,'creditor',{},session);
+  });
+  res.json({ok:true});
 });
 const transitionBody=z.object({
   action:z.enum(['hold','resume','close']),
@@ -352,9 +374,22 @@ const activityBody=z.object({text:z.string().trim().min(3).max(1200),visibility:
 route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(req,res)=>{
   if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return res.status(409).json({error:'Case must be accepted before updates.'});
   const {text,visibility}=activityBody.parse(req.body);
-  const current=await Case.findOne({_id:req.caseItem._id,...scope(req.user),status:{$in:['accepted','in_progress','on_hold']}}).lean();
-  if(!current||!assertAccess(req.user,current))return res.status(409).json({error:'Case status or assignment changed. Refresh before posting.'});
-  await logEvent(current,req.user,'note',text,visibility);res.status(201).json({ok:true});
+  await writeAuditedCase(async session=>{
+    const current=await Case.findOne({_id:req.caseItem._id,...scope(req.user),
+      status:{$in:['accepted','in_progress','on_hold']}}).session(session).lean();
+    if(!current||!assertAccess(req.user,current))
+      throw new FinancialError(409,'Case status or assignment changed. Refresh before posting.');
+    if(session) {
+      // Touch the case inside the transaction so a competing reassignment or
+      // closure conflicts rather than leaving an unauthorized orphan note.
+      const guarded=await Case.updateOne({_id:current._id,...scope(req.user),
+        status:{$in:['accepted','in_progress','on_hold']}},
+      {$inc:{ledgerRevision:1}},{session,timestamps:false});
+      if(!guarded.matchedCount)throw new FinancialError(409,'Case changed while posting. Refresh and retry.');
+    }
+    await logEvent(current,req.user,'note',text,visibility,{},session);
+  });
+  res.status(201).json({ok:true});
 });
 const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120)}).strict();
 route.post('/cases/:id/receipts',getCase,requireRole('admin'),financialAction(async(req,item,session)=>{
