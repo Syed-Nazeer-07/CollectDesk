@@ -45,16 +45,33 @@ app.use((req,res,next)=>{
   }
   next();
 });
-app.get(['/health','/readiness'],async(req,res)=>{
-  let connected=false;
-  if (mongoose.connection.readyState===1) {
-    try {
-      await mongoose.connection.db.command({ping:1},{timeoutMS:1500});
-      connected=true;
-    } catch {
-      // Readiness requires a successful round trip to the database.
-    }
+let inFlightPing;
+function databasePing(){
+  if(mongoose.connection.readyState!==1)return Promise.resolve(false);
+  if(!inFlightPing){
+    const controller=new AbortController();
+    let timer;
+    const deadline=new Promise(resolve=>{
+      timer=setTimeout(()=>{
+        resolve(false);
+        controller.abort();
+      },1500);
+    });
+    const ping=mongoose.connection.db.command({ping:1},{
+      signal:controller.signal,timeoutMS:1200
+    }).then(()=>true,()=>false);
+    inFlightPing=Promise.race([ping,deadline]);
+    // If the driver is still unwinding a timed-out ping, share its existing
+    // result so repeated readiness probes cannot fill the connection pool.
+    void ping.finally(()=>{
+      clearTimeout(timer);
+      inFlightPing=undefined;
+    });
   }
+  return inFlightPing;
+}
+app.get(['/health','/readiness'],async(req,res)=>{
+  const connected=await databasePing();
   res.set('Cache-Control','no-store');
   const data=req.path==='/readiness'?{ok:connected}:{ok:connected,database:connected?'connected':'unavailable'};
   return res.status(connected?200:503).json(data);

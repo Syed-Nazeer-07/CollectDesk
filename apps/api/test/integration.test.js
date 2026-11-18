@@ -65,6 +65,30 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const b = await signIn('creditorb@test.collectdesk.local');
     const admin = await signIn('admin@test.collectdesk.local');
     const operator = await signIn('operator@test.collectdesk.local');
+    await t.test('readiness has a bounded deadline and coalesces concurrent pings',async()=>{
+      const database=mongoose.connection.db;
+      const originalCommand=database.command;
+      let attempts=0;
+      database.command=function(command,options){
+        if(command.ping!==1)return originalCommand.call(this,command,options);
+        attempts++;
+        return new Promise((resolve,reject)=>{
+          options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true});
+        });
+      };
+      try{
+        const started=performance.now();
+        const responses=await Promise.all(
+          ['/health','/readiness'].map(path=>fetch(base+path,{signal:AbortSignal.timeout(5000)}))
+        );
+        assert.deepEqual(responses.map(response=>response.status),[503,503]);
+        assert.equal(attempts,1);
+        assert.ok(performance.now()-started<4000,'HTTP readiness must have its own deadline');
+      }finally{
+        database.command=originalCommand;
+      }
+      assert.equal((await fetch(base+'/readiness')).status,200);
+    });
     await t.test('organization privileges, delivery, activation and revocation',async()=>{
       const aUser=await User.findOne({organizationId:orgA._id});
       await User.updateOne({_id:aUser._id},{$set:{organizationRole:'owner'}});

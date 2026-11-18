@@ -86,8 +86,8 @@ For the intended operating jurisdictions, obtain review of controller and proces
 
 - Local Chromium passed the creditor, administrator and operator workflow with the transactional ledger enabled. The responsive suite checked 200 route, viewport and theme combinations.
 - Sidebar navigation reused its initial session check over six routes. Local click-to-heading durations ranged from 60 to 125 ms, and deleting the test cookie sent the next protected request back to sign-in.
-- The hosted readiness regression reproduced 503 from the old health route and 200 from the API using a deliberately wrong runtime proxy target. The revised shared rewrite returned 200 for both endpoints with the same test configuration.
-- The isolated replica-set suite passed 15 tests. Provider checks use fictional Google signatures, mail doubles, and storage and scanner fixtures. The test suite also exercises the ClamAV wire framing against a local fake daemon.
+- The hosted readiness regression reproduced 503 from the old health route and 200 from the API using a deliberately wrong runtime proxy target. The revised shared rewrite returned 200 for both endpoints with the same test configuration. A paused local MongoDB process then returned readiness 503 in 1.508 s and recovered to 200 in 0.005 s after resuming.
+- The isolated replica-set suite passed 16 tests. Provider checks use fictional Google signatures, mail doubles, and storage and scanner fixtures. The test suite also exercises the ClamAV wire framing against a local fake daemon.
 - The production dependency audit had zero reported advisories after the Nodemailer upgrade. This audit covers the resolved dependency tree on the check date.
 
 [Browser captures](screenshots/README.md)
