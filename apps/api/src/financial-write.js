@@ -1,6 +1,6 @@
 import {createHash, randomUUID} from 'node:crypto';
 import mongoose from 'mongoose';
-import {Case, FinancialRequest, Activity, Receipt, OrganizationInvite, OrganizationEvent, User} from './models.js';
+import {Case, FinancialRequest, Activity, Receipt, OrganizationInvite, OrganizationEvent, User, StaffInvite, PendingSignup, PasswordReset} from './models.js';
 
 export const transactionalLedger = () => process.env.LEDGER_TRANSACTIONS_REQUIRED === 'true';
 
@@ -18,7 +18,7 @@ export async function assertLedgerReady() {
     throw new Error('LEDGER_TRANSACTIONS_REQUIRED needs a replica set or sharded MongoDB cluster.');
   }
   // Ensure the replay key's unique index is present before serving writes.
-  await Promise.all([Case.init(), Activity.init(), Receipt.init(), FinancialRequest.init(), User.init(), OrganizationInvite.init(), OrganizationEvent.init()]);
+  await Promise.all([Case.init(), Activity.init(), Receipt.init(), FinancialRequest.init(), User.init(), OrganizationInvite.init(), OrganizationEvent.init(), StaffInvite.init(), PendingSignup.init(), PasswordReset.init()]);
 }
 
 export async function writeFinancial(req, operation) {

@@ -138,6 +138,7 @@ const supportRequestSchema=new mongoose.Schema({
 },options);
 supportRequestSchema.index({status:1,createdAt:-1});
 supportRequestSchema.index({createdBy:1,createdAt:-1});
+supportRequestSchema.index({createdBy:1,updatedAt:-1,_id:-1});
 export const SupportRequest=mongoose.model('SupportRequest',supportRequestSchema);
 
 /** Operator-only invitations. Tokens are stored as SHA-256 hashes, never raw. */

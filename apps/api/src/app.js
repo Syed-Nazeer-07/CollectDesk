@@ -249,16 +249,20 @@ route.get('/cases/:id/reconciliation.csv',getCase,requireRole('admin'),async(req
 });
 route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
   if(!canEditDraft(req.user.role,req.caseItem.status))return res.status(409).json({error:'Only draft or information-requested cases can be edited.'});
-  const input=caseBody.parse(req.body);
+  const {expectedUpdatedAt,...fields}=z.object({
+    expectedUpdatedAt:z.iso.datetime().optional()
+  }).passthrough().parse(req.body);
+  const input=caseBody.parse(fields);
   // Match the editable state on the write itself. An administrator or another
   // request could have submitted the case after getCase loaded its old status.
   const result=await Case.updateOne({
     _id:req.caseItem._id,
     organizationId:req.user.organizationId,
     status:{$in:['draft','needs_info']},
+    ...(expectedUpdatedAt ? {updatedAt:new Date(expectedUpdatedAt)} : {}),
     financialLockToken:null
   },{$set:input});
-  if(!result.matchedCount)return res.status(409).json({error:'This case is no longer editable. Refresh before continuing.'});
+  if(!result.matchedCount)return res.status(409).json({error:'This case changed or is no longer editable. Refresh before continuing.'});
   await logEvent(req.caseItem,req.user,'updated','Draft case details updated.');
   res.json({ok:true});
 });
@@ -337,6 +341,8 @@ route.post('/cases/:id/receipts',getCase,requireRole('admin'),financialAction(as
   if(!['accepted','in_progress','on_hold'].includes(item.status))throw new FinancialError(409,'Case must be accepted first.');
   const input=receiptBody.parse(req.body);
   const existing=await Receipt.find({caseId:item._id}).session(session).lean();
+  if (existing.some(row=>row.reference===input.reference))
+    throw new FinancialError(409,'This receipt reference already exists for the case.');
   const totals=calculateMoney(item.principalPaise,item.feeRateBps,existing);
   const awaiting=existing.filter(r=>r.status==='recorded'&&r.kind==='receipt').reduce((a,r)=>a+r.amountPaise,0);
   if(input.amountPaise>totals.outstandingPaise-awaiting)throw new FinancialError(422,'Amount exceeds principal remaining after pending receipts.');
@@ -383,7 +389,7 @@ route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin')
   if(!r)throw new FinancialError(404,'Verified receipt not found.');
   const prior=await Receipt.findOne({reversedFrom:r._id,status:'verified'}).session(session);
   if(prior)throw new FinancialError(409,'Receipt has already been reversed.');
-  const reversal = await new Receipt({caseId:item._id,organizationId:item.organizationId,amountPaise:r.amountPaise,kind:'reversal',status:'verified',reference:`REV-${r.reference}`,reversedFrom:r._id,recordedBy:req.user._id,verifiedBy:req.user._id,verifiedAt:new Date()}).save({session});
+  const reversal = await new Receipt({caseId:item._id,organizationId:item.organizationId,amountPaise:r.amountPaise,kind:'reversal',status:'verified',reference:`CD-REV-${randomUUID()}`,reversedFrom:r._id,recordedBy:req.user._id,verifiedBy:req.user._id,verifiedAt:new Date()}).save({session});
   await logEvent(item,req.user,'reversal',`Verified receipt correction: ${body.reason}`,'creditor',{receiptId:reversal._id,reversedFrom:r._id},session);
   return {status:200,body:{ok:true}};
 }));

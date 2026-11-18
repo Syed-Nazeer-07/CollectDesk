@@ -5,7 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {generateKeyPairSync,randomUUID,sign} from 'node:crypto';
+import {generateKeyPairSync,randomUUID,createHash,sign} from 'node:crypto';
 
 const uri = process.env.TEST_MONGODB_URI;
 
@@ -270,6 +270,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const resolved=await call('/support/requests?status=resolved',{cookie:a});
       assert.equal(resolved.data.requests.length,1);
       assert.match(resolved.data.requests[0].resolutionNote,/verified the outcome/);
+      const notices=(await call('/notifications',{cookie:a})).data.operations;
+      assert.equal(notices.some(notice=>notice.kind==='support'&&notice.status==='resolved'),true);
+      assert.equal((await call('/notifications',{cookie:b})).data.operations.length,0);
+
       assert.equal(resolved.data.requests[0].history.length,1,
         'admin decisions should create an auditable history entry');
       response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
@@ -545,6 +549,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const editableInvoice={...invoice,description:'Corrected draft description'};
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:editableInvoice});
     assert.equal(r.status,200,'creditor should be able to edit its own draft');
+    const staleDraft=await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:{...editableInvoice,
+      expectedUpdatedAt:'2025-01-01T00:00:00.000Z',description:'Stale edit should not replace this draft'}});
+    assert.equal(staleDraft.status,409);
+
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:b,body:editableInvoice});
     assert.equal(r.status,404,'another creditor cannot edit this organization’s draft');
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:admin,body:editableInvoice});
@@ -666,6 +674,11 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       assert.equal(queue.items.find(item=>item.id===caseId).priority,'high');
       assert.equal((await call('/cases/'+caseId,{cookie:a})).data.workPlan,undefined);
       assert.equal((await call('/work-queue?view=unassigned',{cookie:operator})).status,403);
+      await Case.updateOne({_id:caseId},{$set:{followUpAt:new Date(Date.now()-1000)}});
+      const reminders=(await call('/notifications?unread=1',{cookie:operator})).data.operations;
+      assert.ok(reminders.some(item=>item.kind==='follow_up'&&item.href==='/cases/'+caseId));
+      assert.equal((await call('/notifications',{cookie:a})).data.operations.some(item=>item.kind==='follow_up'),false);
+
     });
     await t.test('financial records roll back with audit failure and retry safely',{skip:process.env.LEDGER_TRANSACTIONS_REQUIRED!=='true'},async()=>{
       const path='/cases/'+caseId+'/receipts';
@@ -849,7 +862,19 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(sent.length,sentBeforeReset+1,'existing account must receive reset link');
         const resetLink=sent.at(-1).text.match(/reset-password\?token=([A-Za-z0-9_-]+)/);
         assert.ok(resetLink,'reset email should contain a unique token');
-        const token=resetLink[1];
+        const {PasswordReset}=await import('../src/models.js');
+        await PasswordReset.updateOne({tokenHash:createHash('sha256').update(resetLink[1]).digest('hex')},
+          {$set:{expiresAt:new Date(0)}});
+        assert.equal((await call('/auth/password/reset',{
+          method:'POST',body:{token:resetLink[1],password:'NewSecurePassword2026!'}
+        })).status,400,'expired recovery links cannot change passwords');
+        assert.equal((await call('/auth/password/forgot',{
+          method:'POST',body:{email:registration.email}
+        })).status,202);
+        const token=sent.at(-1).text.match(/reset-password\?token=([A-Za-z0-9_-]+)/)[1];
+        assert.equal((await call('/auth/password/reset',{
+          method:'POST',body:{token,password:'Password1!'+ '界'.repeat(30)}
+        })).status,422,'bcrypt inputs must be at most 72 UTF-8 bytes');
         assert.equal((await call('/auth/password/reset',{
           method:'POST',body:{token,password:'weak'}
         })).status,422,'weak reset passwords must be rejected');

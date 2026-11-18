@@ -101,9 +101,12 @@ export function WorkspaceSessionProvider({children}:{children:ReactNode}){
     function recheckOnFocus(){
       if(document.visibilityState==='visible' && current.current)load(false);
     }
+    const recheckRejectedSession=()=>{if(current.current)load(true);};
+    window.addEventListener('collectdesk:session-rejected',recheckRejectedSession);
     window.addEventListener('focus',recheckOnFocus);
     document.addEventListener('visibilitychange',recheckOnFocus);
     return()=>{
+      window.removeEventListener('collectdesk:session-rejected',recheckRejectedSession);
       window.removeEventListener('focus',recheckOnFocus);
       document.removeEventListener('visibilitychange',recheckOnFocus);
       controller.current?.abort();

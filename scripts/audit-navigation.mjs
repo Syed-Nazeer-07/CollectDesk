@@ -61,6 +61,10 @@ try{
   const observed=await page.evaluate(()=>window.__collectDeskNavigationAudit);
   assert.deepEqual(observed,{loadingFlash:false},'Navigation must stay in the same document without a loader flash.');
   console.table(durations);
+  await context.clearCookies();
+  await page.locator('.sidebar-nav a[href="/cases"]').click();
+  await page.waitForURL(base+'/login',{timeout:15000});
+  assert.equal(await page.getByRole('link',{name:'Organization',exact:true}).count(),0,'An expired session must clear workspace navigation.');
   await context.close();
   console.log('Persistent workspace navigation passed: 6 routes, no auth loading flash, no repeated session fetch.');
 } finally{

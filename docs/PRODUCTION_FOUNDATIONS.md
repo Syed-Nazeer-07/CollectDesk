@@ -8,9 +8,9 @@ CollectDesk is a B2B workflow platform for creditor organizations and collection
 | --- | --- | --- |
 | Financial reliability | Replica-set transactions for receipt recording, verification, rejection, reversal and close/hold/resume. Same-transaction activity and idempotency receipts. | Stage on the target Atlas topology. Inventory historical receipt totals, take a backup and drain all lease-only writers before enabling transactions. |
 | Organization management | One organization per creditor account, owner and member access, company profile, owner-issued one-time invitations, member deactivation, operator workload and access changes. | Assign owners to existing organizations after confirming account ownership. Verify Brevo delivery on staging. |
-| Operational queues | Admin priorities, internal follow-ups, overdue work indicators, unassigned queue, operator workload and case-level reconciliation CSV. | Persistent deadline and support notifications in the activity feed, email subscriptions and scheduled delivery remain open. |
+| Operational queues | Admin priorities, internal follow-ups, overdue work indicators, unassigned queue, operator workload and case-level reconciliation CSV. | Due follow-ups and latest support decisions now appear in the authorized activity feed. Email subscriptions and scheduled delivery remain open. |
 | Document infrastructure | Private S3 objects with SSE-S3, scanner-first PDF screening, quarantine metadata, scoped download and audit event, category and explicit expiration, repeatable cleanup task. | Deploy private bucket and scanner, verify IAM and malware handling, approve file policy, configure scheduled retention and backup lifecycle. |
-| Account continuity | Preserved Google, Brevo and existing sessions. The persistent provider now receives the completed company onboarding and operator activation results. | Verify Google and mail using authorized accounts in configured staging. |
+| Account continuity | Preserved Google, Brevo and existing sessions. The persistent provider receives updated onboarding and activation results and rechecks immediately after a protected request is rejected. Transaction mode covers token consumption in creditor verification, operator activation and password reset. | Verify Google and mail using authorized accounts in configured staging. |
 | Deployment | MongoDB ping readiness and API-first hosted startup, with a bounded failure deadline. | Validate the candidate container and uptime from a deployed staging service before production promotion. |
 
 ## Architecture and access
@@ -43,7 +43,7 @@ All routes have the `/api/v1` prefix. Mutations use JSON and a matching `Origin`
 | `POST /cases/:id/documents` | Creditor with editable case. Body is a PDF up to 5 MiB, with `X-File-Name` and `X-Document-Category` headers. |
 | `GET /cases/:id/documents/:documentId` | Existing case authorization. Audited, server-proxied attachment for a clean, unexpired file. |
 
-Financial POST routes accept a scoped `Idempotency-Key` of 16–128 URL-safe characters in transaction mode. Keep the same key for retries of the same action and body. A changed body returns 409. The financial API returns success after majority commit. Idempotency records remain available for operator reconciliation. Their retention policy needs approval before real use.
+Financial POST routes accept a scoped `Idempotency-Key` of 16–128 URL-safe characters in transaction mode. Keep the same key for retries of the same action and body. A changed body returns 409. The financial API returns success after majority commit. Idempotency records remain available for operator reconciliation. Their retention policy needs approval before real use. Case editors send the observed update timestamp and receive a conflict when another edit has changed the record.
 
 ## Database and financial rollout
 

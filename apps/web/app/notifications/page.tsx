@@ -4,17 +4,18 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Bell,CheckCheck,ArrowUpRight,Inbox,RefreshCw} from 'lucide-react';
 import AppShell from '@/components/AppShell';
-import {api,User} from '@/lib/api';
+import {api,label,User} from '@/lib/api';
 import styles from './page.module.css';
 
 type Update={id:string;caseId:string;caseCode:string;debtorName:string;kind:string;text:string;createdAt:string;unread:boolean};
-type Feed={notifications:Update[];page:number;hasMore:boolean;unreadCount:number};
+type OperationsNotice={id:string;kind:string;title:string;status?:string;href:string;createdAt:string;unread:boolean};
+type Feed={notifications:Update[];operations?:OperationsNotice[];page:number;hasMore:boolean;unreadCount:number};
 
 const titles:Record<string,string>={
   submitted:'Case submitted',review:'Review decision',assigned:'Case assigned',
   status:'Case status changed',note:'Case update',verified:'Receipt verified',
   reversal:'Receipt corrected',receipt:'Receipt recorded',
-  receipt_rejected:'Receipt rejected',updated:'Case details updated'
+  receipt_rejected:'Receipt rejected',updated:'Case details updated',work_plan:'Work plan updated'
 };
 
 function activityTime(value:string){
@@ -27,6 +28,7 @@ function activityTime(value:string){
 
 function ActivityFeed({user}:{user:User}){
   const [items,setItems]=useState<Update[]>([]);
+  const [operations,setOperations]=useState<OperationsNotice[]>([]);
   const [view,setView]=useState<'all'|'unread'>('all');
   const [page,setPage]=useState(1);
   const [hasMore,setHasMore]=useState(false);
@@ -43,6 +45,7 @@ function ActivityFeed({user}:{user:User}){
     api<Feed>('/notifications?page='+page+(view==='unread'?'&unread=1':''),{signal:controller.signal}).then(data=>{
       if(!active)return;
       setItems(previous=>page===1?data.notifications:[...previous,...data.notifications.filter(next=>!previous.some(old=>old.id===next.id))]);
+      if(page===1)setOperations(data.operations||[]);
       setHasMore(data.hasMore);
       setUnreadCount(data.unreadCount);
     }).catch(e=>{if(active&&!controller.signal.aborted)setError(e.message);})
@@ -52,7 +55,7 @@ function ActivityFeed({user}:{user:User}){
 
   function changeView(next:'all'|'unread'){
     if(next===view)return;
-    setItems([]);setHasMore(false);setPage(1);setView(next);
+    setItems([]);setOperations([]);setHasMore(false);setPage(1);setView(next);
   }
 
   async function markRead(){
@@ -61,6 +64,7 @@ function ActivityFeed({user}:{user:User}){
       const result=await api<{seenAt:string}>('/notifications/read',{method:'POST'});
       const seen=new Date(result.seenAt).getTime();
       setItems(previous=>view==='unread'?[]:previous.map(item=>({...item,unread:new Date(item.createdAt).getTime()>seen})));
+      setOperations(previous=>view==='unread'?[]:previous.map(item=>({...item,unread:new Date(item.createdAt).getTime()>seen})));
       if(view==='unread')setHasMore(false);
       setUnreadCount(0);
       window.dispatchEvent(new Event('collectdesk:notifications-read'));
@@ -94,8 +98,19 @@ function ActivityFeed({user}:{user:User}){
       </div>
       {error&&<div className="message error" role="alert">{error}
         <button type="button" onClick={()=>{setPage(1);setRefresh(n=>n+1);}}>Retry</button></div>}
-      {busy&&items.length===0?<div className={styles.empty} role="status">Loading your activity…</div>:
-      items.length===0&&!error?<div className={styles.empty}><Inbox size={32}/>
+      {!!operations.length&&<div className={styles.list} aria-label="Operations reminders">
+        {operations.map(item=><Link key={item.id} href={item.href} className={styles.entry+(item.unread?' '+styles.unread:'')}>
+          <span className={styles.indicator} aria-hidden="true">{item.unread?'•':''}</span>
+          <span className={styles.entryBody}>
+            <span className={styles.entryTop}><strong>{item.kind==='support'?'Support request updated':'Follow-up due'}</strong>
+              <time dateTime={item.createdAt}>{activityTime(item.createdAt)}</time></span>
+            <span className={styles.description}>{item.title}{item.status?' · '+label(item.status):''}</span>
+          </span>
+          <ArrowUpRight className={styles.arrow} size={17} aria-hidden="true"/>
+        </Link>)}
+      </div>}
+      {busy&&items.length===0&&operations.length===0?<div className={styles.empty} role="status">Loading your activity…</div>:
+      items.length===0&&operations.length===0&&!error?<div className={styles.empty}><Inbox size={32}/>
         <strong>{view==='unread'?"You're all caught up":'Nothing to review yet'}</strong>
         <p>{view==='unread'?'New case updates will appear here.':'Relevant updates appear here when your cases move forward.'}</p>
         {view==='unread'?<button type="button" className="button button-outline" onClick={()=>changeView('all')}>View all updates</button>:
@@ -116,7 +131,7 @@ function ActivityFeed({user}:{user:User}){
       {hasMore&&<div className={styles.more}><button type="button" className="button button-outline"
         disabled={busy} onClick={()=>setPage(n=>n+1)}>{busy?'Loading…':'Load more updates'}</button></div>}
     </section>
-    <p className={styles.footnote}>Only updates for cases you can currently access are shown. Activity is drawn from the existing case audit trail.</p>
+    <p className={styles.footnote}>Updates reflect the cases, follow-ups and support requests you can access.</p>
   </div>;
 }
 export default function NotificationsPage(){

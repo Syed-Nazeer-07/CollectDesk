@@ -24,6 +24,9 @@ export async function api<T>(path:string,options:RequestInit={}):Promise<T>{
       throw new ApiError(`Unexpected server response (${response.status}). Please retry.`, response.status);
     }
     if (!response.ok) {
+      if(response.status===401&&!path.startsWith('/auth/')&&typeof window!=='undefined'){
+        window.dispatchEvent(new Event('collectdesk:session-rejected'));
+      }
       const issues = Array.isArray(data?.issues) ? data.issues : undefined;
       const detail = issues?.map((issue:{field:string;message:string}) =>
         [issue.field, issue.message].filter(Boolean).join(' — ')).join(' ');

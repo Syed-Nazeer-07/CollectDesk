@@ -6,6 +6,7 @@ import {z} from 'zod';
 import {Organization,OrganizationInvite,OrganizationEvent,User} from './models.js';
 import {COOKIE_NAME,cookieOptions,issueSession,publicUser,requireRole} from './auth.js';
 import {emailDeliveryProvider,sendOrganizationInviteEmail} from './email-delivery.js';
+import {newPassword} from './new-password.js';
 import {transactionalLedger} from './financial-write.js';
 
 const hash=value=>createHash('sha256').update(value).digest('hex');
@@ -16,8 +17,7 @@ const limit=rateLimit({windowMs:15*60*1000,limit:10,standardHeaders:'draft-8',le
 const activation=z.object({
   token:inviteToken,
   name:z.string().trim().min(2).max(90),
-  password:z.string().min(12).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/)
-    .refine(value=>Buffer.byteLength(value)<=72,'Password must fit within 72 UTF-8 bytes.')
+  password:newPassword
 }).strict();
 
 const canInvite=()=>transactionalLedger() && Boolean(emailDeliveryProvider());
