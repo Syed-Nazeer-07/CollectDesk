@@ -1051,15 +1051,50 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
           body:{organizationName:'New Google Fictional Company',role:'admin'}});
         assert.equal(result.status,422,'company onboarding must not accept role escalation');
-        result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
-          body:{organizationName:'New Google Fictional Company'}});
-        assert.equal(result.status,200);
-        assert.ok(result.data.user.organizationId);
+        const beforeGoogleCompanies=await Organization.countDocuments();
+        if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+          const originalSave=OrganizationEvent.prototype.save;
+          OrganizationEvent.prototype.save=function(...args){
+            if(this.kind==='organization_created')throw new Error('Injected onboarding audit failure');
+            return originalSave.apply(this,args);
+          };
+          try{
+            result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
+              body:{organizationName:'Company that must roll back'}});
+            assert.equal(result.status,500,'failed audit must abort Google onboarding');
+          }finally{OrganizationEvent.prototype.save=originalSave;}
+          assert.equal(await Organization.countDocuments(),beforeGoogleCompanies,
+            'failed Google onboarding must not leave an orphan organization');
+          const googleAccount=await User.findOne({email:'new-google@collectdesk-ci.test'}).lean();
+          assert.equal(googleAccount.organizationId??null,null,
+            'failed onboarding must leave the account available to retry');
+          assert.equal((await call('/cases',{cookie:googleCookie})).status,403,
+            'failed onboarding must not grant access to cases');
+        }
+        const onboard=body=>call('/auth/organization',{method:'POST',cookie:googleCookie,body});
+        const results=process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'
+          ? await Promise.all([
+              onboard({organizationName:'New Google Fictional Company'}),
+              onboard({organizationName:'Competing Google Company'})
+            ])
+          : [await onboard({organizationName:'New Google Fictional Company'})];
+        assert.equal(results.filter(row=>row.status===200).length,1,
+          'only one competing organization onboarding may succeed');
+        assert.ok(results.every(row=>[200,409].includes(row.status)),
+          'competing onboarding must return success or conflict, never an internal error');
+        assert.equal(await Organization.countDocuments(),beforeGoogleCompanies+1,
+          'competing Google onboarding must not produce an extra organization');
+        const created=results.find(row=>row.status===200);
+        assert.ok(created.data.user.organizationId);
+        if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+          assert.equal(await OrganizationEvent.countDocuments({
+            organizationId:created.data.user.organizationId,kind:'organization_created'
+          }),1,'new workspace owner must leave an audited creation event');
+        }
         result=await call('/cases',{cookie:googleCookie});
         assert.equal(result.status,200);
         assert.equal(result.data.cases.length,0,'Google new company cannot see seeded records');
-        result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
-          body:{organizationName:'Duplicate organization'}});
+        result=await onboard({organizationName:'Duplicate organization'});
         assert.equal(result.status,409,'onboarding is one-time only');
       }finally{
         globalThis.fetch=originalFetch;
