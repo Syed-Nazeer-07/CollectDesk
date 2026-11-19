@@ -17,6 +17,8 @@ const userSchema = new mongoose.Schema({
   deactivatedBy:{...id,ref:'User'}
 }, options);
 userSchema.index({organizationId:1,active:-1,name:1,_id:1});
+// Used by operator staffing, access control and the unattended-case handoff queue.
+userSchema.index({role:1,active:1,_id:1});
 export const User = mongoose.model('User', userSchema);
 
 const organizationInviteSchema=new mongoose.Schema({
