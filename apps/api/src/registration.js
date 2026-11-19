@@ -13,7 +13,7 @@ import {rateLimit} from 'express-rate-limit';
 import {z} from 'zod';
 import {newPassword} from './new-password.js';
 import {transactionalLedger} from './financial-write.js';
-import {GoogleNonce,Organization,PendingSignup,User} from './models.js';
+import {GoogleNonce,Organization,OrganizationEvent,PendingSignup,User} from './models.js';
 import {COOKIE_NAME,cookieOptions,issueSession,publicUser,requireAuth} from './auth.js';
 import {emailDeliveryProvider,sendVerificationEmail} from './email-delivery.js';
 
@@ -205,11 +205,38 @@ export function installRegistrationRoutes(app,webOrigin){
     }
     if(!enabled())return failClosed(res,'Company onboarding');
     const {organizationName}=z.object({organizationName:cleanCompany}).strict().parse(req.body);
-    const org=await Organization.create({name:organizationName,country:'IN'});
-    const updated=await User.findOneAndUpdate({
-      _id:req.user._id,role:'creditor',organizationId:null
-    },{$set:{organizationId:org._id,organizationRole:'owner'}},{returnDocument:'after'});
-    if(!updated){await Organization.deleteOne({_id:org._id});return res.status(409).json({error:'Workspace setup has already been completed.'});}
+    const createWorkspace=async session=>{
+      // The owner link, workspace, and creation event are one logical operation.
+      // A competing setup or failed audit must not leave orphan organizations.
+      const org=await new Organization({name:organizationName,country:'IN'}).save({session});
+      const updated=await User.findOneAndUpdate({
+        _id:req.user._id,role:'creditor',organizationId:null,active:true
+      },{$set:{organizationId:org._id,organizationRole:'owner'}},
+      {returnDocument:'after',session});
+      if(!updated){
+        if(!session)await Organization.deleteOne({_id:org._id});
+        return null;
+      }
+      if(session){
+        await new OrganizationEvent({organizationId:org._id,actorId:req.user._id,
+          kind:'organization_created',detail:'Workspace created by initial owner'}).save({session});
+      }
+      return updated;
+    };
+    const updated=transactionalLedger()
+      ? await mongoose.connection.transaction(async session=>{
+          const user=await createWorkspace(session);
+          // Returning null from a transaction would commit the organization
+          // that was created earlier in the callback. Throw to roll back.
+          if(!user){
+            const conflict=new Error('Workspace setup has already been completed.');
+            conflict.status=409;
+            throw conflict;
+          }
+          return user;
+        },{writeConcern:{w:'majority'}})
+      : await createWorkspace(null);
+    if(!updated)return res.status(409).json({error:'Workspace setup has already been completed.'});
     res.json({user:publicUser(updated)});
   });
 }
