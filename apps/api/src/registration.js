@@ -12,7 +12,7 @@ import jwt from 'jsonwebtoken';
 import {rateLimit} from 'express-rate-limit';
 import {z} from 'zod';
 import {newPassword} from './new-password.js';
-import {transactionalLedger} from './financial-write.js';
+import {transactionalLedger,FinancialError} from './financial-write.js';
 import {GoogleNonce,Organization,OrganizationEvent,PendingSignup,User} from './models.js';
 import {COOKIE_NAME,cookieOptions,issueSession,publicUser,requireAuth} from './auth.js';
 import {emailDeliveryProvider,sendVerificationEmail} from './email-delivery.js';
@@ -229,9 +229,7 @@ export function installRegistrationRoutes(app,webOrigin){
           // Returning null from a transaction would commit the organization
           // that was created earlier in the callback. Throw to roll back.
           if(!user){
-            const conflict=new Error('Workspace setup has already been completed.');
-            conflict.status=409;
-            throw conflict;
+            throw new FinancialError(409,'Workspace setup has already been completed.');
           }
           return user;
         },{writeConcern:{w:'majority'}})
