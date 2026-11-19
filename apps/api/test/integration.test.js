@@ -5,7 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {generateKeyPairSync,sign} from 'node:crypto';
+import {generateKeyPairSync,randomUUID,createHash,sign} from 'node:crypto';
 
 const uri = process.env.TEST_MONGODB_URI;
 
@@ -15,7 +15,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   process.env.JWT_SECRET = 'integration-test-only-secret-replace-for-real-production';
   const mongoose = (await import('mongoose')).default;
   const bcrypt = (await import('bcryptjs')).default;
-  const {Organization, User, Case, Activity, Receipt} = await import('../src/models.js');
+  const {Organization, OrganizationEvent, StaffAccessEvent, User, Case, Activity, Receipt, CaseDocument, DocumentEvent} = await import('../src/models.js');
 
   // Hard block before any data deletion. Never run against the demo or production DB.
   const parsed = new URL(uri);
@@ -27,6 +27,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   try {
     await mongoose.connection.dropDatabase();
     const app = (await import('../src/app.js')).default;
+    const {assertLedgerReady}=await import('../src/financial-write.js');
+    await assertLedgerReady();
+    await Promise.all([CaseDocument.init(),DocumentEvent.init()]);
+
     const orgA = await Organization.create({name:'Fictional creditor A'});
     const orgB = await Organization.create({name:'Fictional creditor B'});
     const password = 'Test-Only-Password-2026!';
@@ -41,8 +45,8 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     server = app.listen(0);
     await new Promise(resolve => server.once('listening', resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
-    async function call(path, {method='GET', cookie, body, origin='http://localhost:3000'}={}) {
-      const headers = {};
+    async function call(path, {method='GET', cookie, body, origin='http://localhost:3000', headers={}}={}) {
+      headers={...headers};
       if(cookie) headers.cookie = cookie;
       if(body !== undefined) headers['content-type'] = 'application/json';
       if(origin !== null) headers.origin = origin;
@@ -61,6 +65,125 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const b = await signIn('creditorb@test.collectdesk.local');
     const admin = await signIn('admin@test.collectdesk.local');
     const operator = await signIn('operator@test.collectdesk.local');
+    await t.test('readiness has a bounded deadline and coalesces concurrent pings',async()=>{
+      const database=mongoose.connection.db;
+      const originalCommand=database.command;
+      let attempts=0;
+      database.command=function(command,options){
+        if(command.ping!==1)return originalCommand.call(this,command,options);
+        attempts++;
+        return new Promise((resolve,reject)=>{
+          options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true});
+        });
+      };
+      try{
+        const started=performance.now();
+        const responses=await Promise.all(
+          ['/health','/readiness'].map(path=>fetch(base+path,{signal:AbortSignal.timeout(5000)}))
+        );
+        assert.deepEqual(responses.map(response=>response.status),[503,503]);
+        assert.equal(attempts,1);
+        assert.ok(performance.now()-started<4000,'HTTP readiness must have its own deadline');
+      }finally{
+        database.command=originalCommand;
+      }
+      assert.equal((await fetch(base+'/readiness')).status,200);
+    });
+    await t.test('organization privileges, delivery, activation and revocation',async()=>{
+      const aUser=await User.findOne({organizationId:orgA._id});
+      await User.updateOne({_id:aUser._id},{$set:{organizationRole:'owner'}});
+      assert.equal((await call('/organization',{cookie:a})).data.owner,true);
+      assert.equal((await call('/organization',{cookie:b})).data.owner,false);
+      assert.equal((await call('/organization',{cookie:operator})).status,403);
+      assert.equal((await call('/organizations',{cookie:b})).status,403);
+      assert.equal((await call('/organizations',{cookie:admin})).data.organizations.length,2);
+      const patch=(cookie,body)=>call('/organization',{method:'PATCH',cookie,body});
+      assert.equal((await patch(b,{name:'Unauthorized rename'})).status,403);
+      assert.equal((await patch(a,{name:'Fictional updated company',organizationId:String(orgB._id)})).status,422);
+      assert.equal((await patch(a,{name:'Fictional updated company'})).status,200);
+      assert.equal(await OrganizationEvent.countDocuments({organizationId:orgA._id,
+        kind:'organization_renamed'}),1,'company edits must leave an owner-visible audit entry');
+      if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+        const originalSave=OrganizationEvent.prototype.save;
+        OrganizationEvent.prototype.save=function(...args){
+          if(this.kind==='organization_renamed')throw new Error('Injected organization audit failure');
+          return originalSave.apply(this,args);
+        };
+        try{
+          assert.equal((await patch(a,{name:'Unaudited company rename'})).status,500);
+        }finally{OrganizationEvent.prototype.save=originalSave;}
+        assert.equal((await Organization.findById(orgA._id).lean()).name,'Fictional updated company',
+          'failed audit write must roll back company rename');
+      }
+      const path='/organization/invitations';
+      const invitation={email:'invited-member@example.test'};
+      const send=(cookie,body=invitation)=>call(path,{method:'POST',cookie,body});
+      assert.equal((await send(b)).status,403);
+      if(process.env.LEDGER_TRANSACTIONS_REQUIRED!=='true'){
+        assert.equal((await send(a)).status,503);
+        return;
+      }
+      const savedEnv={BREVO_API_KEY:process.env.BREVO_API_KEY,BREVO_FROM_EMAIL:process.env.BREVO_FROM_EMAIL};
+      const previousFetch=globalThis.fetch;
+      const sent=[];
+      process.env.BREVO_API_KEY='fixture-only';
+      process.env.BREVO_FROM_EMAIL='qa@example.test';
+      globalThis.fetch=(url,options)=>{
+        if(String(url)==='https://api.brevo.com/v3/smtp/email'){
+          sent.push(JSON.parse(options.body).textContent);
+          return Promise.resolve(new Response('{}',{status:201}));
+        }
+        return previousFetch(url,options);
+      };
+      try{
+        const sends=await Promise.all([send(a),send(a)]);
+        assert.deepEqual(sends.map(result=>result.status).sort(),[201,409]);
+        const invited=sends.find(result=>result.status===201);
+        assert.equal(sent.length,1);
+        assert.equal(JSON.stringify(invited.data).includes('token'),false);
+        const token=sent[0].match(/#token=([A-Za-z0-9_-]{43})/)[1];
+        const accept=body=>call('/auth/organization-invite/accept',{method:'POST',body});
+        const details={token,name:'Fictional teammate',password:'Test-Only-Password-2026!'};
+        const attempts=await Promise.all([accept(details),accept(details)]);
+        assert.deepEqual(attempts.map(result=>result.status).sort(),[201,400]);
+        const joined=attempts.find(result=>result.status===201);
+        assert.equal(joined.data.user.organizationId,String(orgA._id));
+        assert.equal((await call('/organization',{cookie:joined.cookie})).data.owner,false);
+        assert.equal((await call('/cases',{cookie:joined.cookie})).status,200);
+        assert.equal((await call(path+'/'+invited.data.invitation.id+'/revoke',{method:'POST',cookie:a})).status,404);
+        const second=await send(a,{email:'revoked-member@example.test'});
+        assert.equal(second.status,201);
+        const revoke=path+'/'+second.data.invitation.id+'/revoke';
+        assert.equal((await call(revoke,{method:'POST',cookie:a})).status,200);
+        assert.equal(await OrganizationEvent.countDocuments({organizationId:orgA._id,
+          kind:'invitation_revoked'}),1,'invitation revocation must be audited');
+        assert.equal((await call(revoke,{method:'POST',cookie:a})).status,404);
+        const deactivate='/organization/members/'+joined.data.user.id+'/deactivate';
+        assert.equal((await call(deactivate,{method:'POST',cookie:b})).status,403);
+        if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+          const originalSave=OrganizationEvent.prototype.save;
+          OrganizationEvent.prototype.save=function(...args){
+            if(this.kind==='member_deactivated')throw new Error('Injected member audit failure');
+            return originalSave.apply(this,args);
+          };
+          try{assert.equal((await call(deactivate,{method:'POST',cookie:a})).status,500);}
+          finally{OrganizationEvent.prototype.save=originalSave;}
+          assert.equal((await User.findById(joined.data.user.id).lean()).active,true,
+            'an audit failure must not revoke an account without a record');
+          assert.equal((await call('/cases',{cookie:joined.cookie})).status,200,
+            'member session must remain valid after rolled-back deactivation');
+        }
+        assert.equal((await call(deactivate,{method:'POST',cookie:a})).status,200);
+        assert.equal(await OrganizationEvent.countDocuments({organizationId:orgA._id,
+          kind:'member_deactivated'}),1,'member revocations must appear in audit trail');
+        assert.equal((await call('/cases',{cookie:joined.cookie})).status,401);
+      }finally{
+        globalThis.fetch=previousFetch;
+        for(const [key,value] of Object.entries(savedEnv)){
+          if(value===undefined)delete process.env[key];else process.env[key]=value;
+        }
+      }
+    });
     await t.test('profile changes persist for the signed-in user only', async () => {
       const path='/auth/me';
       const patch=(cookie,body)=>call(path,{method:'PATCH',cookie,body});
@@ -207,6 +330,10 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const resolved=await call('/support/requests?status=resolved',{cookie:a});
       assert.equal(resolved.data.requests.length,1);
       assert.match(resolved.data.requests[0].resolutionNote,/verified the outcome/);
+      const notices=(await call('/notifications',{cookie:a})).data.operations;
+      assert.equal(notices.some(notice=>notice.kind==='support'&&notice.status==='resolved'),true);
+      assert.equal((await call('/notifications',{cookie:b})).data.operations.length,0);
+
       assert.equal(resolved.data.requests[0].history.length,1,
         'admin decisions should create an auditable history entry');
       response=await call('/support/requests/'+ticketA.data.id,{method:'PATCH',cookie:admin,
@@ -422,10 +549,135 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         else process.env.SAMPLE_EVIDENCE_ENABLED=previous;
       }
     });
+    await t.test('private documents enforce scanning, encryption, tenant access and expiry',async()=>{
+      const {Readable}=await import('node:stream');
+      const {purgeExpiredDocuments}=await import('../src/private-documents.js');
+      const folder=await Case.create({
+        caseCode:'CC-PRIVATE-DOC',organizationId:orgA._id,createdBy:(await User.findOne({organizationId:orgA._id}))._id,
+        debtorName:'Private fixture',invoiceNo:'PRIVATE-FIXTURE',issueDate:new Date('2026-01-01'),
+        dueDate:new Date('2026-02-01'),principalPaise:50000,status:'draft'
+      });
+      const bytes=Buffer.from('%PDF-1.4\nFictional invoice\n%%EOF\n');
+      const blobs=new Map();
+      let verdict=true;
+      const provider={config:{bucket:'test-fixture',retentionDays:3},scan:async()=>verdict,storage:{
+        async send(command){
+          const {Key,Body,ServerSideEncryption}=command.input;
+          switch(command.constructor.name){
+            case 'PutObjectCommand': assert.equal(ServerSideEncryption,'AES256');blobs.set(Key,Buffer.from(Body));return {};
+            case 'GetObjectCommand': {const blob=blobs.get(Key);return {ContentLength:blob.length,Body:Readable.from(blob)};}
+            case 'DeleteObjectCommand': blobs.delete(Key);return {};
+            default: throw new Error('Unexpected storage operation');
+          }
+        }
+      }};
+      app.locals.documentService=()=>provider;
+      const path='/cases/'+folder._id+'/documents';
+      const upload=(cookie,body=bytes)=>fetch(base+'/api/v1'+path,{method:'POST',headers:{
+        cookie,origin:'http://localhost:3000','content-type':'application/pdf','x-document-category':'invoice',
+        'x-file-name':'fictional.pdf'
+      },body});
+      try{
+        assert.equal((await upload(b)).status,404);
+        assert.equal((await upload(a,Buffer.from('invalid'))).status,422);
+        verdict=false;
+        assert.equal((await upload(a)).status,422);
+        assert.equal(blobs.size,0,'rejected bytes must not reach object storage');
+        assert.equal(await CaseDocument.countDocuments({caseId:folder._id}),0,
+          'rejected scanning must immediately release private document quota');
+        assert.equal(await DocumentEvent.countDocuments({caseId:folder._id,kind:'scan_rejected'}),1,
+          'rejected file scans must leave an audit event');
+        verdict=true;
+        const result=await upload(a);
+        assert.equal(result.status,201);
+        const {document}=await result.json();
+        assert.equal(document.status,'clean');
+        assert.equal(document.objectKey,undefined);
+        assert.equal(await DocumentEvent.countDocuments({caseId:folder._id,kind:'uploaded'}),1,
+          'published documents must have a durable upload audit event');
+        const download=await fetch(base+'/api/v1'+path+'/'+document.id,{headers:{cookie:a}});
+        assert.equal(download.status,200);
+        assert.deepEqual(Buffer.from(await download.arrayBuffer()),bytes);
+        assert.equal((await call(path+'/'+document.id,{cookie:b})).status,404);
+        assert.equal(await DocumentEvent.countDocuments({caseId:folder._id,kind:'download_authorized'}),1);
+        await CaseDocument.updateMany({caseId:folder._id},{$set:{expiresAt:new Date(0)}});
+        assert.equal((await call(path+'/'+document.id,{cookie:a})).status,404);
+        assert.equal(await purgeExpiredDocuments(provider),1);
+        assert.equal(blobs.size,0);
+      }finally{
+        delete app.locals.documentService;
+        await CaseDocument.deleteMany({caseId:folder._id});
+        await DocumentEvent.deleteMany({caseId:folder._id});
+        await Case.deleteOne({_id:folder._id});
+      }
+    });
+    await t.test('case lifecycle and audit entries commit atomically in transaction mode',
+      {skip:process.env.LEDGER_TRANSACTIONS_REQUIRED!=='true'},async()=>{
+      const initial={...invoice,invoiceNo:'TX-CASE-AUDIT-001',description:'Original fictional draft'};
+      const originalSave=Activity.prototype.save;
+      async function failAudit(kind,request){
+        Activity.prototype.save=function(...args){
+          if(this.kind===kind)throw new Error('Injected '+kind+' audit failure');
+          return originalSave.apply(this,args);
+        };
+        try{return await request();}
+        finally{Activity.prototype.save=originalSave;}
+      }
+      const create=()=>call('/cases',{method:'POST',cookie:a,body:initial});
+      assert.equal((await failAudit('created',create)).status,500);
+      assert.equal(await Case.countDocuments({invoiceNo:initial.invoiceNo}),0,
+        'a failed creation audit must roll back the case itself');
+      const saved=await create();
+      assert.equal(saved.status,201);
+      const draftId=saved.data.id;
+      const update={...initial,description:'Changed without audit'};
+      assert.equal((await failAudit('updated',()=>call('/cases/'+draftId,{
+        method:'PATCH',cookie:a,body:update
+      }))).status,500);
+      assert.equal((await Case.findById(draftId).lean()).description,initial.description,
+        'a failed draft-edit audit must roll back the edited fields');
+      assert.equal((await failAudit('submitted',()=>call('/cases/'+draftId+'/submit',{
+        method:'POST',cookie:a
+      }))).status,500);
+      assert.equal((await Case.findById(draftId).lean()).status,'draft',
+        'failed submission audit must not submit a draft');
+      assert.equal((await call('/cases/'+draftId+'/submit',{method:'POST',cookie:a})).status,200);
+      const review=()=>call('/cases/'+draftId+'/review',{method:'POST',cookie:admin,
+        body:{decision:'accept',reason:'Valid fictional invoice'}});
+      assert.equal((await failAudit('review',review)).status,500);
+      assert.equal((await Case.findById(draftId).lean()).status,'submitted',
+        'failed review audit must leave the case awaiting review');
+      assert.equal((await review()).status,200);
+      const operatorAccount=await User.findOne({role:'operator',active:true}).lean();
+      assert.ok(operatorAccount,'operator fixture must exist');
+      const assign=()=>call('/cases/'+draftId+'/assign',{method:'POST',cookie:admin,
+        body:{operatorId:String(operatorAccount._id)}});
+      assert.equal((await failAudit('assigned',assign)).status,500);
+      const afterAssign=await Case.findById(draftId).lean();
+      assert.equal(afterAssign.status,'accepted');
+      assert.equal(afterAssign.assignedTo??null,null,
+        'failed assignment audit must not assign an operator');
+      assert.equal((await assign()).status,200);
+      const note='This note must not survive an aborted case transaction';
+      assert.equal((await failAudit('note',()=>call('/cases/'+draftId+'/activity',{
+        method:'POST',cookie:operator,body:{text:note,visibility:'internal'}
+      }))).status,500);
+      assert.equal(await Activity.countDocuments({caseId:draftId,kind:'note',text:note}),0,
+        'failed note audit must not persist a partial activity event');
+      // The outer workflow asserts case counts and exact pagination. Clean up
+      // this isolated rollback fixture rather than changing those baselines.
+      await Activity.deleteMany({caseId:draftId});
+      await Case.deleteOne({_id:draftId});
+    });
+
     // A creditor can edit their own draft, but never an accepted/submitted claim.
     const editableInvoice={...invoice,description:'Corrected draft description'};
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:editableInvoice});
     assert.equal(r.status,200,'creditor should be able to edit its own draft');
+    const staleDraft=await call(`/cases/${caseId}`,{method:'PATCH',cookie:a,body:{...editableInvoice,
+      expectedUpdatedAt:'2025-01-01T00:00:00.000Z',description:'Stale edit should not replace this draft'}});
+    assert.equal(staleDraft.status,409);
+
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:b,body:editableInvoice});
     assert.equal(r.status,404,'another creditor cannot edit this organization’s draft');
     r = await call(`/cases/${caseId}`,{method:'PATCH',cookie:admin,body:editableInvoice});
@@ -535,6 +787,98 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.ok(r.data.activities.some(e=>e.text==='Progress update for the creditor'));
     assert.ok(!r.data.activities.some(e=>e.text.includes('Internal review')),'internal updates must remain hidden');
 
+    await t.test('assigned work-plan visibility and priority authorization',async()=>{
+      const path='/cases/'+caseId+'/work-plan';
+      const plan={followUpAt:new Date(Date.now()+86_400_000).toISOString(),followUpNote:'Internal fictional follow-up'};
+      const update=(cookie,body)=>call(path,{method:'POST',cookie,body});
+      assert.equal((await update(a,plan)).status,403);
+      assert.equal((await update(operator,{...plan,priority:'urgent'})).status,403);
+      assert.equal((await update(admin,{...plan,priority:'high'})).status,200);
+      assert.equal((await update(operator,plan)).status,200);
+      const queue=(await call('/work-queue',{cookie:operator})).data;
+      assert.equal(queue.items.find(item=>item.id===caseId).priority,'high');
+      assert.equal((await call('/cases/'+caseId,{cookie:a})).data.workPlan,undefined);
+      assert.equal((await call('/work-queue?view=unassigned',{cookie:operator})).status,403);
+      await Case.updateOne({_id:caseId},{$set:{followUpAt:new Date(Date.now()-1000)}});
+      const reminders=(await call('/notifications?unread=1',{cookie:operator})).data.operations;
+      assert.ok(reminders.some(item=>item.kind==='follow_up'&&item.href==='/cases/'+caseId));
+      assert.equal((await call('/notifications',{cookie:a})).data.operations.some(item=>item.kind==='follow_up'),false);
+
+    });
+    await t.test('inactive operators cannot strand cases outside the admin handoff queue',async()=>{
+      const creditor=await User.findOne({email:'creditora@test.collectdesk.local'}).lean();
+      const activeOperator=await User.findOne({email:'operator@test.collectdesk.local'}).lean();
+      const inactive=await User.create({
+        name:'Handoff test operator',email:'handoff-operator@collectdesk-ci.test',
+        role:'operator',passwordHash
+      });
+      const stranded=await Case.create({
+        caseCode:'CC-STAFF-HANDOFF-001',organizationId:orgA._id,createdBy:creditor._id,
+        debtorName:'Synthetic reassignment case',invoiceNo:'STAFF-HANDOFF-001',
+        issueDate:new Date('2026-01-01'),dueDate:new Date('2026-02-01'),
+        principalPaise:75000,status:'in_progress',assignedTo:inactive._id
+      });
+      const view=()=>call('/work-queue?view=unassigned',{cookie:admin});
+      try{
+        assert.equal((await view()).data.items.some(item=>item.id===String(stranded._id)),false,
+          'cases with active operators must not appear in the handoff queue');
+        const disabled=await call('/staff/operators/'+inactive._id+'/access',{
+          method:'POST',cookie:admin,body:{active:false}
+        });
+        assert.equal(disabled.status,200);
+        const queue=await view();
+        assert.equal(queue.status,200);
+        const item=queue.data.items.find(item=>item.id===String(stranded._id));
+        assert.ok(item,'admin handoff queue must include cases assigned to inactive operators');
+        assert.equal(item.assignmentState,'inactive_operator');
+        assert.equal((await call('/work-queue?view=unassigned',{cookie:operator})).status,403,
+          'operator cannot see the admin reassignment queue');
+        const assigned=await call('/cases/'+stranded._id+'/assign',{
+          method:'POST',cookie:admin,body:{operatorId:String(activeOperator._id)}
+        });
+        assert.equal(assigned.status,200,'admin must be able to hand off a stranded case');
+        assert.equal((await view()).data.items.some(row=>row.id===String(stranded._id)),false,
+          'reassigned cases must disappear from the handoff queue');
+      }finally{
+        await Activity.deleteMany({caseId:stranded._id});
+        await Case.deleteOne({_id:stranded._id});
+        await StaffAccessEvent.deleteMany({operatorId:inactive._id});
+        await User.deleteOne({_id:inactive._id});
+      }
+    });
+    await t.test('financial records roll back with audit failure and retry safely',{skip:process.env.LEDGER_TRANSACTIONS_REQUIRED!=='true'},async()=>{
+      const path='/cases/'+caseId+'/receipts';
+      const key=randomUUID();
+      const payment={amountPaise:200,reference:'TX-ROLLBACK-001'};
+      const post=(body)=>call(path,{method:'POST',cookie:admin,body,headers:{'Idempotency-Key':key}});
+      const save=Activity.prototype.save;
+      Activity.prototype.save=function(...args){
+        if(this.kind==='receipt')throw new Error('Fixture audit write failed');
+        return save.apply(this,args);
+      };
+      try{
+        assert.equal((await post(payment)).status,500);
+        assert.equal(await Receipt.countDocuments({caseId,reference:payment.reference}),0);
+      }finally{Activity.prototype.save=save;}
+      const [first,replay]=await Promise.all([post(payment),post(payment)]);
+      assert.equal(first.status,201);
+      assert.deepEqual(first.data,replay.data);
+      assert.equal(await Receipt.countDocuments({caseId,reference:payment.reference}),1);
+      assert.equal(await Activity.countDocuments({'metadata.receiptId':new mongoose.Types.ObjectId(first.data.id)}),1);
+      assert.equal((await post({...payment,amountPaise:300})).status,409);
+      const reversalPath='/cases/'+caseId+'/receipts/'+first.data.id;
+      const verify=await call(reversalPath+'/verify',{method:'POST',cookie:admin});
+      assert.equal(verify.status,200);
+      Activity.prototype.save=function(...args){
+        if(this.kind==='reversal')throw new Error('Fixture reversal audit write failed');
+        return save.apply(this,args);
+      };
+      try{
+        assert.equal((await call(reversalPath+'/reverse',{method:'POST',cookie:admin,body:{reason:'Test rollback'}})).status,500);
+        assert.equal(await Receipt.countDocuments({reversedFrom:first.data.id}),0);
+      }finally{Activity.prototype.save=save;}
+      await Receipt.deleteOne({_id:first.data.id});
+    });
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:operator,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,403,'operator must not record receipts');
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
@@ -585,6 +929,14 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.financials.recoveredPaise,0,'reversal must adjust verified recovery');
     assert.equal(r.data.financials.feePaise,0,'reversal must adjust fee');
+    const exportUrl=base+'/api/v1/cases/'+caseId+'/reconciliation.csv';
+    for(const cookie of [a,operator]){
+      assert.equal((await fetch(exportUrl,{headers:{cookie}})).status,403);
+    }
+    const ledger=await fetch(exportUrl,{headers:{cookie:admin}});
+    assert.equal(ledger.status,200);
+    assert.match(await ledger.text(),/"reversal","verified",200000,-200000/);
+
     assert.equal((await Case.findById(caseId)).status,'in_progress');
     // Construct contradictory pending data deliberately to simulate concurrent admins or import errors.
     // The per-case lease must prevent both from being verified past the principal.
@@ -676,7 +1028,19 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(sent.length,sentBeforeReset+1,'existing account must receive reset link');
         const resetLink=sent.at(-1).text.match(/reset-password\?token=([A-Za-z0-9_-]+)/);
         assert.ok(resetLink,'reset email should contain a unique token');
-        const token=resetLink[1];
+        const {PasswordReset}=await import('../src/models.js');
+        await PasswordReset.updateOne({tokenHash:createHash('sha256').update(resetLink[1]).digest('hex')},
+          {$set:{expiresAt:new Date(0)}});
+        assert.equal((await call('/auth/password/reset',{
+          method:'POST',body:{token:resetLink[1],password:'NewSecurePassword2026!'}
+        })).status,400,'expired recovery links cannot change passwords');
+        assert.equal((await call('/auth/password/forgot',{
+          method:'POST',body:{email:registration.email}
+        })).status,202);
+        const token=sent.at(-1).text.match(/reset-password\?token=([A-Za-z0-9_-]+)/)[1];
+        assert.equal((await call('/auth/password/reset',{
+          method:'POST',body:{token,password:'Password1!'+ '界'.repeat(30)}
+        })).status,422,'bcrypt inputs must be at most 72 UTF-8 bytes');
         assert.equal((await call('/auth/password/reset',{
           method:'POST',body:{token,password:'weak'}
         })).status,422,'weak reset passwords must be rejected');
@@ -728,15 +1092,50 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
           body:{organizationName:'New Google Fictional Company',role:'admin'}});
         assert.equal(result.status,422,'company onboarding must not accept role escalation');
-        result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
-          body:{organizationName:'New Google Fictional Company'}});
-        assert.equal(result.status,200);
-        assert.ok(result.data.user.organizationId);
+        const beforeGoogleCompanies=await Organization.countDocuments();
+        if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+          const originalSave=OrganizationEvent.prototype.save;
+          OrganizationEvent.prototype.save=function(...args){
+            if(this.kind==='organization_created')throw new Error('Injected onboarding audit failure');
+            return originalSave.apply(this,args);
+          };
+          try{
+            result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
+              body:{organizationName:'Company that must roll back'}});
+            assert.equal(result.status,500,'failed audit must abort Google onboarding');
+          }finally{OrganizationEvent.prototype.save=originalSave;}
+          assert.equal(await Organization.countDocuments(),beforeGoogleCompanies,
+            'failed Google onboarding must not leave an orphan organization');
+          const googleAccount=await User.findOne({email:'new-google@collectdesk-ci.test'}).lean();
+          assert.equal(googleAccount.organizationId??null,null,
+            'failed onboarding must leave the account available to retry');
+          assert.equal((await call('/cases',{cookie:googleCookie})).status,403,
+            'failed onboarding must not grant access to cases');
+        }
+        const onboard=body=>call('/auth/organization',{method:'POST',cookie:googleCookie,body});
+        const results=process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'
+          ? await Promise.all([
+              onboard({organizationName:'New Google Fictional Company'}),
+              onboard({organizationName:'Competing Google Company'})
+            ])
+          : [await onboard({organizationName:'New Google Fictional Company'})];
+        assert.equal(results.filter(row=>row.status===200).length,1,
+          'only one competing organization onboarding may succeed');
+        assert.ok(results.every(row=>[200,409].includes(row.status)),
+          'competing onboarding must return success or conflict, never an internal error');
+        assert.equal(await Organization.countDocuments(),beforeGoogleCompanies+1,
+          'competing Google onboarding must not produce an extra organization');
+        const created=results.find(row=>row.status===200);
+        assert.ok(created.data.user.organizationId);
+        if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+          assert.equal(await OrganizationEvent.countDocuments({
+            organizationId:created.data.user.organizationId,kind:'organization_created'
+          }),1,'new workspace owner must leave an audited creation event');
+        }
         result=await call('/cases',{cookie:googleCookie});
         assert.equal(result.status,200);
         assert.equal(result.data.cases.length,0,'Google new company cannot see seeded records');
-        result=await call('/auth/organization',{method:'POST',cookie:googleCookie,
-          body:{organizationName:'Duplicate organization'}});
+        result=await onboard({organizationName:'Duplicate organization'});
         assert.equal(result.status,409,'onboarding is one-time only');
       }finally{
         globalThis.fetch=originalFetch;
@@ -744,6 +1143,93 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
           if(v===undefined)delete process.env[k];else process.env[k]=v;
         }
       }
+    });
+    await t.test('workspace digest requires consent and claims each delivery window once',async()=>{
+      const {sendWorkspaceDigests}=await import('../src/workspace-digest.js');
+      const {DigestDelivery}=await import('../src/models.js');
+      const preferences='/auth/notification-preferences';
+      const opt=(cookie,emailDigest)=>call(preferences,{method:'PATCH',cookie,body:{emailDigest}});
+      assert.equal((await opt(a,true)).status,503);
+      const saved={WORKSPACE_DIGEST_ENABLED:process.env.WORKSPACE_DIGEST_ENABLED,
+        BREVO_API_KEY:process.env.BREVO_API_KEY,BREVO_FROM_EMAIL:process.env.BREVO_FROM_EMAIL};
+      const original=globalThis.fetch;
+      const sent=[];
+      let providerAvailable=true;
+      process.env.WORKSPACE_DIGEST_ENABLED='true';
+      process.env.BREVO_API_KEY='fixture-only';
+      process.env.BREVO_FROM_EMAIL='qa@example.test';
+      globalThis.fetch=(url,options)=>{
+        if(String(url)==='https://api.brevo.com/v3/smtp/email'){
+          sent.push(JSON.parse(options.body));
+          return Promise.resolve(new Response('{}',{status:providerAvailable?201:503}));
+        }
+        return original(url,options);
+      };
+      try{
+        assert.equal((await opt(undefined,true)).status,401);
+        assert.equal((await opt(a,true)).data.emailDigest,true);
+        const now=new Date(Date.now()+1000);
+        await Activity.create({caseId,organizationId:orgA._id,actorId:recordedBy,kind:'review',
+          visibility:'creditor',text:'Private fictional amount excluded from email.',createdAt:now});
+        const worker=(time=now)=>sendWorkspaceDigests({origin:'http://localhost:3000',now:time});
+        const reports=await Promise.all([worker(),worker()]);
+        assert.equal(reports.reduce((sum,report)=>sum+report.sent,0),1);
+        assert.equal(sent.length,1);
+        assert.equal(sent[0].to[0].email,'creditora@test.collectdesk.local');
+        assert.ok(!sent[0].textContent.includes('Private fictional amount'));
+        assert.equal((await worker(new Date(now.getTime()+86_400_000))).sent,0);
+        assert.equal(await DigestDelivery.countDocuments(),1);
+        providerAvailable=false;
+        const nextDay=new Date(now.getTime()+86_400_000);
+        await Activity.create({caseId,organizationId:orgA._id,actorId:recordedBy,kind:'review',
+          visibility:'creditor',text:'Another fictional change.',createdAt:nextDay});
+        assert.equal((await worker(nextDay)).unconfirmed,1);
+        assert.equal((await worker(nextDay)).unconfirmed,0,'failed deliveries must not be retried automatically');
+        assert.equal(sent.length,2);
+        assert.equal((await opt(a,false)).data.emailDigest,false);
+      }finally{
+        globalThis.fetch=original;
+        for(const [key,value] of Object.entries(saved)){
+          if(value===undefined)delete process.env[key];else process.env[key]=value;
+        }
+      }
+    });
+    await t.test('administrator operator access changes revoke sessions and retain audit records',async()=>{
+      const staff=await User.findOne({email:'operator@test.collectdesk.local'});
+      const path='/staff/operators/'+staff._id+'/access';
+      const change=(cookie,active)=>call(path,{method:'POST',cookie,body:{active}});
+      const history=()=>call('/staff/operators/access-history',{cookie:admin});
+      assert.equal((await change(operator,false)).status,403);
+      assert.equal((await call('/staff/operators/access-history',{cookie:a})).status,403);
+      assert.equal((await call('/staff/operators/access-history',{cookie:operator})).status,403);
+      if(process.env.LEDGER_TRANSACTIONS_REQUIRED==='true'){
+        const originalSave=StaffAccessEvent.prototype.save;
+        StaffAccessEvent.prototype.save=function(...args){
+          if(this.action==='deactivated')throw new Error('Injected access audit failure');
+          return originalSave.apply(this,args);
+        };
+        try{assert.equal((await change(admin,false)).status,500);}
+        finally{StaffAccessEvent.prototype.save=originalSave;}
+        assert.equal((await User.findById(staff._id).lean()).active,true,
+          'audit failure must roll back operator deactivation');
+        assert.equal((await call('/auth/me',{cookie:operator})).status,200,
+          'operator session must survive a rolled-back access change');
+      }
+      assert.equal((await change(admin,false)).status,200);
+      assert.equal((await call('/auth/me',{cookie:operator})).status,401);
+      let result=await history();
+      assert.equal(result.status,200);
+      assert.equal(result.data.events[0].action,'deactivated');
+      assert.equal(result.data.events[0].operator,'Operator');
+      assert.equal(result.data.events[0].actor,'Admin');
+      assert.equal((await change(admin,true)).status,200);
+      assert.equal((await call('/auth/me',{cookie:operator})).status,401);
+      result=await history();
+      assert.equal(result.data.events[0].action,'restored');
+      assert.equal(result.data.events[1].action,'deactivated');
+      assert.equal((await change(admin,true)).status,409,
+        'repeat restoration must not create a duplicate audit record');
+      assert.equal(await StaffAccessEvent.countDocuments({operatorId:staff._id}),2);
     });
     await t.test('logout sends a clearing cookie', async()=>{
       const logout=await call('/auth/logout',{method:'POST',cookie:a});

@@ -5,6 +5,7 @@
  */
 import {spawn} from 'node:child_process';
 import {resolve} from 'node:path';
+import {setTimeout as delay} from 'node:timers/promises';
 
 const publicPort=Number(process.env.PORT || 10000);
 if(!Number.isInteger(publicPort)||publicPort<1||publicPort>65535||publicPort===4000) {
@@ -48,17 +49,11 @@ if(process.env.SEED_DEMO_ON_START==='true') {
   }
 }
 
-const api=run(process.execPath,[resolve('apps/api/src/server.js')],{...process.env,PORT:'4000',API_LISTEN_HOST:'127.0.0.1'});
-children.push(api);
-const web=run(process.execPath,[
-  resolve('node_modules/next/dist/bin/next'),
-  'start','--hostname','0.0.0.0','--port',String(publicPort)
-],process.env,resolve('apps/web'));
-children.push(web);
-
-for(const [name,child] of [['api',api],['web',web]]) {
+function watch(name, child) {
+  children.push(child);
   child.once('error',error=>{
-    console.error(name+' process could not start:',error.message);
+    if(stopping)return;
+    console.error(name+' process could not start:',error.code);
     stop();
     process.exitCode=1;
   });
@@ -66,6 +61,36 @@ for(const [name,child] of [['api',api],['web',web]]) {
     if(stopping)return;
     console.error(name+' exited unexpectedly:',{code,signal});
     stop();
-    process.exitCode=code&&code!==0?code:1;
+    process.exitCode=code||1;
   });
+}
+
+const api=run(process.execPath,[resolve('apps/api/src/server.js')],{...process.env,PORT:'4000',API_LISTEN_HOST:'127.0.0.1'});
+watch('api',api);
+
+async function waitForApi() {
+  const deadline=Date.now()+30_000;
+  while (!stopping && Date.now()<deadline) {
+    try {
+      const response=await fetch('http://127.0.0.1:4000/health',{signal:AbortSignal.timeout(1800)});
+      const ready=response.ok && (await response.json()).ok===true;
+      if (ready) return true;
+    } catch {
+      // Database initialization or the API listener may still be starting.
+    }
+    await delay(250);
+  }
+  return false;
+}
+
+if (await waitForApi() && !stopping) {
+  const web=run(process.execPath,[
+    resolve('node_modules/next/dist/bin/next'),
+    'start','--hostname','0.0.0.0','--port',String(publicPort)
+  ],process.env,resolve('apps/web'));
+  watch('web',web);
+} else if (!stopping) {
+  console.error('API readiness deadline expired.');
+  process.exitCode=1;
+  stop();
 }

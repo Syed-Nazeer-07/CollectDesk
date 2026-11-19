@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 /**
  * Self-service creditor authentication for CollectDesk.
  *
@@ -10,7 +11,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import {rateLimit} from 'express-rate-limit';
 import {z} from 'zod';
-import {GoogleNonce,Organization,PendingSignup,User} from './models.js';
+import {newPassword} from './new-password.js';
+import {transactionalLedger,FinancialError} from './financial-write.js';
+import {GoogleNonce,Organization,OrganizationEvent,PendingSignup,User} from './models.js';
 import {COOKIE_NAME,cookieOptions,issueSession,publicUser,requireAuth} from './auth.js';
 import {emailDeliveryProvider,sendVerificationEmail} from './email-delivery.js';
 
@@ -32,10 +35,7 @@ const registrationSchema=z.object({
   name:cleanName,
   organizationName:cleanCompany,
   email:z.email().max(254).transform(e=>e.toLowerCase()),
-  password:z.string().min(12).max(128)
-    .regex(/[a-z]/,'Use at least one lowercase letter.')
-    .regex(/[A-Z]/,'Use at least one uppercase letter.')
-    .regex(/[0-9]/,'Use at least one number.')
+  password:newPassword
 }).strict();
 const hashToken=value=>createHash('sha256').update(value).digest('hex');
 const enabled=()=>process.env.PUBLIC_REGISTRATION_ENABLED==='true';
@@ -123,19 +123,31 @@ export function installRegistrationRoutes(app,webOrigin){
   app.post('/api/v1/auth/verify-email',verifyLimiter,async(req,res)=>{
     if(!emailEnabled())return failClosed(res,'Email verification');
     const {token}=z.object({token:z.string().min(30).max(150)}).strict().parse(req.body);
-    const pending=await PendingSignup.findOneAndDelete({tokenHash:hashToken(token),expiresAt:{$gt:new Date()}});
-    if(!pending)return res.status(400).json({error:'This verification link has expired or has already been used.'});
-    if(await User.exists({email:pending.email})){
-      return res.status(409).json({error:'An account already exists for this email. Sign in instead.'});
-    }
-    const organization=await Organization.create({name:pending.organizationName,country:'IN'});
+    const verify=async session=>{
+      const pending=await PendingSignup.findOneAndDelete({tokenHash:hashToken(token),expiresAt:{$gt:new Date()}},{session});
+      if(!pending)return null;
+      if(await User.exists({email:pending.email}).session(session)){
+        const error=new Error('Account already exists');
+        error.code=11000;
+        throw error;
+      }
+      const organization=await new Organization({name:pending.organizationName,country:'IN'}).save({session});
+      try{
+        return await new User({name:pending.name,email:pending.email,passwordHash:pending.passwordHash,
+          role:'creditor',organizationId:organization._id,organizationRole:'owner',active:true}).save({session});
+      }catch(error){
+        if(!session)await Organization.deleteOne({_id:organization._id});
+        throw error;
+      }
+    };
     try{
-      const user=await User.create({name:pending.name,email:pending.email,
-        passwordHash:pending.passwordHash,role:'creditor',organizationId:organization._id,active:true});
+      const user=transactionalLedger()
+        ? await mongoose.connection.transaction(verify,{writeConcern:{w:'majority'}})
+        : await verify(null);
+      if(!user)return res.status(400).json({error:'This verification link has expired or has already been used.'});
       res.cookie(COOKIE_NAME,issueSession(user),cookieOptions());
       return res.status(201).json({user:publicUser(user)});
     }catch(error){
-      await Organization.deleteOne({_id:organization._id});
       if(error?.code===11000)return res.status(409).json({error:'This email is already registered.'});
       throw error;
     }
@@ -193,11 +205,36 @@ export function installRegistrationRoutes(app,webOrigin){
     }
     if(!enabled())return failClosed(res,'Company onboarding');
     const {organizationName}=z.object({organizationName:cleanCompany}).strict().parse(req.body);
-    const org=await Organization.create({name:organizationName,country:'IN'});
-    const updated=await User.findOneAndUpdate({
-      _id:req.user._id,role:'creditor',organizationId:null
-    },{$set:{organizationId:org._id}},{returnDocument:'after'});
-    if(!updated){await Organization.deleteOne({_id:org._id});return res.status(409).json({error:'Workspace setup has already been completed.'});}
+    const createWorkspace=async session=>{
+      // The owner link, workspace, and creation event are one logical operation.
+      // A competing setup or failed audit must not leave orphan organizations.
+      const org=await new Organization({name:organizationName,country:'IN'}).save({session});
+      const updated=await User.findOneAndUpdate({
+        _id:req.user._id,role:'creditor',organizationId:null,active:true
+      },{$set:{organizationId:org._id,organizationRole:'owner'}},
+      {returnDocument:'after',session});
+      if(!updated){
+        if(!session)await Organization.deleteOne({_id:org._id});
+        return null;
+      }
+      if(session){
+        await new OrganizationEvent({organizationId:org._id,actorId:req.user._id,
+          kind:'organization_created',detail:'Workspace created by initial owner'}).save({session});
+      }
+      return updated;
+    };
+    const updated=transactionalLedger()
+      ? await mongoose.connection.transaction(async session=>{
+          const user=await createWorkspace(session);
+          // Returning null from a transaction would commit the organization
+          // that was created earlier in the callback. Throw to roll back.
+          if(!user){
+            throw new FinancialError(409,'Workspace setup has already been completed.');
+          }
+          return user;
+        },{writeConcern:{w:'majority'}})
+      : await createWorkspace(null);
+    if(!updated)return res.status(409).json({error:'Workspace setup has already been completed.'});
     res.json({user:publicUser(updated)});
   });
 }

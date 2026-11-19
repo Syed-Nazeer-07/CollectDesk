@@ -374,6 +374,20 @@ try {
   await assertEmptyStateLayout(creditor,'.cases-empty-filter','.cases-empty-icon','h4','p');
   await creditor.screenshot({path:'browser-audit-results/cases-empty-desktop.png',fullPage:true});
   await creditor.locator('.cases-empty-filter').getByRole('button',{name:'Clear filters'}).click();
+  const companyLink=creditor.locator('.sidebar-nav').getByRole('link',{name:'Organization'});
+  await companyLink.click();
+  await creditor.getByRole('heading',{name:'Company profile'}).waitFor();
+  const companyName=creditor.getByLabel('Company name');
+  const originalCompanyName=await companyName.inputValue();
+  await companyName.fill('Fictional company '+Date.now());
+  await creditor.getByRole('button',{name:'Save profile'}).click();
+  await creditor.getByText('Company name updated.').waitFor();
+  await creditor.reload();
+  await creditor.getByLabel('Company name').waitFor();
+  assert.match(await companyName.inputValue(),/^Fictional company /);
+  await companyName.fill(originalCompanyName);
+  await creditor.getByRole('button',{name:'Save profile'}).click();
+  await creditor.getByText('Company name updated.').waitFor();
   log('Account access, empty-state alignment and URL-synchronized case filtering work');
 
   step = 'creditor login and case creation';
@@ -494,6 +508,13 @@ try {
   await operator.getByLabel('Visibility').selectOption('creditor');
   await operator.getByRole('button', { name: /Post update/i }).click();
   await operator.getByText('Public browser audit progress update').waitFor();
+  await operator.getByLabel('Follow-up (local time)').fill('2030-05-10T10:30');
+  await operator.getByLabel('Follow-up note').fill('Prepare the fictional reconciliation.');
+  await operator.getByRole('button',{name:'Save work plan'}).click();
+  await operator.getByText('Action saved successfully.').waitFor();
+  await operator.locator('.sidebar-nav').getByRole('link',{name:'Work queue'}).click();
+  await operator.getByText('Prepare the fictional reconciliation.').waitFor();
+  await operator.getByRole('link',{name:/Browser Audit Fictional Supplies/}).click();
   log('Assigned operator posted public and internal activity');
 
   step = 'notification center activity and read-state QA';

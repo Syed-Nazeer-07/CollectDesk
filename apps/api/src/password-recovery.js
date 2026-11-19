@@ -6,6 +6,9 @@ import {createHash,randomBytes} from 'node:crypto';
 import {rateLimit} from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import {z} from 'zod';
+import mongoose from 'mongoose';
+import {newPassword} from './new-password.js';
+import {transactionalLedger} from './financial-write.js';
 import {PasswordReset,User} from './models.js';
 import {emailDeliveryProvider,sendPasswordResetEmail} from './email-delivery.js';
 
@@ -17,10 +20,6 @@ const resetLimiter=rateLimit({
   windowMs:15*60*1000,limit:10,standardHeaders:'draft-8',legacyHeaders:false,
   message:{error:'Too many reset attempts. Please try again later.'}
 });
-const password=z.string().min(12).max(128)
-  .regex(/[a-z]/,'Use a lowercase letter.')
-  .regex(/[A-Z]/,'Use an uppercase letter.')
-  .regex(/[0-9]/,'Use a number.');
 const tokenHash=token=>createHash('sha256').update(token).digest('hex');
 
 export function installPasswordRecoveryRoutes(app,webOrigin){
@@ -42,17 +41,18 @@ export function installPasswordRecoveryRoutes(app,webOrigin){
     if(!user)return res.status(202).json(reply);
 
     const token=randomBytes(32).toString('base64url');
-    // New requests invalidate earlier unused recovery links for this user.
-    await PasswordReset.deleteMany({userId:user._id});
-    const pending=await PasswordReset.create({
-      userId:user._id,tokenHash:tokenHash(token),
-      expiresAt:new Date(Date.now()+30*60*1000)
-    });
+    // New links replace the prior link using one atomic record per user.
+    // Legacy records used an independently generated _id.
+    await PasswordReset.deleteMany({userId:user._id,_id:{$ne:user._id}});
+    const hash=tokenHash(token);
+    await PasswordReset.updateOne({_id:user._id},{
+      $set:{userId:user._id,tokenHash:hash,expiresAt:new Date(Date.now()+30*60*1000)}
+    },{upsert:true});
     try{
       await sendPasswordResetEmail(user.email,
         webOrigin+'/reset-password?token='+encodeURIComponent(token));
     }catch{
-      await PasswordReset.deleteOne({_id:pending._id});
+      await PasswordReset.deleteOne({_id:user._id,tokenHash:hash});
       // Respond identically for existing/nonexistent addresses to prevent enumeration.
       console.error('[Auth] Password recovery mail delivery failed');
     }
@@ -60,20 +60,22 @@ export function installPasswordRecoveryRoutes(app,webOrigin){
   });
 
   app.post('/api/v1/auth/password/reset',resetLimiter,async(req,res)=>{
-    const input=z.object({token:z.string().min(30).max(150),password}).strict().parse(req.body);
-    const pending=await PasswordReset.findOneAndDelete({
-      tokenHash:tokenHash(input.token),expiresAt:{$gt:new Date()}
-    });
-    if(!pending)return res.status(400).json({
-      error:'This password reset link has expired or was already used. Request a new one.'
-    });
+    const input=z.object({token:z.string().min(30).max(150),password:newPassword}).strict().parse(req.body);
+    const hash=tokenHash(input.token);
+    if(!await PasswordReset.exists({tokenHash:hash,expiresAt:{$gt:new Date()}}))
+      return res.status(400).json({error:'This password reset link has expired or was already used. Request a new one.'});
     const passwordHash=await bcrypt.hash(input.password,12);
-    const user=await User.findOneAndUpdate({_id:pending.userId,active:true},{
-      $set:{passwordHash},$inc:{sessionVersion:1}
-    },{returnDocument:'after'});
+    const reset=async session=>{
+      const pending=await PasswordReset.findOneAndDelete({tokenHash:hash,expiresAt:{$gt:new Date()}},{session});
+      if(!pending)return null;
+      return User.findOneAndUpdate({_id:pending.userId,active:true},{
+        $set:{passwordHash},$inc:{sessionVersion:1}
+      },{returnDocument:'after',session});
+    };
+    const user=transactionalLedger()
+      ? await mongoose.connection.transaction(reset,{writeConcern:{w:'majority'}})
+      : await reset(null);
     if(!user)return res.status(400).json({error:'This password reset link is no longer valid.'});
-    // Older signed sessions become invalid through sessionVersion checking.
-    await PasswordReset.deleteMany({userId:user._id});
     res.set('Cache-Control','no-store');
     return res.json({ok:true,message:'Password changed. Please sign in again.'});
   });

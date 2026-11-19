@@ -8,6 +8,8 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import {rateLimit} from 'express-rate-limit';
 import {z} from 'zod';
+import {newPassword} from './new-password.js';
+import {transactionalLedger} from './financial-write.js';
 import {StaffInvite,User} from './models.js';
 import {requireAuth,requireRole,issueSession,cookieOptions,COOKIE_NAME,publicUser} from './auth.js';
 import {emailDeliveryProvider,sendStaffInviteEmail} from './email-delivery.js';
@@ -21,10 +23,6 @@ const acceptLimiter=rateLimit({
   windowMs:15*60*1000,limit:10,standardHeaders:'draft-8',legacyHeaders:false,
   message:{error:'Too many activation attempts. Try again later.'}
 });
-const password=z.string().min(12).max(128)
-  .regex(/[a-z]/,'Use a lowercase letter.')
-  .regex(/[A-Z]/,'Use an uppercase letter.')
-  .regex(/[0-9]/,'Use a number.');
 const invitation=z.object({
   email:z.email().max(254).transform(x=>x.trim().toLowerCase()),
   role:z.literal('operator')
@@ -32,7 +30,7 @@ const invitation=z.object({
 const acceptance=z.object({
   token:z.string().min(35).max(150),
   name:z.string().trim().min(2).max(90),
-  password
+  password:newPassword
 }).strict();
 
 export function installStaffRoutes(app,webOrigin) {
@@ -75,7 +73,7 @@ export function installStaffRoutes(app,webOrigin) {
   app.post('/api/v1/staff/invitations/:id/revoke',requireAuth,requireRole('admin'),async(req,res)=>{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(404).json({error:'Invitation not found.'});
     const updated=await StaffInvite.findOneAndUpdate(
-      {_id:req.params.id,status:'pending'},{$set:{status:'revoked'}},{new:true}
+      {_id:req.params.id,status:'pending'},{$set:{status:'revoked'}},{returnDocument:'after'}
     );
     if(!updated)return res.status(409).json({error:'This invitation is no longer active.'});
     return res.json({ok:true});
@@ -104,24 +102,31 @@ export function installStaffRoutes(app,webOrigin) {
       error:'This email already has an account. Sign in instead.'
     });
     const hashedPassword=await bcrypt.hash(input.password,12);
-    // Consume the token atomically so two parallel activations cannot both succeed.
-    const consumed=await StaffInvite.findOneAndUpdate({
-      _id:pending._id,tokenHash,status:'pending',expiresAt:{$gt:new Date()}
-    },{$set:{status:'consumed',consumedAt:new Date()}},{new:true});
-    if(!consumed)return res.status(400).json({error:'Invitation is no longer valid.'});
+    const activate=async session=>{
+      const consumed=await StaffInvite.findOneAndUpdate({
+        _id:pending._id,tokenHash,status:'pending',expiresAt:{$gt:new Date()}
+      },{$set:{status:'consumed',consumedAt:new Date()}},{returnDocument:'after',session});
+      if(!consumed)return null;
+      try {
+        return await new User({name:input.name,email:consumed.email,
+          role:'operator',active:true,passwordHash:hashedPassword}).save({session});
+      }catch(error){
+        if(!session&&error?.code!==11000){
+          await StaffInvite.updateOne({_id:consumed._id,status:'consumed'},{$set:{status:'pending',consumedAt:null}});
+        }
+        throw error;
+      }
+    };
     let user;
-    try {
-      user=await User.create({
-        name:input.name,email:consumed.email,
-        role:'operator',active:true,passwordHash:hashedPassword
-      });
+    try{
+      user=transactionalLedger()
+        ? await mongoose.connection.transaction(activate,{writeConcern:{w:'majority'}})
+        : await activate(null);
     }catch(error){
-      // Re-enable only after an unexpected database error; never re-enable
-      // a token that maps to a registered account.
       if(error?.code===11000)return res.status(409).json({error:'This email already has an account.'});
-      await StaffInvite.updateOne({_id:consumed._id,status:'consumed'},{$set:{status:'pending',consumedAt:null}});
       throw error;
     }
+    if(!user)return res.status(400).json({error:'Invitation is no longer valid.'});
     res.cookie(COOKIE_NAME,issueSession(user),cookieOptions());
     res.set('Cache-Control','no-store');
     return res.status(201).json({user:publicUser(user)});

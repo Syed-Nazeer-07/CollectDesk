@@ -1,7 +1,8 @@
 import {z} from 'zod';
-import {Activity,Case,User} from './models.js';
+import {Activity,Case,SupportRequest,User} from './models.js';
+import {scopeForUser} from './rules.js';
 
-const KINDS = ['submitted','review','assigned','status','note','verified','reversal','receipt','receipt_rejected','updated'];
+const KINDS = ['submitted','review','assigned','status','note','verified','reversal','receipt','receipt_rejected','updated','work_plan'];
 const querySchema = z.object({
   page:z.coerce.number().int().min(1).max(100).default(1),
   unread:z.enum(['0','1']).default('0')
@@ -13,7 +14,7 @@ const PAGE_SIZE = 20;
  * notification store that could disagree with the case timeline.
  * Access is checked against the CURRENT case assignment/company on every read.
  */
-function activityScope(user,unreadOnly=false) {
+function activityScope(user,unreadOnly=false,until) {
   const match={kind:{$in:KINDS},actorId:{$ne:user._id}};
   if(user.role==='creditor') {
     match.visibility='creditor';
@@ -23,7 +24,7 @@ function activityScope(user,unreadOnly=false) {
     user.role==='creditor' && user.organizationId?{'case.organizationId':user.organizationId}:
     user.role==='operator' && user._id?{'case.assignedTo':user._id}:
     {_id:{$exists:false}};
-  if (unreadOnly) match.createdAt={$gt:user.notificationsSeenAt || new Date(0)};
+  if (unreadOnly) match.createdAt={$gt:user.notificationsSeenAt || new Date(0),...(until?{$lte:until}:{})};
   return [
     {$match:match},
     {$lookup:{from:Case.collection.name,localField:'caseId',foreignField:'_id',as:'case'}},
@@ -54,14 +55,67 @@ export function notificationPipeline(user,page=1,unreadOnly=false) {
   ];
 }
 
+function operationsQueries(user, unreadOnly, now=new Date()){
+  const seen=user.notificationsSeenAt || new Date(0);
+  const support={createdBy:user._id,'history.0':{$exists:true},handledBy:{$ne:user._id}};
+  if(unreadOnly) support.updatedAt={$gt:seen};
+  const deadline={
+    ...scopeForUser(user),status:{$in:['accepted','in_progress','on_hold']},
+    followUpAt:{$type:'date',$lte:now,...(unreadOnly?{$gt:seen}:{})}
+  };
+  return {support,deadline,staff:['admin','operator'].includes(user.role),seen};
+}
+
+async function operationCounts(user){
+  const {support,deadline,staff}=operationsQueries(user,true);
+  const [supportCount,deadlineCount]=await Promise.all([
+    SupportRequest.countDocuments(support).limit(100),
+    staff ? Case.countDocuments(deadline).limit(100) : 0
+  ]);
+  return supportCount+deadlineCount;
+}
+
+async function operationNotices(user,unreadOnly){
+  const {support,deadline,staff,seen}=operationsQueries(user,unreadOnly);
+  const [tickets,cases]=await Promise.all([
+    SupportRequest.find(support).sort({updatedAt:-1,_id:-1}).limit(10).select('subject status updatedAt').lean(),
+    staff ? Case.find(deadline).sort({followUpAt:-1,_id:-1}).limit(10).select('caseCode followUpAt').lean() : []
+  ]);
+  return [
+    ...tickets.map(row=>({id:'support-'+row._id,kind:'support',title:row.subject,status:row.status,
+      href:'/support',createdAt:row.updatedAt,unread:row.updatedAt>seen})),
+    ...cases.map(row=>({id:'follow-up-'+row._id,kind:'follow_up',title:row.caseCode,
+      href:'/cases/'+row._id,createdAt:row.followUpAt,unread:row.followUpAt>seen}))
+  ].sort((a,b)=>b.createdAt-a.createdAt).slice(0,10);
+}
+
+export async function hasRecentWorkspaceActivity(user,since,now){
+  const window={...user,notificationsSeenAt:since};
+  const {support,deadline,staff}=operationsQueries(window,true,now);
+  support.updatedAt.$lte=now;
+  const [activity,ticket,followUp]=await Promise.all([
+    Activity.aggregate([...activityScope(window,true,now),{$limit:1},{$project:{_id:1}}]),
+    SupportRequest.exists(support),
+    staff ? Case.exists(deadline) : null
+  ]);
+  return Boolean(activity.length||ticket||followUp);
+}
+
 export function installNotificationRoutes(route) {
   route.get('/notifications/count',async(req,res)=>{
-    const [count]=await Activity.aggregate([...activityScope(req.user,true),{$limit:100},{$count:'value'}]);
-    res.json({unreadCount:count?.value || 0});
+    const [[count],operations]=await Promise.all([
+      Activity.aggregate([...activityScope(req.user,true),{$limit:100},{$count:'value'}]),
+      operationCounts(req.user)
+    ]);
+    res.json({unreadCount:Math.min(100,(count?.value || 0)+operations)});
   });
   route.get('/notifications',async(req,res)=>{
     const {page,unread}=querySchema.parse(req.query);
-    const [result]=await Activity.aggregate(notificationPipeline(req.user,page,unread==='1'));
+    const [[result],operations,count]=await Promise.all([
+      Activity.aggregate(notificationPipeline(req.user,page,unread==='1')),
+      page===1 ? operationNotices(req.user,unread==='1') : [],
+      operationCounts(req.user)
+    ]);
     const rows=result?.items || [];
     res.json({
       notifications:rows.slice(0,PAGE_SIZE).map(row=>({
@@ -69,8 +123,8 @@ export function installNotificationRoutes(route) {
         debtorName:row.debtorName,kind:row.kind,text:row.text,createdAt:row.createdAt,
         unread:row.unread
       })),
-      page,hasMore:rows.length>PAGE_SIZE,
-      unreadCount:result?.unread?.[0]?.value || 0
+      operations,page,hasMore:rows.length>PAGE_SIZE,
+      unreadCount:Math.min(100,(result?.unread?.[0]?.value || 0)+count)
     });
   });
   route.post('/notifications/read',async(req,res)=>{

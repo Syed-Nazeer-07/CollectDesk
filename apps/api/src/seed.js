@@ -17,7 +17,7 @@ if (!['collectdesk_demo', 'collectdesk_ci_demo'].includes(databaseName)) {
 await mongoose.connect(process.env.MONGODB_URI);
 const hash=await bcrypt.hash(process.env.DEMO_SEED_PASSWORD,12);
 async function org(name){return Organization.findOneAndUpdate({name},{$setOnInsert:{name,country:'IN',active:true}},{upsert:true,returnDocument:'after'});}
-async function user(email,name,role,organizationId){return User.findOneAndUpdate({email},{$set:{name,role,organizationId,passwordHash:hash,active:true}},{upsert:true,returnDocument:'after'});}
+async function user(email,name,role,organizationId){return User.findOneAndUpdate({email},{$set:{name,role,organizationId,organizationRole:role==='creditor'?'owner':'member',passwordHash:hash,active:true}},{upsert:true,returnDocument:'after'});}
 const [alpha,beta]=await Promise.all([org('Acme Industrial Supplies'),org('Meridian Office Systems')]);
 const [admin,operator,alice,bob]=await Promise.all([
   user('admin@demo.collectdesk.test','Avery Morgan','admin'),user('operator@demo.collectdesk.test','Jordan Lee','operator'),

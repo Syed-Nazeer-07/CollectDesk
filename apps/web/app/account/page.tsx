@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, type FormEvent} from 'react';
+import {useEffect,useState, type FormEvent} from 'react';
 import Link from 'next/link';
 import {ArrowRight,BriefcaseBusiness,CheckCircle2,FileText,LockKeyhole,ShieldCheck,UserRound} from 'lucide-react';
 import AppShell from '@/components/AppShell';
@@ -51,6 +51,7 @@ export default function AccountPage(){
           </div>
           <div className="account-permission-note"><LockKeyhole size={17}/><p>Roles cannot be switched or self-assigned during sign-in. Contact a workspace administrator if your access needs to change.</p></div>
         </section>
+        <NotificationPreferences key={user.id}/>
         <section className="demo-info-grid">
           <div className="panel demo-info-card"><BriefcaseBusiness size={21}/><h3>Workspace</h3>
             <p>{user.organizationId?'Your creditor access is scoped to your assigned organization.':'Your access is controlled by your assigned staff role.'}</p>
@@ -97,4 +98,45 @@ function ProfileForm({user,onSaved}:{user:User;onSaved:(user:User)=>void}){
     {error && <p className="message error" role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
   </form>;
+}
+
+type DigestPreferences={emailDigest:boolean;available:boolean};
+function NotificationPreferences(){
+  const [data,setData]=useState<DigestPreferences|null>(null);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
+  const [attempt,setAttempt]=useState(0);
+
+  useEffect(()=>{
+    const controller=new AbortController();
+    api<DigestPreferences>('/auth/notification-preferences',{signal:controller.signal})
+      .then(result=>{if(!controller.signal.aborted)setData(result);})
+      .catch(error=>{if(!controller.signal.aborted)setError(error.message);});
+    return ()=>controller.abort();
+  },[attempt]);
+
+  async function toggle(){
+    if(!data)return;
+    setBusy(true);setError('');setNotice('');
+    try{
+      const result=await api<DigestPreferences>('/auth/notification-preferences',{
+        method:'PATCH',body:JSON.stringify({emailDigest:!data.emailDigest})
+      });
+      setData(result);
+      setNotice(result.emailDigest?'Daily email digest enabled.':'Daily email digest turned off.');
+    }catch(error){setError(error instanceof Error?error.message:'Could not update email preference.');}
+    finally{setBusy(false);}
+  }
+
+  if(!error&&!data?.available&&!data?.emailDigest)return null;
+  return <section className="panel organization-panel">
+    <h2>Email notifications</h2>
+    <p>Get a daily email when there is new activity in your workspace.</p>
+    {data&&<button className="button button-outline" disabled={busy} onClick={()=>void toggle()}>
+      {data.emailDigest?'Turn off daily email':'Enable daily email'}
+    </button>}
+    {error&&<p className="message error" role="alert">{error}{!data&&<button onClick={()=>{setError('');setAttempt(n=>n+1);}}>Retry</button>}</p>}
+    {notice&&<p role="status">{notice}</p>}
+  </section>;
 }

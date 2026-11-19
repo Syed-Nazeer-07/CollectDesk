@@ -1,14 +1,17 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {ShieldCheck,ArrowRight} from 'lucide-react';
 import {api,User} from '@/lib/api';
+import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 import BrandMark from '@/components/BrandMark';
 
 type InvitationInfo={email:string;role:'operator';expiresAt:string};
 export default function ActivateStaff(){
   const router=useRouter();
+  const {acceptUser}=useWorkspaceSession();
+  const incoming=useRef('');
   const [token,setToken]=useState('');
   const [invitation,setInvitation]=useState<InvitationInfo|null>(null);
   const [name,setName]=useState('');
@@ -19,18 +22,21 @@ export default function ActivateStaff(){
   const [error,setError]=useState('');
   useEffect(()=>{
     const fragment=window.location.hash.startsWith('#token=')?window.location.hash.slice(7):'';
-    let value='';
-    try{value=decodeURIComponent(fragment);}catch{}
+    let value=incoming.current;
+    try{if(fragment)value=decodeURIComponent(fragment);}catch{}
     // Keep compatibility with older query-string invitations.
     if(!value)value=new URLSearchParams(window.location.search).get('token')||'';
     // Remove the one-time token from browser history immediately.
     window.history.replaceState(window.history.state,'','/staff/activate');
     if(!value){setError('An invitation link is required. Ask your administrator to send a new one.');setLoading(false);return;}
+    incoming.current=value;
     setToken(value);
-    api<InvitationInfo>('/auth/staff-invite/inspect',{method:'POST',body:JSON.stringify({token:value})})
+    const controller=new AbortController();
+    api<InvitationInfo>('/auth/staff-invite/inspect',{method:'POST',body:JSON.stringify({token:value}),signal:controller.signal})
       .then(r=>setInvitation(r))
-      .catch(e=>setError(e instanceof Error?e.message:'This invitation is no longer valid.'))
-      .finally(()=>setLoading(false));
+      .catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:'This invitation is no longer valid.');})
+      .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return ()=>controller.abort();
   },[]);
   async function activate(e:React.FormEvent){
     e.preventDefault();
@@ -41,6 +47,7 @@ export default function ActivateStaff(){
         method:'POST',body:JSON.stringify({token,name,password})
       });
       if(result.user.role!=='operator')throw new Error('Unexpected account role.');
+      acceptUser(result.user);
       router.replace('/dashboard');
     }catch(e){setError(e instanceof Error?e.message:'Could not activate your account.');}
     finally{setBusy(false);}
