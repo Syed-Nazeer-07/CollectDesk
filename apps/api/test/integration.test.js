@@ -805,6 +805,47 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       assert.equal((await call('/notifications',{cookie:a})).data.operations.some(item=>item.kind==='follow_up'),false);
 
     });
+    await t.test('inactive operators cannot strand cases outside the admin handoff queue',async()=>{
+      const creditor=await User.findOne({email:'creditora@test.collectdesk.local'}).lean();
+      const activeOperator=await User.findOne({email:'operator@test.collectdesk.local'}).lean();
+      const inactive=await User.create({
+        name:'Handoff test operator',email:'handoff-operator@collectdesk-ci.test',
+        role:'operator',passwordHash
+      });
+      const stranded=await Case.create({
+        caseCode:'CC-STAFF-HANDOFF-001',organizationId:orgA._id,createdBy:creditor._id,
+        debtorName:'Synthetic reassignment case',invoiceNo:'STAFF-HANDOFF-001',
+        issueDate:new Date('2026-01-01'),dueDate:new Date('2026-02-01'),
+        principalPaise:75000,status:'in_progress',assignedTo:inactive._id
+      });
+      const view=()=>call('/work-queue?view=unassigned',{cookie:admin});
+      try{
+        assert.equal((await view()).data.items.some(item=>item.id===String(stranded._id)),false,
+          'cases with active operators must not appear in the handoff queue');
+        const disabled=await call('/staff/operators/'+inactive._id+'/access',{
+          method:'POST',cookie:admin,body:{active:false}
+        });
+        assert.equal(disabled.status,200);
+        const queue=await view();
+        assert.equal(queue.status,200);
+        const item=queue.data.items.find(item=>item.id===String(stranded._id));
+        assert.ok(item,'admin handoff queue must include cases assigned to inactive operators');
+        assert.equal(item.assignmentState,'inactive_operator');
+        assert.equal((await call('/work-queue?view=unassigned',{cookie:operator})).status,403,
+          'operator cannot see the admin reassignment queue');
+        const assigned=await call('/cases/'+stranded._id+'/assign',{
+          method:'POST',cookie:admin,body:{operatorId:String(activeOperator._id)}
+        });
+        assert.equal(assigned.status,200,'admin must be able to hand off a stranded case');
+        assert.equal((await view()).data.items.some(row=>row.id===String(stranded._id)),false,
+          'reassigned cases must disappear from the handoff queue');
+      }finally{
+        await Activity.deleteMany({caseId:stranded._id});
+        await Case.deleteOne({_id:stranded._id});
+        await StaffAccessEvent.deleteMany({operatorId:inactive._id});
+        await User.deleteOne({_id:inactive._id});
+      }
+    });
     await t.test('financial records roll back with audit failure and retry safely',{skip:process.env.LEDGER_TRANSACTIONS_REQUIRED!=='true'},async()=>{
       const path='/cases/'+caseId+'/receipts';
       const key=randomUUID();
