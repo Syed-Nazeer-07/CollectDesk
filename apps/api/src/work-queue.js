@@ -22,14 +22,23 @@ export function installWorkQueueRoutes(route,{getCase,logEvent}){
     const {view,page}=queueQuery.parse(req.query);
     if(view==='unassigned'&&req.user.role!=='admin')return res.status(403).json({error:'This queue requires administrator access.'});
     const filter={...scopeForUser(req.user),status:{$in:activeStatuses}};
-    if(view==='unassigned')filter.assignedTo=null;
-    else filter.followUpAt={$type:'date'};
+    let inactiveIds=[];
+    if(view==='unassigned'){
+      // Cases assigned to deactivated staff are operationally unattended.
+      // Include them in the admin's assignment queue for an explicit handoff
+      // rather than hiding them until someone searches the case register.
+      inactiveIds=await User.find({role:'operator',active:false}).distinct('_id');
+      filter.$or=[{assignedTo:null},{assignedTo:{$in:inactiveIds}}];
+    }else filter.followUpAt={$type:'date'};
     const sort=view==='unassigned'?{dueDate:1,_id:1}:{followUpAt:1,_id:1};
     const rows=await Case.find(filter).sort(sort).skip((page-1)*25).limit(26)
-      .select('caseCode debtorName priority followUpAt followUpNote status').lean();
+      .select('caseCode debtorName priority followUpAt followUpNote status assignedTo').lean();
+    const inactiveSet=new Set(inactiveIds.map(String));
     const now=new Date();
     res.json({items:rows.slice(0,25).map(row=>({id:String(row._id),caseCode:row.caseCode,
       debtorName:row.debtorName,status:row.status,priority:row.priority||'normal',
+      assignmentState:view==='unassigned'&&row.assignedTo&&inactiveSet.has(String(row.assignedTo))
+        ? 'inactive_operator':view==='unassigned'?'unassigned':undefined,
       followUpAt:row.followUpAt,followUpNote:row.followUpNote,overdue:row.followUpAt<now && Boolean(row.followUpAt)})),
       hasMore:rows.length>25});
   });
