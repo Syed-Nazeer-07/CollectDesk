@@ -7,8 +7,8 @@ import bcrypt from 'bcryptjs';
 import {randomUUID} from 'node:crypto';
 import {z, ZodError} from 'zod';
 import mongoose from 'mongoose';
-import {User,Case,Activity,Receipt} from './models.js';
-import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRole} from './auth.js';
+import {User,Organization,Case,Activity,Receipt} from './models.js';
+import {issueSession,publicUser,cookieOptions,COOKIE_NAME,requireAuth,requireRole,revokeSession} from './auth.js';
 import {installRegistrationRoutes} from './registration.js';
 import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
@@ -68,7 +68,7 @@ app.post('/api/v1/auth/login',authLimiter,async(req,res)=>{
   res.cookie(COOKIE_NAME,issueSession(user),cookieOptions());
   res.json({user:publicUser(user)});
 });
-app.post('/api/v1/auth/logout',(_req,res)=>{res.clearCookie(COOKIE_NAME,{...cookieOptions(),maxAge:undefined});res.json({ok:true});});
+app.post('/api/v1/auth/logout',async(req,res)=>{await revokeSession(req.cookies?.[COOKIE_NAME]);res.clearCookie(COOKIE_NAME,{...cookieOptions(),maxAge:undefined});res.json({ok:true});});
 app.get('/api/v1/auth/me',requireAuth,(req,res)=>res.json({user:publicUser(req.user)}));
 const profileBody = z.object({name:z.string().trim().min(2).max(90)}).strict();
 app.patch('/api/v1/auth/me', requireAuth, async (req, res) => {
@@ -87,7 +87,12 @@ const route=express.Router();
 route.use(requireAuth);
 // Help requests remain available while a new creditor completes company setup.
 installSupportRoutes(route);
-route.use((req,res,next)=>req.user.role==='creditor'&&!req.user.organizationId?res.status(403).json({error:'Complete your company setup before using the workspace.'}):next());
+route.use(async(req,res,next)=>{
+  if(req.user.role!=='creditor')return next();
+  if(!req.user.organizationId)return res.status(403).json({error:'Complete your company setup before using the workspace.'});
+  if(!await Organization.exists({_id:req.user.organizationId,active:true}))return res.status(403).json({error:'Your company workspace is inactive. Contact support.'});
+  next();
+});
 const scope=scopeForUser;
 async function getCase(req,res,next) {
   if(!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({error:'Case not found.'});

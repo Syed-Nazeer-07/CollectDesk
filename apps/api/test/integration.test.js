@@ -15,7 +15,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   process.env.JWT_SECRET = 'integration-test-only-secret-replace-for-real-production';
   const mongoose = (await import('mongoose')).default;
   const bcrypt = (await import('bcryptjs')).default;
-  const {Organization, User, Case, Activity, Receipt} = await import('../src/models.js');
+  const {Organization, User, Case, Activity, Receipt, RevokedSession} = await import('../src/models.js');
 
   // Hard block before any data deletion. Never run against the demo or production DB.
   const parsed = new URL(uri);
@@ -29,7 +29,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const app = (await import('../src/app.js')).default;
     const {assertTransactionTopology}=await import('../src/ledger.js');
     await assertTransactionTopology(mongoose.connection);
-    await Promise.all([Case.init(),Receipt.init(),Activity.init()]);
+    await Promise.all([Case.init(),Receipt.init(),Activity.init(),RevokedSession.init()]);
     const orgA = await Organization.create({name:'Fictional creditor A'});
     const orgB = await Organization.create({name:'Fictional creditor B'});
     const password = 'Test-Only-Password-2026!';
@@ -344,6 +344,20 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,201,JSON.stringify(r.data));
     const caseId = r.data.id;
     assert.ok(caseId);
+    await t.test('disabled tenant cannot access cases and cross-tenant mutations fail closed',async()=>{
+      try{
+        await Organization.updateOne({_id:orgA._id},{$set:{active:false}});
+        assert.equal((await call('/cases',{cookie:a})).status,403);
+        assert.equal((await call('/dashboard/summary',{cookie:a})).status,403);
+        assert.equal((await call(`/cases/${caseId}`,{cookie:a})).status,403);
+        assert.equal((await call('/support/requests',{cookie:a})).status,200,'inactive tenant can still seek support');
+      }finally{await Organization.updateOne({_id:orgA._id},{$set:{active:true}});}
+      for(const suffix of ['submit','review','assign','status','activity','receipts']){
+        assert.equal((await call(`/cases/${caseId}/${suffix}`,{method:'POST',cookie:b,body:{}})).status,404);
+      }
+      assert.equal((await call('/operators',{cookie:a})).status,403);
+      assert.equal((await call('/operators',{cookie:operator})).status,403);
+    });
     await t.test('private synthetic PDF evidence is strictly scoped and guarded',async()=>{
       const previous=process.env.SAMPLE_EVIDENCE_ENABLED;
       const sample=Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n');
@@ -826,6 +840,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const logout=await call('/auth/logout',{method:'POST',cookie:a});
       assert.equal(logout.status,200);
       assert.match(logout.cookie||'',/collectdesk_session=/);
+      assert.equal((await call('/auth/me',{cookie:a})).status,401,'logged-out token cannot be replayed');
+      const newSession=await signIn('creditora@test.collectdesk.local');
+      assert.equal((await call('/auth/me',{cookie:newSession})).status,200,'a fresh session remains valid');
     });
   } finally {
     if(server) await new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()));

@@ -10,6 +10,12 @@ export const User = mongoose.model('User', new mongoose.Schema({
   sessionVersion: {type:Number,default:0,min:0},
   notificationsSeenAt: {type:Date,default:null}
 }, options));
+// Session revocation stores only a hash of the signed cookie, never the token.
+const revokedSessionSchema=new mongoose.Schema({
+  tokenHash:{type:String,required:true,unique:true},expiresAt:{type:Date,required:true}
+},options);
+revokedSessionSchema.index({expiresAt:1},{expireAfterSeconds:0});
+export const RevokedSession=mongoose.model('RevokedSession',revokedSessionSchema);
 const caseSchema = new mongoose.Schema({
   caseCode: {type: String, required: true, unique: true}, organizationId: {...id, ref: 'Organization', required: true, index: true},
   createdBy: {...id, ref:'User', required: true}, debtorName: {type: String, required: true}, invoiceNo: {type: String, required: true},
