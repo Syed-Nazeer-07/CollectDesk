@@ -7,6 +7,7 @@ test('reports use inclusive Indian dates and enforce a bounded interval',()=>{
   assert.equal(r.end.toISOString(),'2026-11-26T18:30:00.000Z');
   assert.equal(reportRange('2026-11-27','2026-11-26'),null);
   assert.equal(reportRange('2024-01-01','2025-01-01'),null);
+  assert.equal(reportRange('0001-01-01','0001-02-01'),null);
 });
 test('report fills missing months and preserves negative net movements',()=>{
   const r=summarizeMovements([{_id:'2026-01',gross:'100',reversed:'200',count:2}], '2026-01-15','2026-03-03');

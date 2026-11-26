@@ -531,6 +531,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const created=await call(path,{method:'POST',cookie:operator,body:payload});
       assert.equal(created.status,200,JSON.stringify(created.data));
       assert.equal((await call(path,{method:'POST',cookie:operator,body:payload})).status,409);
+      const summary=await call('/dashboard/summary',{cookie:operator});
+      assert.ok(summary.data.tasks.scheduled>=1);
+      assert.equal((await call('/dashboard/summary',{cookie:a})).data.tasks,undefined);
       const queue=await call('/follow-ups',{cookie:operator});
       assert.ok(queue.data.items.some(x=>x.id===caseId&&x.note===payload.note));
       const creditorView=await call('/cases/'+caseId,{cookie:a});
@@ -582,6 +585,18 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,201,JSON.stringify(r.data));
     const receiptId = r.data.id;
+    await t.test('explicit receipt retries use durable reference and never duplicate the audit',async()=>{
+      const path='/cases/'+caseId+'/receipts';
+      const payload={amountPaise:200_000,reference:'DEMO-UTR-1',retrySafe:true};
+      const replay=await call(path,{method:'POST',cookie:admin,body:payload});
+      assert.equal(replay.status,200);
+      assert.equal(replay.data.id,receiptId);
+      assert.equal(replay.data.replayed,true);
+      assert.equal((await call(path,{method:'POST',cookie:admin,body:{...payload,amountPaise:100}})).status,409);
+      assert.equal((await call(path,{method:'POST',cookie:operator,body:payload})).status,403);
+      assert.equal(await Receipt.countDocuments({caseId,reference:payload.reference}),1);
+      assert.equal(await Activity.countDocuments({caseId,kind:'receipt','metadata.receiptId':receiptId}),1);
+    });
     await t.test('audit failure aborts receipt recording and verification atomically',async()=>{
       const originalCreate=Activity.create;
       const baseline=await Receipt.countDocuments({caseId});
@@ -711,6 +726,12 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const issue=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
       assert.ok(issue.data.issues.some(i=>i.code==='receipt_tenant_mismatch'));
     }finally{await Receipt.deleteOne({_id:foreignReceipt._id});}
+    const reportDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const movement=await call('/reports/recoveries?from='+reportDay+'&to='+reportDay,{cookie:a});
+    assert.equal(movement.status,200);
+    assert.equal(movement.data.totals.grossPaise,200_000);
+    assert.equal(movement.data.totals.reversedPaise,200_000);
+    assert.equal(movement.data.totals.netPaise,0);
     const reversedDashboard=await call('/dashboard/summary',{cookie:a});
     assert.equal(reversedDashboard.status,200);
     assert.equal(reversedDashboard.data.attention.priorityCases.find(c=>c.id===caseId)?.outstandingPaise,1_000_000,'aging balances must include reversals');

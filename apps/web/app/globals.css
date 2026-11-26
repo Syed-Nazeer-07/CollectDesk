@@ -3550,3 +3550,17 @@ html[data-theme="light"] .app-root,html.light .app-root {
 .report-month i{height:7px;border-radius:2px;background:#258b79}.report-month i+i{background:#b97c4e}
 .report-table td{font-variant-numeric:tabular-nums}
 @media(max-width:650px){.ops-metrics{grid-template-columns:1fr}.ops-task{grid-template-columns:minmax(0,1fr);gap:8px}.ops-due{text-align:left}.report-filters .button{flex:1 1 130px}.report-month{grid-template-columns:58px minmax(0,1fr)}}
+
+.ops-shortcuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
+.ops-shortcut{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:19px;color:var(--fg)}
+.ops-shortcut h3{font-size:17px;margin:8px 0 4px;letter-spacing:-.025em}
+.ops-shortcut p{font-size:13px;color:var(--fg-dim);line-height:1.55}
+.ops-shortcut svg{color:var(--fg-dim);flex:none}
+.ops-shortcut:hover{border-color:var(--accent-text)}
+.app-root .cases-table th{white-space:normal}
+.app-root .detail-head{border-radius:12px}
+.app-root .detail-metrics{gap:12px}
+.app-root .detail-metric{min-width:0}
+.app-root .detail-metric b{overflow-wrap:anywhere}
+.app-root .section-panel .panel-head{padding-bottom:12px;border-bottom:1px solid var(--line)}
+.app-root .section-panel .field>input,.app-root .section-panel .field>textarea,.app-root .section-panel .field>select{border-radius:8px}

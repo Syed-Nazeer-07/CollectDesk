@@ -120,12 +120,13 @@ route.get('/dashboard/summary',async(req,res)=>{
   const today=indiaDateKey();
   const aging=['1–30','31–60','61–90','91+'].map(band=>({band,count:0,outstandingPaise:0}));
   const priorityCases=[];
+  const tasks={scheduled:0,due:0};
   let overdueCount=0,overdueOutstandingPaise=0;
   // Only one net ledger amount crosses the database boundary per accessible case.
   const cursor=Case.aggregate([
     {$match:scope(req.user)},
     {$sort:{updatedAt:-1,_id:-1}},
-    {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,dueDate:1,createdAt:1,updatedAt:1,assignedTo:1,organizationId:1}},
+    {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,dueDate:1,createdAt:1,updatedAt:1,assignedTo:1,organizationId:1,...(req.user.role==='creditor'?{}:{followUpDate:'$followUp.dueDate'})}},
     {$lookup:{from:Receipt.collection.name,localField:'_id',foreignField:'caseId',as:'ledger',let:{org:'$organizationId'},pipeline:[
       {$match:{status:'verified',$expr:{$eq:['$organizationId','$$org']}}},
       {$group:{_id:null,net:{$sum:{$cond:[{$eq:['$kind','reversal']},{$multiply:[-1,{$toDecimal:'$amountPaise'}]},{$toDecimal:'$amountPaise'}]}}}}
@@ -133,7 +134,11 @@ route.get('/dashboard/summary',async(req,res)=>{
   ]).allowDiskUse(true).cursor({batchSize:128});
   try {
     for await (const item of cursor) {
-      const {_id,ledger,feeRateBps,organizationId,...row}=item;
+      const {_id,ledger,feeRateBps,organizationId,followUpDate,...row}=item;
+      if(followUpDate&&['accepted','in_progress','on_hold'].includes(row.status)){
+        tasks.scheduled++;
+        if(followUpDate.toISOString().slice(0,10)<=today)tasks.due++;
+      }
       const totals=financialTotals(row.principalPaise,feeRateBps,ledger[0]?Number(ledger[0].net.toString()):0);
       counts.set(row.status,(counts.get(row.status)||0)+1);
       summary.totalCases++;
@@ -160,7 +165,7 @@ route.get('/dashboard/summary',async(req,res)=>{
     await cursor.close();
   }
   if (!Object.values(summary).every(Number.isSafeInteger)) throw new Error('Unsafe portfolio total');
-  res.json({summary,recentCases,statusBreakdown:Array.from(counts,([status,count])=>({status,count})),attention:{asOf:today,overdueCount,overdueOutstandingPaise,aging,priorityCases}});
+  res.json({summary,recentCases,statusBreakdown:Array.from(counts,([status,count])=>({status,count})),attention:{asOf:today,overdueCount,overdueOutstandingPaise,aging,priorityCases},...(req.user.role==='creditor'?{}:{tasks})});
 });
 const caseListQuery=z.object({
   status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),
@@ -310,11 +315,20 @@ route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(r
   const {text,visibility}=activityBody.parse(req.body);
   await logEvent(req.caseItem,req.user,'note',text,visibility,{},session);return transactionResponse(201,{ok:true});
 }));
-const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120)}).strict();
+const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120),retrySafe:z.literal(true).optional()}).strict();
 route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>withCaseTransaction(req,res,async(session)=>{
-  if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return transactionResponse(409,{error:'Case must be accepted first.'});
-  const input=receiptBody.parse(req.body);
+  const {retrySafe,...input}=receiptBody.parse(req.body);
+  // The existing unique case/reference index is a durable business key.
+  // An explicitly retry-safe identical request returns the original receipt
+  // even after verification/closure; mismatches never replay or mutate it.
   const existing=await Receipt.find({caseId:req.caseItem._id,organizationId:req.caseItem.organizationId}).session(session).lean();
+  const previous=existing.find(r=>r.reference===input.reference);
+  if(previous){
+    if(retrySafe&&previous.kind==='receipt'&&previous.amountPaise===input.amountPaise&&String(previous.recordedBy)===String(req.user._id))
+      return transactionResponse(200,{id:String(previous._id),status:previous.status,replayed:true});
+    return transactionResponse(409,{error:'This receipt reference already exists. Review the existing entry.'});
+  }
+  if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return transactionResponse(409,{error:'Case must be accepted first.'});
   const totals=calculateMoney(req.caseItem.principalPaise,req.caseItem.feeRateBps,existing);
   const awaiting=existing.filter(r=>r.status==='recorded'&&r.kind==='receipt').reduce((a,r)=>addPaise(a,r.amountPaise),0);
   if(input.amountPaise>totals.outstandingPaise-awaiting)return transactionResponse(422,{error:'Amount exceeds principal remaining after pending receipts.'});

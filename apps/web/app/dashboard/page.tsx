@@ -78,6 +78,10 @@ export default function DashboardPage(){
             </div>
           </section>
         </div>
+        <section className="ops-shortcuts" aria-label="Operational tools">
+          <Link href="/reports" className="panel ops-shortcut"><div><span className="workspace-context">Reporting</span><h3>Recovery movements</h3><p>Explore verified receipts and reversals by month, or export the period as CSV.</p></div><ArrowUpRight size={20}/></Link>
+          {user.role!=='creditor'&&data.tasks&&<Link href="/follow-ups" className="panel ops-shortcut"><div><span className="workspace-context">Next actions</span><h3>{data.tasks.due} due · {data.tasks.scheduled} scheduled</h3><p>Review and complete internal follow-ups for active cases.</p></div><ArrowUpRight size={20}/></Link>}
+        </section>
         {data.attention&&<AttentionPanel attention={data.attention} role={user.role}/>}
         <section className="panel cases-panel">
           <div className="panel-head"><div><h3>Recent cases</h3><p>Latest updates across your accessible cases</p></div><Link href="/cases" className="text-link">View all cases <ArrowRight size={15}/></Link></div>

@@ -12,6 +12,7 @@ const reportQuery=z.object({from:z.iso.date(),to:z.iso.date()}).strict();
 const queueQuery=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict();
 function dateStart(key){return new Date(key+'T00:00:00.000+05:30');}
 export function reportRange(from,to){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from<'1900-01-01'||to>'2199-12-31')return null;
   const start=dateStart(from),last=dateStart(to);
   const days=(last-start)/86400000+1;
   if(!Number.isInteger(days)||days<1||days>366)return null;
@@ -28,6 +29,7 @@ function safeDecimal(value){
 }
 function sumSafe(a,b){const n=a+b;if(!Number.isSafeInteger(n))throw new Error('Unsafe report total');return n;}
 export function summarizeMovements(rows,from,to){
+  if(!reportRange(from,to))throw new Error('Invalid report interval');
   const months=[];
   let month=from.slice(0,7);
   while(month<=to.slice(0,7)){
@@ -75,7 +77,7 @@ export function installOperationsRoutes(route,{getCase,logEvent}){
   route.post('/cases/:id/follow-up',getCase,requireRole('admin','operator'),async(req,res)=>withCaseTransaction(req,res,async session=>{
     const input=schedule.parse(req.body),item=req.caseItem;
     if(!ACTIVE.includes(item.status))return transactionResponse(409,{error:'Only active cases can have follow-ups.'});
-    if(input.dueDate<indiaDateKey())return transactionResponse(422,{error:'Choose today or a future date.'});
+    if(input.dueDate<indiaDateKey()||input.dueDate>'2199-12-31')return transactionResponse(422,{error:'Choose today or a future date.'});
     const old=await Case.findById(item._id).select('+followUp').session(session).lean();
     if((old.followUp?.revision??null)!==input.revision)return transactionResponse(409,{error:'Follow-up changed. Refresh before updating.'});
     const followUp={dueDate:new Date(input.dueDate+'T00:00:00.000Z'),note:input.note,revision:randomUUID(),scheduledBy:req.user._id};

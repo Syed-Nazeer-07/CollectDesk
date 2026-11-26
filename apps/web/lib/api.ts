@@ -5,7 +5,7 @@ export type CaseRow={id:string;caseCode:string;debtorName:string;invoiceNo:strin
 export type Activity={id:string;kind:string;text:string;visibility:'creditor'|'internal';actor:string;createdAt:string};
 export type Receipt={id:string;amountPaise:number;status:'recorded'|'verified'|'rejected';kind:'receipt'|'reversal';reference:string;reversedFrom?:string|null;recordedBy?:string|null;createdAt:string};
 export type Detail={case:CaseRow&{operatorName?:string|null;issueDate:string;description:string;disputed:boolean;decisionReason:string;feeRateBps:number;evidenceLabel:string};financials:{outstandingPaise:number;recoveredPaise:number;feePaise:number};activities:Activity[];receipts:Receipt[];approvalPolicy?:{separateReceiptApproval:boolean}};
-export type Dashboard={summary:{totalCases:number;activeCases:number;awaitingReview:number;totalOutstandingPaise:number;verifiedRecoveredPaise:number;estimatedFeesPaise:number};recentCases:CaseRow[];statusBreakdown:{status:CaseStatus;count:number}[];attention?:{asOf:string;overdueCount:number;overdueOutstandingPaise:number;aging:{band:string;count:number;outstandingPaise:number}[];priorityCases:{id:string;caseCode:string;debtorName:string;status:CaseStatus;overdueDays:number;outstandingPaise:number}[]}};
+export type Dashboard={tasks?:{scheduled:number;due:number};summary:{totalCases:number;activeCases:number;awaitingReview:number;totalOutstandingPaise:number;verifiedRecoveredPaise:number;estimatedFeesPaise:number};recentCases:CaseRow[];statusBreakdown:{status:CaseStatus;count:number}[];attention?:{asOf:string;overdueCount:number;overdueOutstandingPaise:number;aging:{band:string;count:number;outstandingPaise:number}[];priorityCases:{id:string;caseCode:string;debtorName:string;status:CaseStatus;overdueDays:number;outstandingPaise:number}[]}};
 const API='/api/v1'; // Next.js proxies to Express (same-origin cookies).
 export class ApiError extends Error {status:number;issues?:{field:string;message:string}[];constructor(message:string,status:number,issues?:{field:string;message:string}[]){super(message);this.name='ApiError';this.status=status;this.issues=issues;}}
 export async function api<T>(path:string,options:RequestInit={}):Promise<T>{
@@ -39,3 +39,12 @@ export function money(paise:number){const decimals=paise%100===0?0:2;return new 
 export function shortMoney(paise:number){const n=paise/100;if(n>=10000000)return `₹${(n/10000000).toFixed(2)}Cr`;if(n>=100000)return `₹${(n/100000).toFixed(2)}L`;return money(paise);}
 export function date(value?:string){if(!value)return '—';const parsed=new Date(value);if(Number.isNaN(parsed.getTime()))return '—';return new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}).format(parsed);}
 export function label(status:string){return status.split('_').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');}
+
+/** Convert decimal text without floating point multiplication or rounding. */
+export function parsePaise(value:string,min=1,max=100_000_000_000){
+  if(!/^\d+(?:\.\d{1,2})?$/.test(value))throw new Error('Enter a valid amount with up to two decimal places.');
+  const [whole,fraction='']=value.split('.');
+  const paise=BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0'));
+  if(paise<BigInt(min)||paise>BigInt(max))throw new Error('Amount is outside the permitted range.');
+  return Number(paise);
+}
