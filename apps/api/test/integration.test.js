@@ -27,6 +27,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   try {
     await mongoose.connection.dropDatabase();
     const app = (await import('../src/app.js')).default;
+    const {assertTransactionTopology}=await import('../src/ledger.js');
+    await assertTransactionTopology(mongoose.connection);
+    await Promise.all([Case.init(),Receipt.init(),Activity.init()]);
     const orgA = await Organization.create({name:'Fictional creditor A'});
     const orgB = await Organization.create({name:'Fictional creditor B'});
     const password = 'Test-Only-Password-2026!';
@@ -543,6 +546,26 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,201,JSON.stringify(r.data));
     const receiptId = r.data.id;
+    await t.test('audit failure aborts receipt recording and verification atomically',async()=>{
+      const originalCreate=Activity.create;
+      const baseline=await Receipt.countDocuments({caseId});
+      try{
+        Activity.create=async()=>{throw new Error('injected audit failure');};
+        const record=await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:100,reference:'FAIL-AUDIT'}});
+        assert.equal(record.status,500);
+        assert.equal(await Receipt.countDocuments({caseId}),baseline);
+        const verify=await call(`/cases/${caseId}/receipts/${receiptId}/verify`,{method:'POST',cookie:admin});
+        assert.equal(verify.status,500);
+        assert.equal((await Receipt.findById(receiptId)).status,'recorded');
+      }finally{Activity.create=originalCreate;}
+      assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:a})).status,403);
+      assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:b})).status,404);
+      assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:operator})).status,403);
+      const report=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
+      assert.equal(report.status,200);
+      assert.equal(report.data.requiresReview,false,JSON.stringify(report.data));
+      assert.equal(report.data.pendingPaise,200_000);
+    });
     // Maker/checker can be enabled for teams with multiple admins; the
     // existing single-admin sample mode is deliberately unchanged by default.
     const previousMakerChecker=process.env.SEPARATE_RECEIPT_APPROVAL;

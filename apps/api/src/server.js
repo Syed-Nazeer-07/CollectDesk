@@ -1,11 +1,16 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import app from './app.js';
+import {assertTransactionTopology} from './ledger.js';
+import {Case,Receipt,Activity} from './models.js';
 if(!process.env.JWT_SECRET || process.env.JWT_SECRET.length<32){console.error('JWT_SECRET must be at least 32 characters.');process.exit(1);}
 if(process.env.NODE_ENV==='production' && process.env.JWT_SECRET.includes('replace-with')){console.error('Refusing insecure production secret.');process.exit(1);}
 if(!process.env.MONGODB_URI){console.error('MONGODB_URI is required.');process.exit(1);}
 try{
   await mongoose.connect(process.env.MONGODB_URI,{serverSelectionTimeoutMS:9000});
+  await assertTransactionTopology(mongoose.connection);
+  // Collections and unique indexes must exist before first transaction.
+  await Promise.all([Case.init(),Receipt.init(),Activity.init()]);
   // Hosted single-container mode binds the API to loopback only, so Render
   // detects exactly one public HTTP listener (Next.js on PORT).
   // Local Docker Compose leaves API_LISTEN_HOST unset and still binds externally.

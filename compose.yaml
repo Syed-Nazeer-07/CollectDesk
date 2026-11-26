@@ -4,10 +4,11 @@ services:
   database:
     image: mongo:8.0
     restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - mongo_demo_data:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep 1"]
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'try { rs.status() } catch(e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"database:27017\"}]}) }; db.hello().isWritablePrimary' | grep true"]
       interval: 10s
       timeout: 5s
       retries: 15
@@ -20,7 +21,7 @@ services:
       NODE_ENV: production
       PORT: "4000"
       WEB_ORIGIN: http://localhost:3000
-      MONGODB_URI: mongodb://database:27017/collectdesk_demo
+      MONGODB_URI: mongodb://database:27017/collectdesk_demo?replicaSet=rs0
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.compose}
     ports:
       - "127.0.0.1:4000:4000"
@@ -46,7 +47,7 @@ services:
     command: npm run seed
     environment:
       NODE_ENV: production
-      MONGODB_URI: mongodb://database:27017/collectdesk_demo
+      MONGODB_URI: mongodb://database:27017/collectdesk_demo?replicaSet=rs0
       DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:?Set DEMO_SEED_PASSWORD in .env.compose}
     depends_on:
       database:

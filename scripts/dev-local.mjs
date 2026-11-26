@@ -2,7 +2,7 @@
  * Local development launcher using mongodb-memory-server (no MongoDB install needed).
  * Starts an in-memory MongoDB, the Express API, and the Next.js dev server.
  */
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { spawn } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,9 +11,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
 console.log('⏳ Starting in-memory MongoDB...');
-const mongod = await MongoMemoryServer.create();
-const baseUri = mongod.getUri();
-const uri = baseUri.endsWith('/') ? `${baseUri}collectdesk_demo` : `${baseUri}/collectdesk_demo`;
+const mongod = await MongoMemoryReplSet.create({replSet:{count:1}});
+const uri = mongod.getUri('collectdesk_demo');
 console.log(`✅ MongoDB ready at ${uri}`);
 
 const env = {
