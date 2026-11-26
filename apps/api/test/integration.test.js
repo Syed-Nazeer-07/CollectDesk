@@ -670,6 +670,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const scoped=await call(`/cases/${caseId}`,{cookie:a});
       assert.equal(scoped.data.financials.recoveredPaise,0);
       assert.ok(!scoped.data.receipts.some(r=>r.id===String(foreignReceipt._id)));
+      const dashboard=await call('/dashboard/summary',{cookie:a});
+      assert.equal(dashboard.status,200);
+      assert.equal(dashboard.data.attention.priorityCases.find(c=>c.id===caseId)?.outstandingPaise,1_000_000,'dashboard must exclude tenant-mismatched receipt');
       const issue=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
       assert.ok(issue.data.issues.some(i=>i.code==='receipt_tenant_mismatch'));
     }finally{await Receipt.deleteOne({_id:foreignReceipt._id});}

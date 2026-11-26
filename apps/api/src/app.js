@@ -125,7 +125,7 @@ route.get('/dashboard/summary',async(req,res)=>{
     {$sort:{updatedAt:-1,_id:-1}},
     {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,dueDate:1,createdAt:1,updatedAt:1,assignedTo:1,organizationId:1}},
     {$lookup:{from:Receipt.collection.name,localField:'_id',foreignField:'caseId',as:'ledger',let:{org:'$organizationId'},pipeline:[
-      {$match:{status:'verified',$expr:{$eq:['$organizationId','$org']}}},
+      {$match:{status:'verified',$expr:{$eq:['$organizationId','$$org']}}},
       {$group:{_id:null,net:{$sum:{$cond:[{$eq:['$kind','reversal']},{$multiply:[-1,{$toDecimal:'$amountPaise'}]},{$toDecimal:'$amountPaise'}]}}}}
     ]}}
   ]).allowDiskUse(true).cursor({batchSize:128});
