@@ -173,7 +173,7 @@ route.get('/dashboard/summary',async(req,res)=>{
 const caseListQuery=z.object({
   status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),
   q:z.string().trim().max(100).optional(),
-  workload:z.string().regex(/^(unassigned|[a-f0-9]{24})$/i).optional(),
+  workload:z.string().regex(/^(unassigned|[a-fA-F0-9]{24})$/).optional(),
   sort:z.enum(['updated','due','amount']).default('updated'),
   page:z.coerce.number().int().min(1).max(10000).default(1),
   limit:z.coerce.number().int().min(1).max(100).default(25)

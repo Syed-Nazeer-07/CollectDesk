@@ -121,7 +121,7 @@ async function session(email, mobile = false) {
       'Website favicon should be present in the browser tab');
     assert.equal(await page.locator('.lp-f-orange, .lp-f-sky').count(),0,
       'Unnecessary circular floating graphics must not be displayed');
-    assert.equal(await page.locator('.cdl-feature[href="#stages"]').count(),4,
+    assert.equal(await page.locator('.cdl-feature[href="#stages"]').count(),6,
       'Feature cards should be real links into the case lifecycle');
     assert.equal(await page.locator('.lp-chip[href^="#stage-"]').count(),7,
       'Rotating lifecycle labels should link to their stages');

@@ -33,7 +33,7 @@ function CaseRegister({canCreate,admin}:{canCreate:boolean;admin:boolean}){
   const sort:CaseSort=SORT_OPTIONS.includes(requestedSort as CaseSort)
     ?requestedSort as CaseSort:'updated';
   const rawWorkload=searchParams.get('workload')||'';
-  const workload=admin&&/^(unassigned|[a-f0-9]{24})$/i.test(rawWorkload)?rawWorkload:'';
+  const workload=admin&&/^(unassigned|[a-fA-F0-9]{24})$/.test(rawWorkload)?rawWorkload:'';
   const [operators,setOperators]=useState<{id:string;name:string}[]>([]);
   useEffect(()=>{if(!admin)return;const controller=new AbortController();api<{operators:{id:string;name:string}[]}>('/operators',{signal:controller.signal}).then(r=>{if(!controller.signal.aborted)setOperators(r.operators);}).catch(()=>{});return()=>controller.abort();},[admin]);
   const [cases,setCases]=useState<CaseRow[]>([]);

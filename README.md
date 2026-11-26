@@ -40,9 +40,12 @@ Case is reconciled or closed
 | Collections oversight | Sample balances, verified receipt totals, reversals and activity history |
 | Organization isolation | Creditor records restricted to the appropriate organization |
 | Team operations | Staff invitations, support requests and role-scoped notifications |
+| Follow-up queue | Staff-only next-action scheduling, revision guards and transactional completion history |
+| Recovery reporting | Date-filtered verified receipts, reversals, net movements and CSV export |
+| Administrator control | Pending verification queue, active assignment drill-down and bounded API health metrics |
 | Profile | Edit your own display name while signed in |
 | Onboarding and identity | Company setup; optional Google sign-in, email verification and password recovery |
-| Sample evidence | Private, feature-flagged PDF attachments for synthetic test data only |
+| Sample evidence | Private, feature-flagged 1 MiB PDFs with atomic new file/audit mutations; legacy GridFS files remain supported |
 
 **Accounting behavior:** Pending receipts are not counted as recovered funds. A case marked closed does not necessarily mean its entire balance was paid. CSV exports are capped at 5,000 accessible rows and exclude internal notes and credentials.
 
@@ -57,8 +60,8 @@ Case is reconciled or closed
 | Role | Cases | Account and operations |
 | --- | --- | --- |
 | Creditor | Create, edit and export company cases. Submit overdue drafts, respond to review requests and view shared updates and verified receipts. | Manage own display name and support requests. |
-| Administrator | Review, assign, hold and close cases. Record, verify, reject and reverse sample receipts. | Invite operators and manage the support queue. |
-| Operator | Open assigned cases and post internal notes or creditor-visible progress. | Manage own display name and support requests. |
+| Administrator | Review, assign, hold and close cases. Record, verify, reject and reverse sample receipts. | Invite operators, manage support, inspect workload and reconcile ledger entries. |
+| Operator | Open assigned cases, plan and complete internal follow-ups, and post internal or shared updates. | Manage own display name and support requests. |
 
 ## Tech stack
 
@@ -168,6 +171,8 @@ The [live diagnostic workflow](.github/workflows/live-preview.yml) checks public
 - [Implementation checklist](docs/IMPLEMENTATION_CHECKLIST.md)
 - [Engineering audit and known limitations](docs/COMPREHENSIVE_AUDIT_2026-11-12.md)
 - [Release-readiness checklist](docs/RELEASE_READINESS.md)
+- [Transactional engineering overhaul](docs/ENGINEERING_OVERHAUL_PHASE_2.md)
+- [Operational reporting, reliability and measured QA](docs/OPERATIONS_AND_REPORTING.md)
 
 ## Limitations and release status
 
