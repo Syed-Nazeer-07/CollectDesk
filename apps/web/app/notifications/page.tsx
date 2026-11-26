@@ -14,7 +14,7 @@ const titles:Record<string,string>={
   submitted:'Case submitted',review:'Review decision',assigned:'Case assigned',
   status:'Case status changed',note:'Case update',verified:'Receipt verified',
   reversal:'Receipt corrected',receipt:'Receipt recorded',
-  receipt_rejected:'Receipt rejected',updated:'Case details updated'
+  receipt_rejected:'Receipt rejected',updated:'Case details updated',follow_up_scheduled:'Follow-up scheduled',follow_up_completed:'Follow-up completed'
 };
 
 function activityTime(value:string){

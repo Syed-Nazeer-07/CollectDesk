@@ -895,6 +895,51 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         }
       }
     });
+    await t.test('bounded synthetic portfolio benchmark and concurrent tenant isolation',async t=>{
+      // This suite already restricts TEST_MONGODB_URI to the disposable test DB.
+      const userA=await User.findOne({email:'creditora@test.collectdesk.local'});
+      const userB=await User.findOne({email:'creditorb@test.collectdesk.local'});
+      const owner=await User.findOne({email:'operator@test.collectdesk.local'});
+      const maker=await User.findOne({email:'admin@test.collectdesk.local'});
+      const seed=(user,prefix)=>Array.from({length:300},(_,i)=>({
+        caseCode:'PERF-'+prefix+'-'+i,organizationId:user.organizationId,createdBy:user._id,
+        debtorName:'Synthetic '+prefix+' '+i,invoiceNo:'PERF-'+prefix+'-'+i,
+        issueDate:new Date('2025-01-01'),dueDate:new Date('2025-02-01'),
+        principalPaise:100000,status:'in_progress',assignedTo:owner._id
+      }));
+      const inserted=await Case.insertMany([...seed(userA,'A'),...seed(userB,'B')]);
+      const ids=inserted.map(c=>c._id);
+      try{
+        await Receipt.insertMany(inserted.map(c=>({caseId:c._id,organizationId:c.organizationId,
+          amountPaise:1000,reference:'PERF-'+c.caseCode,status:'verified',kind:'receipt',
+          recordedBy:maker._id,verifiedBy:maker._id,verifiedAt:new Date()})));
+        const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+        const routes=['/cases?q=PERF-&limit=25','/dashboard/summary','/reports/recoveries?from='+date+'&to='+date,'/notifications/count'];
+        const results=[];
+        // Eight concurrent clients, 64 requests total, two independent tenant sessions.
+        await Promise.all(Array.from({length:8},async(_,worker)=>{
+          const tenant=worker%2?'B':'A',cookie=worker%2?b:a;
+          for(let i=0;i<8;i++){
+            const path=routes[i%routes.length],start=performance.now();
+            const r=await call(path,{cookie});
+            results.push({path,ms:performance.now()-start});
+            assert.equal(r.status,200,JSON.stringify(r.data));
+            if(path.startsWith('/cases?')){
+              assert.equal(r.data.pagination.total,300);
+              assert.ok(r.data.cases.every(c=>c.caseCode.startsWith('PERF-'+tenant+'-')));
+            }
+            if(path.startsWith('/reports/'))assert.ok(r.data.totals.grossPaise>=300000);
+          }
+        }));
+        const durations=results.map(r=>r.ms).sort((a,b)=>a-b);
+        const p95=durations[Math.ceil(durations.length*.95)-1];
+        t.diagnostic('PERF synthetic 600 cases / 600 receipts, 8 concurrent clients, '+durations.length+' reads; p50='+durations[Math.ceil(durations.length*.5)-1].toFixed(1)+'ms p95='+p95.toFixed(1)+'ms max='+durations.at(-1).toFixed(1)+'ms');
+        assert.ok(p95<5000,'Synthetic local CI read p95 exceeded broad 5-second regression budget');
+      }finally{
+        await Receipt.deleteMany({caseId:{$in:ids}});
+        await Case.deleteMany({_id:{$in:ids}});
+      }
+    });
     await t.test('logout sends a clearing cookie', async()=>{
       const logout=await call('/auth/logout',{method:'POST',cookie:a});
       assert.equal(logout.status,200);

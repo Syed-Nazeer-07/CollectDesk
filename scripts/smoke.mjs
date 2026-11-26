@@ -31,6 +31,10 @@ if(email&&password){
       const headers={Cookie:session};
       await check('Authenticated session',`${web}/api/v1/auth/me`,200,{headers});
       await check('Dashboard data',`${web}/api/v1/dashboard/summary`,200,{headers});
+      const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      await check('Recovery movement report',`${web}/api/v1/reports/recoveries?from=${today}&to=${today}`,200,{headers});
+      const identity=await check('Workspace access',`${web}/api/v1/auth/me`,200,{headers});
+      if(identity&&JSON.parse(identity.payload).user.role!=='creditor')await check('Staff follow-up queue',`${web}/api/v1/follow-ups`,200,{headers});
       const cases=await check('Case pagination',`${web}/api/v1/cases?page=1&limit=2`,200,{headers});
       if(cases){try{const parsed=JSON.parse(cases.payload);if(!Array.isArray(parsed.cases)||parsed.pagination?.pageSize!==2)throw Error('Unexpected response schema');console.log('PASS case pagination contract');}catch(e){failures++;console.error('FAIL case pagination contract:',e.message);}}
     }
