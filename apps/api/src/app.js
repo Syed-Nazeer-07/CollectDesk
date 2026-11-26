@@ -14,7 +14,7 @@ import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
 import {installStaffRoutes} from './staff-invites.js';
 import {installEvidenceRoutes} from './evidence.js';
-import {caseSort,caseFilters,casesCsv} from './case-register.js';
+import {caseSort,caseFilters,casesCsv,workloadFilter} from './case-register.js';
 import {installNotificationRoutes} from './notifications.js';
 import {withCaseTransaction,transactionResponse,inspectLedger} from './ledger.js';
 import {installOperationsRoutes} from './operations.js';
@@ -173,13 +173,15 @@ route.get('/dashboard/summary',async(req,res)=>{
 const caseListQuery=z.object({
   status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),
   q:z.string().trim().max(100).optional(),
+  workload:z.string().regex(/^(unassigned|[a-f0-9]{24})$/i).optional(),
   sort:z.enum(['updated','due','amount']).default('updated'),
   page:z.coerce.number().int().min(1).max(10000).default(1),
   limit:z.coerce.number().int().min(1).max(100).default(25)
 }).strict();
 route.get('/cases',async(req,res)=>{
-  const {status,q,page,limit,sort}=caseListQuery.parse(req.query);
-  const filter=caseFilters({status,q},scope(req.user),escapeRegex);
+  const {status,q,page,limit,sort,workload}=caseListQuery.parse(req.query);
+  if(workload&&req.user.role!=='admin')return res.status(403).json({error:'Workload filters require administrator access.'});
+  const filter=workloadFilter(caseFilters({status,q},scope(req.user),escapeRegex),workload);
   const [total,items]=await Promise.all([
     Case.countDocuments(filter),
     Case.find(filter).sort(caseSort(sort)).skip((page-1)*limit).limit(limit).lean()
@@ -187,10 +189,11 @@ route.get('/cases',async(req,res)=>{
   res.json({cases:items.map(c=>({id:String(c._id),caseCode:c.caseCode,debtorName:c.debtorName,invoiceNo:c.invoiceNo,principalPaise:c.principalPaise,status:c.status,dueDate:c.dueDate,createdAt:c.createdAt,updatedAt:c.updatedAt,assignedTo:c.assignedTo?String(c.assignedTo):null})),pagination:pageInfo(page,limit,total)});
 });
 // Export every accessible matching case, not merely the currently visible page.
-const exportQuery=caseListQuery.pick({status:true,q:true,sort:true});
+const exportQuery=caseListQuery.pick({status:true,q:true,sort:true,workload:true});
 route.get('/cases/export',async(req,res)=>{
-  const {status,q,sort}=exportQuery.parse(req.query);
-  const filter=caseFilters({status,q},scope(req.user),escapeRegex);
+  const {status,q,sort,workload}=exportQuery.parse(req.query);
+  if(workload&&req.user.role!=='admin')return res.status(403).json({error:'Workload filters require administrator access.'});
+  const filter=workloadFilter(caseFilters({status,q},scope(req.user),escapeRegex),workload);
   const maxRows=5000;
   const items=await Case.find(filter)
     .sort(caseSort(sort))

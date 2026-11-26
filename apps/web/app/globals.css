@@ -3610,3 +3610,5 @@ html[data-theme="light"] .app-root,html.light .app-root {
 .app-root .cases-table th{padding-block:13px}
 .app-root .cases-table td{line-height:1.5}
 @media(max-width:650px){.report-month{grid-template-columns:45px minmax(0,1fr) minmax(52px,auto);gap:8px}.report-axis{margin-left:53px;margin-right:70px;font-size:10px}.report-month strong{font-size:11px}.app-root .detail-columns{gap:14px}.app-root .detail-main,.app-root .detail-aside{gap:14px}}
+
+.ops-metric-link{color:var(--fg);display:block}.ops-metric-link:hover{border-color:var(--accent-text)}.ops-metric-link p{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.ops-metric-link:focus-visible{outline:2px solid var(--accent-text);outline-offset:3px}

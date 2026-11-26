@@ -13,3 +13,5 @@ This is a fictional-data technical demo. Reports are not accounting statements, 
 - Browser audits measure layout overflow across five viewports and both themes, with 200 successful checks in that baseline run.
 ## Attachment consistency
 New sample PDF uploads (1 MiB maximum) use ordinary BSON binary documents, with creation/deletion and audit in one transaction. Existing GridFS files remain readable/deletable through the original lease path; legacy deletion is not atomic. Quota counts both storage types. No automatic migration or deletion. See https://www.mongodb.com/docs/manual/core/gridfs/.
+
+Administrator workload counts now link to an active-case register with explicit server-enforced assignment filters, also applied to exports. Non-administrators cannot use this filter, and the filtering helper intersects existing restrictions rather than replacing them.

@@ -497,6 +497,14 @@ try {
   await operator.getByRole('button', { name: /Post update/i }).click();
   await operator.getByText('Public browser audit progress update').waitFor();
   log('Assigned operator posted public and internal activity');
+  await admin.goto(base+'/operations',{waitUntil:'domcontentloaded'});
+  await admin.getByRole('heading',{name:'Current operator workload'}).waitFor();
+  await admin.getByRole('heading',{name:'API service health'}).waitFor();
+  await admin.getByRole('link',{name:/Unassigned active cases/}).click();
+  await admin.getByLabel('Filter active workload').waitFor();
+  assert.equal(await admin.getByLabel('Filter active workload').inputValue(),'unassigned');
+  await admin.goto(caseUrl,{waitUntil:'domcontentloaded'});
+  await statusIs(admin,'In Progress');
   await operator.getByLabel('Follow-up date').fill('2099-01-01');
   await operator.getByLabel('Internal next action').fill('Browser QA next action');
   await operator.getByRole('button',{name:'Schedule follow-up'}).click();

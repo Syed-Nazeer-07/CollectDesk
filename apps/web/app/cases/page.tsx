@@ -17,12 +17,12 @@ type CaseSort=typeof SORT_OPTIONS[number];
 export default function CasesPage(){
   return <AppShell title="All cases" subtitle="Track, review, and manage your collection cases.">
     {(user)=> <Suspense fallback={<div className="loading-panel" role="status"><div className="spinner"/> Loading case register…</div>}>
-      <CaseRegister canCreate={user.role==='creditor'}/>
+      <CaseRegister canCreate={user.role==='creditor'} admin={user.role==='admin'}/>
     </Suspense>}
   </AppShell>;
 }
 
-function CaseRegister({canCreate}:{canCreate:boolean}){
+function CaseRegister({canCreate,admin}:{canCreate:boolean;admin:boolean}){
   const router=useRouter();
   const searchParams=useSearchParams();
   // The URL owns the filter, keeping dashboard links and browser history in sync.
@@ -32,6 +32,10 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   const requestedSort=searchParams.get('sort');
   const sort:CaseSort=SORT_OPTIONS.includes(requestedSort as CaseSort)
     ?requestedSort as CaseSort:'updated';
+  const rawWorkload=searchParams.get('workload')||'';
+  const workload=admin&&/^(unassigned|[a-f0-9]{24})$/i.test(rawWorkload)?rawWorkload:'';
+  const [operators,setOperators]=useState<{id:string;name:string}[]>([]);
+  useEffect(()=>{if(!admin)return;const controller=new AbortController();api<{operators:{id:string;name:string}[]}>('/operators',{signal:controller.signal}).then(r=>{if(!controller.signal.aborted)setOperators(r.operators);}).catch(()=>{});return()=>controller.abort();},[admin]);
   const [cases,setCases]=useState<CaseRow[]>([]);
   const [pagination,setPagination]=useState<Pagination>({page:1,pageSize:PAGE_SIZE,total:0,totalPages:1});
   const [loading,setLoading]=useState(true);
@@ -44,7 +48,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   const [exportError,setExportError]=useState('');
   const [exportNotice,setExportNotice]=useState('');
 
-  useEffect(()=>{setPage(1);},[status,sort]);
+  useEffect(()=>{setPage(1);},[status,sort,workload]);
   useEffect(()=>{
     const timeout=setTimeout(()=>setDebouncedQ(q.trim()),300);
     return()=>clearTimeout(timeout);
@@ -56,6 +60,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
     const query=new URLSearchParams({page:String(page),limit:String(PAGE_SIZE)});
     if(status!=='all')query.set('status',status);
     if(debouncedQ)query.set('q',debouncedQ);
+    if(workload)query.set('workload',workload);
     query.set('sort',sort);
     api<{cases:CaseRow[];pagination:Pagination}>('/cases?'+query.toString(),{signal:controller.signal})
       .then(result=>{
@@ -65,13 +70,14 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
       .catch(e=>{if(!cancelled){setError(e.message);setCases([]);}})
       .finally(()=>{if(!cancelled)setLoading(false);});
     return()=>{cancelled=true;controller.abort();};
-  },[page,status,sort,debouncedQ,reload]);
+  },[page,status,sort,workload,debouncedQ,reload]);
 
-  function updateFilters(next:StatusFilter,nextSort:CaseSort){
+  function updateFilters(next:StatusFilter,nextSort:CaseSort,nextWorkload=workload){
     setPage(1);
     const query=new URLSearchParams();
     if(next!=='all')query.set('status',next);
     if(nextSort!=='updated')query.set('sort',nextSort);
+    if(nextWorkload)query.set('workload',nextWorkload);
     router.replace('/cases'+(query.size?'?'+query.toString():''),{scroll:false});
   }
   function setFilter(next:StatusFilter){updateFilters(next,sort);}
@@ -83,6 +89,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
       const query=new URLSearchParams({sort});
       if(status!=='all')query.set('status',status);
       if(debouncedQ)query.set('q',debouncedQ);
+      if(workload)query.set('workload',workload);
       const response=await fetch('/api/v1/cases/export?'+query.toString(),{
         credentials:'include',cache:'no-store',signal:AbortSignal.timeout(45000)
       });
@@ -102,9 +109,9 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
   }
   function resetFilters(){
     setQ('');setDebouncedQ('');setPage(1);
-    setFilter('all');
+    updateFilters('all',sort,'');
   }
-  const filtered=status!=='all'||q.trim().length>0;
+  const filtered=status!=='all'||q.trim().length>0||Boolean(workload);
   const first=pagination.total===0?0:(pagination.page-1)*pagination.pageSize+1;
   const last=Math.min(pagination.page*pagination.pageSize,pagination.total);
   return <section className="panel cases-full">
@@ -122,6 +129,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
         <option value="due">Due date · earliest</option>
         <option value="amount">Amount · highest</option>
       </select></div>
+      {admin&&<div className="select-wrap"><select aria-label="Filter active workload" value={workload} onChange={e=>updateFilters('all',sort,e.target.value)}><option value="">All assignments</option><option value="unassigned">Unassigned active</option>{operators.map(x=><option key={x.id} value={x.id}>{x.name} · active</option>)}{workload&&workload!=='unassigned'&&!operators.some(x=>x.id===workload)&&<option value={workload}>Selected operator · active</option>}</select></div>}
       <button className="button button-outline" type="button" onClick={downloadReport}
         disabled={loading||exporting||!!error||q.trim()!==debouncedQ||pagination.total===0} title="Download matching case-register records as CSV">
         <Download size={16}/>{exporting?'Exporting…':'Export CSV'}
@@ -134,7 +142,7 @@ function CaseRegister({canCreate}:{canCreate:boolean}){
     </div>
     <div className="case-list-title">
       <h3>Case register <span>{loading?'…':pagination.total}</span></h3>
-      <p>{status==='all'?'All accessible cases':label(status)+' cases'}{debouncedQ?' matching “'+debouncedQ+'”':''}</p>
+      <p>{status==='all'?'All accessible cases':label(status)+' cases'}{debouncedQ?' matching “'+debouncedQ+'”':''}{workload?' · Active workload':''}</p>
     </div>
     {exportNotice&&<p className="message success" role="status">{exportNotice}</p>}
     {exportError&&<div className="message error" role="alert">{exportError}</div>}

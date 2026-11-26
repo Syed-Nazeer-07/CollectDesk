@@ -608,6 +608,13 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       assert.equal(result.data.pending.amountPaise,200_000);
       assert.equal(String(result.data.pending.items[0].caseId),caseId);
       assert.ok(result.data.workload.some(x=>x.id===String(op._id)&&x.active>=1));
+      const filtered=await call('/cases?workload='+op._id,{cookie:admin});
+      assert.equal(filtered.status,200);
+      assert.ok(filtered.data.cases.some(x=>x.id===caseId));
+      assert.ok(filtered.data.cases.every(x=>x.assignedTo===String(op._id)&&['accepted','in_progress','on_hold'].includes(x.status)));
+      assert.equal((await call('/cases?workload='+op._id,{cookie:a})).status,403);
+      assert.equal((await call('/cases?workload=unassigned',{cookie:operator})).status,403);
+      assert.equal((await call('/cases?workload=invalid',{cookie:admin})).status,422);
       const health=await call('/operations/health',{cookie:admin});
       assert.equal(health.status,200);
       assert.ok(health.data.sampleCount>0&&health.data.sampleCount<=2048);

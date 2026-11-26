@@ -21,6 +21,11 @@ export function caseFilters({status,q},scope,escapeRegex){
   ];
   return filter;
 }
+/** Intersect workload restrictions with the existing scope; never override it. */
+export function workloadFilter(filter,workload){
+  if(!workload)return filter;
+  return {...filter,$and:[...(filter.$and||[]),{status:{$in:['accepted','in_progress','on_hold']}},{assignedTo:workload==='unassigned'?null:workload}]};
+}
 /** Defensive CSV cell encoding: prevent spreadsheet formula injection. */
 export function csvCell(value){
   let v=String(value??'').replace(/[\x00-\x1F\x7F]/g,' ').trim();
