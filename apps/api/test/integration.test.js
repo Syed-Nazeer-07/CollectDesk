@@ -522,6 +522,28 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,200);
     r = await call(`/cases/${caseId}`,{cookie:operator});
     assert.equal(r.status,200,'assigned operator must see assigned case');
+    await t.test('internal follow-ups are scoped, revision guarded and audited',async()=>{
+      const path='/cases/'+caseId+'/follow-up';
+      const payload={dueDate:'2099-01-01',note:'Fictional internal task',revision:null};
+      assert.equal((await call(path,{method:'POST',cookie:a,body:payload})).status,403);
+      assert.equal((await call(path,{method:'POST',cookie:b,body:payload})).status,404);
+      assert.equal((await call('/follow-ups',{cookie:a})).status,403);
+      const created=await call(path,{method:'POST',cookie:operator,body:payload});
+      assert.equal(created.status,200,JSON.stringify(created.data));
+      assert.equal((await call(path,{method:'POST',cookie:operator,body:payload})).status,409);
+      const queue=await call('/follow-ups',{cookie:operator});
+      assert.ok(queue.data.items.some(x=>x.id===caseId&&x.note===payload.note));
+      const creditorView=await call('/cases/'+caseId,{cookie:a});
+      assert.ok(!JSON.stringify(creditorView.data).includes(payload.note));
+      const original=Activity.create;
+      try{
+        Activity.create=async()=>{throw new Error('injected follow-up audit failure');};
+        assert.equal((await call(path+'/complete',{method:'POST',cookie:operator,body:{revision:created.data.followUp.revision,outcome:'Test completion'}})).status,500);
+      }finally{Activity.create=original;}
+      assert.equal((await call(path,{cookie:operator})).data.followUp.revision,created.data.followUp.revision);
+      assert.equal((await call(path+'/complete',{method:'POST',cookie:operator,body:{revision:created.data.followUp.revision,outcome:'Fictional outcome'}})).status,200);
+      assert.equal((await call(path,{cookie:operator})).data.followUp,null);
+    });
     r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:a,body:{action:'hold',reason:'Waiting for documents'}});
     assert.equal(r.status,403,'creditor cannot change operational case status');
     r = await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'hold',reason:'Waiting for documents'}});
@@ -623,6 +645,19 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.data.financials.feePaise,40_000);
     assert.equal(r.data.receipts.length,1,'verified receipt can be shared');
     assert.equal(r.data.receipts[0].recordedBy,null,'creditors must not receive staff recorder IDs');
+    await t.test('recovery reporting uses verified movements, date ranges and current permissions',async()=>{
+      const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const path='/reports/recoveries?from='+day+'&to='+day;
+      assert.equal((await call(path)).status,401);
+      for(const cookie of [a,operator,admin]){
+        const result=await call(path,{cookie});
+        assert.equal(result.status,200,JSON.stringify(result.data));
+        assert.equal(result.data.totals.grossPaise,200_000);
+        assert.equal(result.data.totals.reversedPaise,0);
+      }
+      assert.equal((await call(path,{cookie:b})).data.totals.netPaise,0);
+      assert.equal((await call('/reports/recoveries?from=2020-01-01&to=2026-01-01',{cookie:a})).status,422);
+    });
     await t.test('aging dashboard reconciles verified amounts and enforces current role scope',async()=>{
       assert.equal((await call('/dashboard/summary')).status,401);
       for(const cookie of [a,admin,operator]){

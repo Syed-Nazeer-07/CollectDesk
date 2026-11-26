@@ -495,6 +495,19 @@ try {
   await operator.getByRole('button', { name: /Post update/i }).click();
   await operator.getByText('Public browser audit progress update').waitFor();
   log('Assigned operator posted public and internal activity');
+  await operator.getByLabel('Follow-up date').fill('2099-01-01');
+  await operator.getByLabel('Internal next action').fill('Browser QA next action');
+  await operator.getByRole('button',{name:'Schedule follow-up'}).click();
+  await operator.getByText('Follow-up scheduled.',{exact:true}).waitFor();
+  await operator.goto(base+'/follow-ups',{waitUntil:'domcontentloaded'});
+  await operator.getByText('Browser QA next action',{exact:true}).waitFor();
+  await operator.getByText('Browser QA next action',{exact:true}).click();
+  await operator.getByLabel('Follow-up outcome').fill('Browser QA completed');
+  await operator.getByRole('button',{name:'Complete follow-up'}).click();
+  await operator.getByText('Follow-up completed.',{exact:true}).waitFor();
+  await creditor.goto(base+'/reports',{waitUntil:'domcontentloaded'});
+  await creditor.getByRole('heading',{name:'Monthly recovery movements'}).waitFor();
+  assert.equal(await creditor.locator('a[href="/follow-ups"]').count(),0,'creditor cannot see staff queue navigation');
 
   step = 'notification center activity and read-state QA';
   await creditor.goto(base+'/notifications',{waitUntil:'domcontentloaded'});

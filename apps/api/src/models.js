@@ -24,6 +24,11 @@ const caseSchema = new mongoose.Schema({
   disputed: {type:Boolean, default: false}, status: {type:String, enum:['draft','submitted','needs_info','rejected','accepted','in_progress','on_hold','closed'], default:'draft'},
   feeRateBps: {type:Number, min:1500, max:3000, default:2000, validate:Number.isInteger}, assignedTo: {...id, ref:'User'},
   decisionReason: {type:String, default:''}, submittedAt: Date, acceptedAt: Date,
+  // One next action per case. History lives in the append-only case activity.
+  followUp:{type:new mongoose.Schema({
+    dueDate:{type:Date,required:true},note:{type:String,required:true,maxlength:400},
+    revision:{type:String,required:true},scheduledBy:{...id,ref:'User',required:true}
+  },{_id:false}),default:null,select:false},
   // Legacy lease coordinates sample evidence uploads with case transitions.
   // Financial transactions serialize on the same case document using this revision.
   ledgerRevision:{type:Number,default:0,select:false},
@@ -34,6 +39,8 @@ const caseSchema = new mongoose.Schema({
 caseSchema.index({organizationId:1,invoiceNo:1},{unique:true});
 caseSchema.index({organizationId:1,status:1,createdAt:-1});
 caseSchema.index({assignedTo:1,status:1});
+caseSchema.index({assignedTo:1,'followUp.dueDate':1},{partialFilterExpression:{'followUp.dueDate':{$exists:true}}});
+caseSchema.index({'followUp.dueDate':1},{partialFilterExpression:{'followUp.dueDate':{$exists:true}}});
 export const Case = mongoose.model('Case', caseSchema);
 export const Activity = mongoose.model('Activity', new mongoose.Schema({
   caseId: {...id, ref:'Case', required:true, index:true}, organizationId: {...id, ref:'Organization', required:true},
@@ -49,6 +56,7 @@ const receiptSchema = new mongoose.Schema({
   verifiedBy:{...id,ref:'User'}, verifiedAt:Date
 }, options);
 receiptSchema.index({caseId:1,reference:1},{unique:true});
+receiptSchema.index({status:1,verifiedAt:1});
 receiptSchema.index({reversedFrom:1},{unique:true,partialFilterExpression:{reversedFrom:{$exists:true}}});
 export const Receipt = mongoose.model('Receipt',receiptSchema);
 

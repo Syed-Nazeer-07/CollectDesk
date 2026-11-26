@@ -17,6 +17,7 @@ import {installEvidenceRoutes} from './evidence.js';
 import {caseSort,caseFilters,casesCsv} from './case-register.js';
 import {installNotificationRoutes} from './notifications.js';
 import {withCaseTransaction,transactionResponse,inspectLedger} from './ledger.js';
+import {installOperationsRoutes} from './operations.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,financialTotals,CASE_STATUSES,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser,addPaise,collectionAttention,compareAttention} from './rules.js';
 
 const app=express();
@@ -107,6 +108,7 @@ async function logEvent(item,user,kind,text,visibility='creditor',metadata={},se
 }
 installEvidenceRoutes(route,{getCase,logEvent});
 installNotificationRoutes(route);
+installOperationsRoutes(route,{getCase,logEvent});
 route.get('/operators',requireRole('admin'),async(_req,res)=>{
   const operators=await User.find({role:'operator',active:true}).select('name email').lean();
   res.json({operators:operators.map(u=>({id:String(u._id),name:u.name,email:u.email}))});
@@ -296,7 +298,7 @@ route.post('/cases/:id/status',getCase,requireRole('admin'),async(req,res)=>with
   const nextStatus=action==='hold'?'on_hold':action==='close'?'closed':req.caseItem.assignedTo?'in_progress':'accepted';
   const updated=await Case.updateOne(
     {_id:req.caseItem._id,status:previous},
-    {$set:{status:nextStatus}},{session}
+    {$set:{status:nextStatus,...(action==='close'?{followUp:null}:{})}},{session}
   );
   if(!updated.matchedCount)return transactionResponse(409,{error:'Case status changed. Refresh and retry.'});
   await logEvent(req.caseItem,req.user,'status',`Case ${action==='hold'?'placed on hold':action==='resume'?'resumed':'closed'}: ${reason}`,'creditor',{from:previous,to:nextStatus},session);

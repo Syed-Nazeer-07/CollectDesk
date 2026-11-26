@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {useEffect,useRef,useState} from 'react';
-import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus,Bell} from 'lucide-react';
+import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus,Bell,ChartNoAxesCombined,CalendarClock} from 'lucide-react';
 import {api,User} from '@/lib/api';
 import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 import {ThemeToggle} from '@/components/ThemeProvider';
@@ -75,6 +75,8 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/dashboard'?'active':''}`} aria-current={pathname==='/dashboard'?'page':undefined} href="/dashboard"><LayoutDashboard size={18}/> Overview</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname.startsWith('/cases')&&pathname!=='/cases/new'?'active':''}`} aria-current={pathname.startsWith('/cases')&&pathname!=='/cases/new'?'page':undefined} href="/cases"><FolderKanban size={18}/> All cases</Link>
         {user?.role==='creditor'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/cases/new'?'active':''}`} aria-current={pathname==='/cases/new'?'page':undefined} href="/cases/new"><Plus size={18}/> Create case</Link>}
+        {user&&<Link className={'nav-link '+(pathname==='/reports'?'active':'')} aria-current={pathname==='/reports'?'page':undefined} href="/reports"><ChartNoAxesCombined size={18}/> Recovery reports</Link>}
+        {user&&user.role!=='creditor'&&<Link className={'nav-link '+(pathname==='/follow-ups'?'active':'')} aria-current={pathname==='/follow-ups'?'page':undefined} href="/follow-ups"><CalendarClock size={18}/> Follow-up queue</Link>}
         <Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/notifications'?'active':'')} aria-current={pathname==='/notifications'?'page':undefined} href="/notifications"><Bell size={18}/> Activity updates</Link>
         <span className="nav-caption nav-caption-second">Workspace settings</span>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/account'?'active':''}`} aria-current={pathname==='/account'?'page':undefined} href="/account"><UserRound size={18}/> Account & access</Link>
