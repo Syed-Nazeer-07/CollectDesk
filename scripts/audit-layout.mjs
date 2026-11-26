@@ -45,6 +45,13 @@ try {
           await page.setViewportSize({width,height:900});
           const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
           if(overflow>1) failures.push({route,theme,width,overflow});
+          if(route.startsWith('/cases/')&&route!=='/cases/new'&&width<=650){
+            const amount=await page.locator('.detail-amount strong').evaluate(el=>{
+              const range=document.createRange();range.selectNodeContents(el);
+              return {lines:range.getClientRects().length,overflow:el.scrollWidth-el.clientWidth};
+            });
+            if(amount.lines!==1||amount.overflow>1)failures.push({route,theme,width,amount});
+          }
           checks++;
           if(width===390||width===1366){
             const slug=role+'-'+(route.startsWith('/cases/')&&route!=='/cases/new'?'case-detail':route.split('?')[0].replaceAll('/','-').slice(1)||'landing');

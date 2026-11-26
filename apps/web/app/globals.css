@@ -3612,3 +3612,16 @@ html[data-theme="light"] .app-root,html.light .app-root {
 @media(max-width:650px){.report-month{grid-template-columns:45px minmax(0,1fr) minmax(52px,auto);gap:8px}.report-axis{margin-left:53px;margin-right:70px;font-size:10px}.report-month strong{font-size:11px}.app-root .detail-columns{gap:14px}.app-root .detail-main,.app-root .detail-aside{gap:14px}}
 
 .ops-metric-link{color:var(--fg);display:block}.ops-metric-link:hover{border-color:var(--accent-text)}.ops-metric-link p{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.ops-metric-link:focus-visible{outline:2px solid var(--accent-text);outline-offset:3px}
+
+/* Keep the invoice principal readable on narrow phones instead of squeezing
+   the label and amount beside a long case reference. */
+.app-root .detail-head>div:first-child{min-width:0;overflow-wrap:anywhere}
+.app-root .detail-amount{flex:0 0 auto;overflow-wrap:normal}
+.app-root .detail-amount strong{white-space:nowrap;font-size:clamp(21px,2.2vw,28px)}
+@media(max-width:650px){
+  .app-root .detail-head{flex-direction:column;align-items:stretch;gap:16px;padding:20px}
+  .app-root .detail-amount{border-top:1px solid var(--line);padding-top:15px;text-align:left}
+  .app-root .detail-amount small{display:block;letter-spacing:.07em}
+  .app-root .detail-amount strong{font-size:25px}
+  .app-root .topbar .breadcrumb{display:none}
+}
