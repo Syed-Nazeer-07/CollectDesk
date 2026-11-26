@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assertAccess,canEditDraft,canSubmit,canReview,canAssign,canHold,canResume,canClose,calculateMoney,formatCaseCode,isOverdue,indiaDateKey,pageInfo,scopeForUser} from '../src/rules.js';
+import {assertAccess,canEditDraft,canSubmit,canReview,canAssign,canHold,canResume,canClose,calculateMoney,formatCaseCode,isOverdue,indiaDateKey,pageInfo,scopeForUser,addPaise,daysOverdue,collectionAttention,compareAttention} from '../src/rules.js';
 test('creditor only sees own organization',()=>{
   const caseItem={organizationId:'A',assignedTo:'operator-x'};
   assert.equal(assertAccess({_id:'u1',role:'creditor',organizationId:'A'},caseItem),true);
@@ -85,4 +85,38 @@ test('missing tenant and unknown roles fail closed for queries and single cases'
   assert.deepEqual(scopeForUser({role:'creditor'}),{_id:{$exists:false}});
   assert.deepEqual(scopeForUser({role:'operator'}),{_id:{$exists:false}});
   assert.deepEqual(scopeForUser({role:'guest'}),{_id:{$exists:false}});
+});
+
+test('verified amounts reject negative, zero, fractional and unknown-kind entries',()=>{
+  for(const amountPaise of [-1,0,1.5,Number.MAX_SAFE_INTEGER+1])
+    assert.throws(()=>calculateMoney(1000,2000,[{status:'verified',kind:'receipt',amountPaise}]));
+  assert.throws(()=>calculateMoney(1000,2000,[{status:'verified',kind:'unknown',amountPaise:1}]));
+});
+test('ledger net is exact even when gross receipts exceed safe integer range',()=>{
+  const max=Number.MAX_SAFE_INTEGER;
+  const receipts=[
+    {status:'verified',kind:'receipt',amountPaise:max},
+    {status:'verified',kind:'receipt',amountPaise:2},
+    {status:'verified',kind:'reversal',amountPaise:max}
+  ];
+  assert.equal(calculateMoney(100,2000,receipts).recoveredPaise,2);
+  assert.throws(()=>addPaise(max,1));
+  assert.equal(addPaise(max-1,1),max);
+});
+test('aging uses Indian business dates and excludes non-operational or paid cases',()=>{
+  const today='2026-11-26';
+  assert.equal(daysOverdue('2026-11-26',today),0);
+  assert.equal(daysOverdue('2026-10-27',today),30);
+  assert.equal(daysOverdue('2026-10-26',today),31);
+  assert.equal(daysOverdue('2026-11-27',today),0);
+  assert.equal(daysOverdue(null,today),0);
+  for(const status of ['draft','submitted','needs_info','closed','rejected'])
+    assert.equal(collectionAttention({status,dueDate:'2026-08-01'},100,today),null);
+  assert.equal(collectionAttention({status:'accepted',dueDate:'2026-08-01'},0,today),null);
+  assert.deepEqual(collectionAttention({status:'in_progress',dueDate:'2026-10-26'},100,today),{overdueDays:31,band:'31–60',outstandingPaise:100});
+  assert.equal(collectionAttention({status:'on_hold',dueDate:'2026-08-01'},100,today).band,'91+');
+});
+test('attention queue ranks by days overdue, then outstanding, then stable case ID',()=>{
+  const input=[{id:'b',overdueDays:31,outstandingPaise:100},{id:'a',overdueDays:31,outstandingPaise:100},{id:'c',overdueDays:31,outstandingPaise:200},{id:'d',overdueDays:32,outstandingPaise:1}];
+  assert.deepEqual(input.sort(compareAttention).map(r=>r.id),['d','c','a','b']);
 });

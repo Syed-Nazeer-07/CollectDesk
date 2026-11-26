@@ -578,6 +578,9 @@ try {
   await admin.getByLabel('I understand this creates a separate reversing ledger entry').check();
   await admin.getByRole('button', { name: 'Reverse verified entry' }).click();
   await admin.locator('.receipt-row').filter({hasText:'(reversal)'}).waitFor();
+  await admin.getByRole('button',{name:'Run reconciliation'}).click();
+  await admin.getByText('No discrepancies detected by this check.',{exact:true}).waitFor();
+  assert.equal(await creditor.getByRole('button',{name:'Run reconciliation'}).count(),0,'creditors must not see admin reconciliation');
   assert.equal(await admin.getByRole('button', { name: 'Correct receipt' }).count(),0,
     'A verified receipt must not offer a second reversal');
   await creditor.reload();

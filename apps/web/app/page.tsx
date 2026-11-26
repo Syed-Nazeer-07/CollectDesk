@@ -129,8 +129,8 @@ export default function LandingPage(){
       <section className="lp-hero" aria-labelledby="landing-title">
         <div className="lp-wrap">
           <span className="lp-pill"><span className="lp-dot"/>Commercial collections case management</span>
-          <h1 id="landing-title">Every overdue invoice deserves <em>a clearer path forward.</em></h1>
-          <p className="lp-hero-sub">One workspace to submit collection cases, coordinate reviews, and track verified recovery from first submission to resolution.</p>
+          <h1 id="landing-title">Every overdue invoice deserves <em>a clear path to resolution.</em></h1>
+          <p className="lp-hero-sub">An organized workspace for commercial collections. Submit overdue invoices, manage review and assignment queues, and reconcile verified recoveries with a traceable case history.</p>
           <div className="lp-hero-cta">
             <Link className="lp-btn lp-btn-accent lp-btn-lg" href="/login?mode=signup">Create a creditor account <Ic n="right"/></Link>
             <a className="lp-btn lp-btn-ghost lp-btn-lg" href="#stages">See how it works <Ic n="up"/></a>

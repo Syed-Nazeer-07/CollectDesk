@@ -24,13 +24,16 @@ export function canResume(status) { return status === 'on_hold'; }
 export function canClose(status) { return ['accepted','in_progress','on_hold'].includes(status); }
 
 export function calculateMoney(principalPaise, feeRateBps, receipts = []) {
-  let recoveredPaise = 0;
+  let recoveredPaise = 0n;
   for (const r of receipts) {
     if (r.status !== 'verified') continue;
-    if (!Number.isSafeInteger(r.amountPaise)) throw new Error('Invalid receipt amount');
-    recoveredPaise += r.kind === 'reversal' ? -r.amountPaise : r.amountPaise;
+    if (!Number.isSafeInteger(r.amountPaise) || r.amountPaise <= 0) throw new Error('Invalid receipt amount');
+    if (!['receipt', 'reversal'].includes(r.kind)) throw new Error('Invalid receipt kind');
+    const amount = BigInt(r.amountPaise);
+    recoveredPaise += r.kind === 'reversal' ? -amount : amount;
   }
-  return financialTotals(principalPaise,feeRateBps,recoveredPaise);
+  if (recoveredPaise < 0n || recoveredPaise > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Invalid recovery total');
+  return financialTotals(principalPaise,feeRateBps,Number(recoveredPaise));
 }
 
 export function financialTotals(principalPaise,feeRateBps,recoveredPaise) {
@@ -71,4 +74,37 @@ export function scopeForUser(user) {
   if (user?.role === 'creditor') return user.organizationId ? {organizationId: user.organizationId} : {_id: {$exists: false}};
   if (user?.role === 'operator') return user._id ? {assignedTo: user._id} : {_id: {$exists: false}};
   return {_id: {$exists: false}};
+}
+
+/** Exact addition for nonnegative integer-paise portfolio totals. */
+export function addPaise(left, right) {
+  if (![left,right].every(n=>Number.isSafeInteger(n)&&n>=0)) throw new Error('Invalid monetary total');
+  const sum=left+right;
+  if (!Number.isSafeInteger(sum)) throw new Error('Unsafe monetary total');
+  return sum;
+}
+
+/** Calendar-day aging of date-only invoices, using the India business day. */
+export function daysOverdue(dueDate, todayKey) {
+  if (dueDate==null || !/^\d{4}-\d{2}-\d{2}$/.test(todayKey)) return 0;
+  const due=new Date(dueDate);
+  const today=Date.parse(todayKey+'T00:00:00.000Z');
+  if (!Number.isFinite(due.getTime()) || !Number.isFinite(today)) return 0;
+  const dueDay=Date.parse(due.toISOString().slice(0,10)+'T00:00:00.000Z');
+  return Math.max(0,Math.floor((today-dueDay)/86400000));
+}
+
+/** Only operationally active, unpaid cases belong in the attention queue. */
+export function collectionAttention(row, outstandingPaise, todayKey) {
+  if (!['accepted','in_progress','on_hold'].includes(row.status) || outstandingPaise<=0) return null;
+  const overdueDays=daysOverdue(row.dueDate,todayKey);
+  if (!overdueDays) return null;
+  const band=overdueDays<=30?'1–30':overdueDays<=60?'31–60':overdueDays<=90?'61–90':'91+';
+  return {overdueDays,band,outstandingPaise};
+}
+
+/** Transparent prioritization: oldest first, then largest balance, then case ID. */
+export function compareAttention(a,b) {
+  return b.overdueDays-a.overdueDays || b.outstandingPaise-a.outstandingPaise ||
+    String(a.id).localeCompare(String(b.id));
 }

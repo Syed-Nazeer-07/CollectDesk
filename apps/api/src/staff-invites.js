@@ -24,7 +24,7 @@ const acceptLimiter=rateLimit({
 const password=z.string().min(12).max(128)
   .regex(/[a-z]/,'Use a lowercase letter.')
   .regex(/[A-Z]/,'Use an uppercase letter.')
-  .regex(/[0-9]/,'Use a number.');
+  .regex(/[0-9]/,'Use a number.').refine(v=>Buffer.byteLength(v,'utf8')<=72,'Password must be at most 72 UTF-8 bytes.');
 const invitation=z.object({
   email:z.email().max(254).transform(x=>x.trim().toLowerCase()),
   role:z.literal('operator')
@@ -104,24 +104,22 @@ export function installStaffRoutes(app,webOrigin) {
       error:'This email already has an account. Sign in instead.'
     });
     const hashedPassword=await bcrypt.hash(input.password,12);
-    // Consume the token atomically so two parallel activations cannot both succeed.
-    const consumed=await StaffInvite.findOneAndUpdate({
-      _id:pending._id,tokenHash,status:'pending',expiresAt:{$gt:new Date()}
-    },{$set:{status:'consumed',consumedAt:new Date()}},{new:true});
-    if(!consumed)return res.status(400).json({error:'Invitation is no longer valid.'});
     let user;
-    try {
-      user=await User.create({
-        name:input.name,email:consumed.email,
-        role:'operator',active:true,passwordHash:hashedPassword
-      });
+    try{
+      user=await mongoose.connection.transaction(async session=>{
+        const consumed=await StaffInvite.findOneAndUpdate({
+          _id:pending._id,tokenHash,status:'pending',expiresAt:{$gt:new Date()}
+        },{$set:{status:'consumed',consumedAt:new Date()}},{session,returnDocument:'after'});
+        if(!consumed)return null;
+        const [created]=await User.create([{name:input.name,email:consumed.email,
+          role:'operator',active:true,passwordHash:hashedPassword}],{session});
+        return created;
+      },{writeConcern:{w:'majority'}});
     }catch(error){
-      // Re-enable only after an unexpected database error; never re-enable
-      // a token that maps to a registered account.
       if(error?.code===11000)return res.status(409).json({error:'This email already has an account.'});
-      await StaffInvite.updateOne({_id:consumed._id,status:'consumed'},{$set:{status:'pending',consumedAt:null}});
       throw error;
     }
+    if(!user)return res.status(400).json({error:'Invitation is no longer valid.'});
     res.cookie(COOKIE_NAME,issueSession(user),cookieOptions());
     res.set('Cache-Control','no-store');
     return res.status(201).json({user:publicUser(user)});

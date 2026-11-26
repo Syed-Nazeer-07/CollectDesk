@@ -54,7 +54,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   }
   const initials=user?.name?.split(' ').map(part=>part[0]).slice(0,2).join('')||'CD';
   const displayRole=user?roleName[user.role]:'Workspace user';
-  return <div className="app-root">
+  return <div className="app-root" data-workspace-role={user?.role||'guest'}>
     <a className="workspace-skip" href="#workspace-content">Skip to workspace content</a>
     {menu&&<button className="mobile-overlay" type="button" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}
     <aside id="workspace-sidebar" aria-label="Workspace navigation" className={`sidebar ${menu?'open':''}`}>
@@ -66,17 +66,17 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         <button type="button" className="icon-button hide-desktop" onClick={()=>setMenu(false)} aria-label="Close navigation"><X size={20}/></button>
       </div>
       <div className="workspace-identity" aria-label="Current workspace">
-        <span className="workspace-avatar">CD</span>
-        <span className="workspace-name"><strong>collectDesk</strong><small>{displayRole} workspace</small></span>
+        <span className="workspace-avatar">{user?.role==='admin'?'OP':user?.role==='operator'?'CO':'CR'}</span>
+        <span className="workspace-name"><strong>{user?.role==='admin'?'Operations control':user?.role==='operator'?'Collection workspace':'Creditor workspace'}</strong><small>{displayRole} · Sample data</small></span>
 
       </div>
       <nav className="sidebar-nav" aria-label="Main navigation">
-        <span className="nav-caption">WORKSPACE</span>
+        <span className="nav-caption">{user?.role==='admin'?'Operations':user?.role==='operator'?'My work':'Portfolio'}</span>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/dashboard'?'active':''}`} aria-current={pathname==='/dashboard'?'page':undefined} href="/dashboard"><LayoutDashboard size={18}/> Overview</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname.startsWith('/cases')&&pathname!=='/cases/new'?'active':''}`} aria-current={pathname.startsWith('/cases')&&pathname!=='/cases/new'?'page':undefined} href="/cases"><FolderKanban size={18}/> All cases</Link>
         {user?.role==='creditor'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/cases/new'?'active':''}`} aria-current={pathname==='/cases/new'?'page':undefined} href="/cases/new"><Plus size={18}/> Create case</Link>}
         <Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/notifications'?'active':'')} aria-current={pathname==='/notifications'?'page':undefined} href="/notifications"><Bell size={18}/> Activity updates</Link>
-        <span className="nav-caption nav-caption-second">ACCOUNT</span>
+        <span className="nav-caption nav-caption-second">Workspace settings</span>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/account'?'active':''}`} aria-current={pathname==='/account'?'page':undefined} href="/account"><UserRound size={18}/> Account & access</Link>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/support'?'active':''}`} aria-current={pathname==='/support'?'page':undefined} href="/support"><LifeBuoy size={18}/> Help & support</Link>
         {user?.role==='admin'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/staff'?'active':''}`} aria-current={pathname==='/staff'?'page':undefined} href="/staff"><UserPlus size={18}/> Staff invitations</Link>}
@@ -102,7 +102,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         </div>
       </header>
       <div className="main-content" id="workspace-content" tabIndex={-1}>
-        <div className="page-heading"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
+        <div className="page-heading"><div><span className="workspace-context">{displayRole} workspace</span><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
         {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user,acceptUser)}
         <footer className="app-footer"><span>CollectDesk · Case management</span><span>Sample records only · No real payments</span></footer>
       </div>

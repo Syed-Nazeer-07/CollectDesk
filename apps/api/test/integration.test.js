@@ -15,7 +15,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   process.env.JWT_SECRET = 'integration-test-only-secret-replace-for-real-production';
   const mongoose = (await import('mongoose')).default;
   const bcrypt = (await import('bcryptjs')).default;
-  const {Organization, User, Case, Activity, Receipt} = await import('../src/models.js');
+  const {Organization, User, Case, Activity, Receipt, RevokedSession} = await import('../src/models.js');
 
   // Hard block before any data deletion. Never run against the demo or production DB.
   const parsed = new URL(uri);
@@ -27,6 +27,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   try {
     await mongoose.connection.dropDatabase();
     const app = (await import('../src/app.js')).default;
+    const {assertTransactionTopology}=await import('../src/ledger.js');
+    await assertTransactionTopology(mongoose.connection);
+    await Promise.all([Case.init(),Receipt.init(),Activity.init(),RevokedSession.init()]);
     const orgA = await Organization.create({name:'Fictional creditor A'});
     const orgB = await Organization.create({name:'Fictional creditor B'});
     const password = 'Test-Only-Password-2026!';
@@ -341,6 +344,20 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,201,JSON.stringify(r.data));
     const caseId = r.data.id;
     assert.ok(caseId);
+    await t.test('disabled tenant cannot access cases and cross-tenant mutations fail closed',async()=>{
+      try{
+        await Organization.updateOne({_id:orgA._id},{$set:{active:false}});
+        assert.equal((await call('/cases',{cookie:a})).status,403);
+        assert.equal((await call('/dashboard/summary',{cookie:a})).status,403);
+        assert.equal((await call(`/cases/${caseId}`,{cookie:a})).status,403);
+        assert.equal((await call('/support/requests',{cookie:a})).status,200,'inactive tenant can still seek support');
+      }finally{await Organization.updateOne({_id:orgA._id},{$set:{active:true}});}
+      for(const suffix of ['submit','review','assign','status','activity','receipts']){
+        assert.equal((await call(`/cases/${caseId}/${suffix}`,{method:'POST',cookie:b,body:{}})).status,404);
+      }
+      assert.equal((await call('/operators',{cookie:a})).status,403);
+      assert.equal((await call('/operators',{cookie:operator})).status,403);
+    });
     await t.test('private synthetic PDF evidence is strictly scoped and guarded',async()=>{
       const previous=process.env.SAMPLE_EVIDENCE_ENABLED;
       const sample=Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n');
@@ -497,6 +514,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,409,'accepted invoices must not be editable');
     r = await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.case.debtorName,invoice.debtorName,'accepted invoice fields remain unchanged');
+    const beforeAssignment=await call('/dashboard/summary',{cookie:operator});
+    assert.equal(beforeAssignment.status,200);
+    assert.ok(!beforeAssignment.data.attention.priorityCases.some(c=>c.id===caseId),'unassigned case must not appear in operator queue');
     const op = await User.findOne({role:'operator'});
     r = await call(`/cases/${caseId}/assign`,{method:'POST',cookie:admin,body:{operatorId:String(op._id)}});
     assert.equal(r.status,200);
@@ -540,6 +560,31 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,201,JSON.stringify(r.data));
     const receiptId = r.data.id;
+    await t.test('audit failure aborts receipt recording and verification atomically',async()=>{
+      const originalCreate=Activity.create;
+      const baseline=await Receipt.countDocuments({caseId});
+      try{
+        Activity.create=async()=>{throw new Error('injected audit failure');};
+        const record=await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:100,reference:'FAIL-AUDIT'}});
+        assert.equal(record.status,500);
+        assert.equal(await Receipt.countDocuments({caseId}),baseline);
+        const verify=await call(`/cases/${caseId}/receipts/${receiptId}/verify`,{method:'POST',cookie:admin});
+        assert.equal(verify.status,500);
+        assert.equal((await Receipt.findById(receiptId)).status,'recorded');
+        const hold=await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'hold',reason:'Failure injection'}});
+        assert.equal(hold.status,500);
+        assert.equal((await Case.findById(caseId)).status,'in_progress');
+        const note=await call(`/cases/${caseId}/activity`,{method:'POST',cookie:operator,body:{text:'Injected note',visibility:'internal'}});
+        assert.equal(note.status,500);
+      }finally{Activity.create=originalCreate;}
+      assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:a})).status,403);
+      assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:b})).status,404);
+      assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:operator})).status,403);
+      const report=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
+      assert.equal(report.status,200);
+      assert.equal(report.data.requiresReview,false,JSON.stringify(report.data));
+      assert.equal(report.data.pendingPaise,200_000);
+    });
     // Maker/checker can be enabled for teams with multiple admins; the
     // existing single-admin sample mode is deliberately unchanged by default.
     const previousMakerChecker=process.env.SEPARATE_RECEIPT_APPROVAL;
@@ -578,6 +623,38 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.data.financials.feePaise,40_000);
     assert.equal(r.data.receipts.length,1,'verified receipt can be shared');
     assert.equal(r.data.receipts[0].recordedBy,null,'creditors must not receive staff recorder IDs');
+    await t.test('aging dashboard reconciles verified amounts and enforces current role scope',async()=>{
+      assert.equal((await call('/dashboard/summary')).status,401);
+      for(const cookie of [a,admin,operator]){
+        const result=await call('/dashboard/summary',{cookie});
+        assert.equal(result.status,200,JSON.stringify(result.data));
+        const attention=result.data.attention;
+        const priority=attention.priorityCases.find(c=>c.id===caseId);
+        assert.ok(priority,'accessible active case must appear in attention queue');
+        assert.equal(priority.outstandingPaise,800_000);
+        assert.ok(priority.overdueDays>0);
+        assert.equal(attention.aging.reduce((sum,b)=>sum+b.count,0),attention.overdueCount);
+        assert.equal(attention.aging.reduce((sum,b)=>sum+b.outstandingPaise,0),attention.overdueOutstandingPaise);
+        assert.ok(!attention.priorityCases.some(c=>c.id===closeId),'closed case must not appear in active attention');
+      }
+      const other=await call('/dashboard/summary',{cookie:b});
+      assert.equal(other.status,200);
+      assert.equal(other.data.attention.overdueCount,0);
+      assert.ok(!JSON.stringify(other.data).includes(caseId),'tenant B must not receive tenant A case data');
+      const audit=await Activity.findOne({caseId,kind:'verified'}).lean();
+      assert.equal(audit.metadata.receiptId,receiptId);
+      assert.equal(audit.metadata.amountPaise,200_000);
+    });
+    await t.test('reversal rolls back when its audit cannot be written',async()=>{
+      const original=Activity.create;
+      try{
+        Activity.create=async()=>{throw new Error('injected reversal audit failure');};
+        const failed=await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Injected failure'}});
+        assert.equal(failed.status,500);
+        assert.equal(await Receipt.countDocuments({reversedFrom:receiptId}),0);
+        assert.equal((await call(`/cases/${caseId}`,{cookie:a})).data.financials.recoveredPaise,200_000);
+      }finally{Activity.create=original;}
+    });
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Fictional receipt correction'}});
     assert.equal(r.status,200);
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Duplicate correction'}});
@@ -585,6 +662,23 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.financials.recoveredPaise,0,'reversal must adjust verified recovery');
     assert.equal(r.data.financials.feePaise,0,'reversal must adjust fee');
+    const reconciliation=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
+    assert.equal(reconciliation.status,200);
+    assert.equal(reconciliation.data.requiresReview,false,JSON.stringify(reconciliation.data));
+    const foreignReceipt=await Receipt.create({caseId,organizationId:orgB._id,amountPaise:100,reference:'MISMATCH',kind:'receipt',status:'verified',recordedBy:(await User.findOne({role:'admin'}))._id});
+    try{
+      const scoped=await call(`/cases/${caseId}`,{cookie:a});
+      assert.equal(scoped.data.financials.recoveredPaise,0);
+      assert.ok(!scoped.data.receipts.some(r=>r.id===String(foreignReceipt._id)));
+      const dashboard=await call('/dashboard/summary',{cookie:a});
+      assert.equal(dashboard.status,200);
+      assert.equal(dashboard.data.attention.priorityCases.find(c=>c.id===caseId)?.outstandingPaise,1_000_000,'dashboard must exclude tenant-mismatched receipt');
+      const issue=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
+      assert.ok(issue.data.issues.some(i=>i.code==='receipt_tenant_mismatch'));
+    }finally{await Receipt.deleteOne({_id:foreignReceipt._id});}
+    const reversedDashboard=await call('/dashboard/summary',{cookie:a});
+    assert.equal(reversedDashboard.status,200);
+    assert.equal(reversedDashboard.data.attention.priorityCases.find(c=>c.id===caseId)?.outstandingPaise,1_000_000,'aging balances must include reversals');
     assert.equal((await Case.findById(caseId)).status,'in_progress');
     // Construct contradictory pending data deliberately to simulate concurrent admins or import errors.
     // The per-case lease must prevent both from being verified past the principal.
@@ -749,6 +843,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       const logout=await call('/auth/logout',{method:'POST',cookie:a});
       assert.equal(logout.status,200);
       assert.match(logout.cookie||'',/collectdesk_session=/);
+      assert.equal((await call('/auth/me',{cookie:a})).status,401,'logged-out token cannot be replayed');
+      const newSession=await signIn('creditora@test.collectdesk.local');
+      assert.equal((await call('/auth/me',{cookie:newSession})).status,200,'a fresh session remains valid');
     });
   } finally {
     if(server) await new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()));

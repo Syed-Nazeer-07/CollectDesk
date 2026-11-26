@@ -535,3 +535,17 @@ html.light .lp .lp-nav-link.lp-active {
 .lp-mobile-nav a:hover,.lp-mobile-nav a:focus-visible {background:var(--bg-2);}
 @media(min-width:760px) {.lp-mobile-nav {display:none;}}
 @media(max-width:420px) {.lp-nav .lp-btn-accent {display:none;}}
+
+
+/* Landing refresh: quiet enterprise typography and restrained surfaces. */
+.lp {--bg:#101419;--bg-2:#14191f;--panel:#181e25;--fg:#f2f4f6;--fg-dim:#b1bac5;--fg-faint:#919ba7;--line:rgba(181,195,211,.16);--paper:#e9edf2;--paper-2:#dce3eb;--paper-ink:#16202c;--paper-dim:#526071}
+html[data-theme="light"] .lp,html.light .lp {--bg:#f5f7fa;--bg-2:#e9edf2;--panel:#ffffff;--fg:#16202c;--fg-dim:#526071;--fg-faint:#677586;--paper:#e9edf2;--paper-2:#dce3eb}
+.lp .lp-nav-pill {border-radius:12px;background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+.lp .lp-btn,.lp .lp-btn-lg,.lp .lp-nav .lp-btn {border-radius:8px}
+.lp .lp-btn-accent {box-shadow:none}
+.lp .lp-hero h1 {letter-spacing:-.055em}
+.lp .lp-hero-sub {max-width:720px}
+.lp .lp-dash {border-radius:12px;background:var(--panel);box-shadow:none}
+html[data-theme="light"] .lp .lp-dash,html.light .lp .lp-dash {background:var(--panel);box-shadow:none}
+.lp .cdl-feature,.lp .cdl-step {border-radius:10px;box-shadow:none}
+.lp .lp-band {padding-block:clamp(52px,7vw,104px)}

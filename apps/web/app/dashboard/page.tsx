@@ -28,12 +28,18 @@ export default function DashboardPage(){
     {(user:User)=><div className="dashboard-content">
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
+        <section className="workspace-brief" aria-label="Workspace priorities">
+          <div><span className="workspace-context">{user.role==='admin'?'Operations control':user.role==='operator'?'Assigned portfolio':'Creditor portfolio'}</span>
+          <h2>{user.role==='admin'?'Manage the collection pipeline.':user.role==='operator'?'Focus on the next case.':'Track your outstanding invoices.'}</h2>
+          <p>{user.role==='admin'?'Review submissions, coordinate assignments and verify receipts.':user.role==='operator'?'Prioritize overdue work and keep creditors informed with case updates.':'Follow review decisions, outstanding balances and verified recoveries in your company.'}</p></div>
+          <Link className="button button-outline" href={user.role==='admin'?'/cases?status=submitted':user.role==='operator'?'/cases?sort=due':'/cases/new'}>{user.role==='admin'?'Review submissions':user.role==='operator'?'Open work queue':'Submit an invoice'}<ArrowRight size={15}/></Link>
+        </section>
         {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Outstanding balance" value={money(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} priority sub="Excludes drafts and rejected cases"/>
           <Stat name="Verified recovered" value={money(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} priority sub="Verified receipts less reversals"/>
-          <Stat name="Active cases" value={String(data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub="Accepted, in progress or on hold"/>
-          <Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={19}/>} sub="Cases you can access"/>
+          <Stat name={user.role==='admin'?'Awaiting review':user.role==='operator'?'Assigned active cases':'Active cases'} value={String(user.role==='admin'?data.summary.awaitingReview:data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub={user.role==='admin'?'Submitted cases requiring a decision':'Accepted, in progress or on hold'}/>
+          <Stat name={user.role==='creditor'?'Total cases':'Overdue active cases'} value={String(user.role==='creditor'?data.summary.totalCases:data.attention?.overdueCount??0)} icon={<FolderKanban size={19}/>} sub={user.role==='creditor'?'Cases you can access':'Active unpaid cases past due'}/>
         </section>
         <div className="middle-grid">
           <section className="panel status-panel">
@@ -72,6 +78,7 @@ export default function DashboardPage(){
             </div>
           </section>
         </div>
+        {data.attention&&<AttentionPanel attention={data.attention} role={user.role}/>}
         <section className="panel cases-panel">
           <div className="panel-head"><div><h3>Recent cases</h3><p>Latest updates across your accessible cases</p></div><Link href="/cases" className="text-link">View all cases <ArrowRight size={15}/></Link></div>
           <CaseTable cases={data.recentCases}/>
@@ -121,6 +128,41 @@ function GettingStarted({user,dashboard}:{user:User;dashboard:Dashboard}){
           <div key={step.title} className="onboarding-step onboarding-step-done" aria-label={step.title+' completed'}>{inner}</div>:
           <Link key={step.title} className="onboarding-step" href={step.href} aria-label={step.title}>{inner}</Link>;
       })}
+    </div>
+  </section>;
+}
+
+/** Backend-scoped, deterministic attention queue; never estimates collection probability. */
+function AttentionPanel({attention,role}:{attention:NonNullable<Dashboard['attention']>;role:User['role']}){
+  return <section className="panel cases-panel" aria-labelledby="attention-heading">
+    <div className="panel-head">
+      <div><h3 id="attention-heading">{role==='operator'?'Assigned cases requiring attention':'Overdue collection exposure'}</h3>
+        <p>Active unpaid cases only · As of {attention.asOf} (India)</p></div>
+      <Link href="/cases?sort=due" className="text-link">Open register <ArrowRight size={15}/></Link>
+    </div>
+    <div className="attention-layout">
+      <div className="focus-panel">
+        <div className="finance-totals"><span>{attention.overdueCount} overdue active cases</span><strong>{money(attention.overdueOutstandingPaise)}</strong><p>Remaining principal after verified receipts and reversals.</p></div>
+        <div className="status-breakdown attention-aging" aria-label="Outstanding balance by days overdue">
+          {attention.aging.map(bucket=>{
+            const percentage=attention.overdueOutstandingPaise?100*bucket.outstandingPaise/attention.overdueOutstandingPaise:0;
+            return <div className="status-breakdown-row attention-aging-row" key={bucket.band}>
+              <span className="status-breakdown-name">{bucket.band} days ({bucket.count})</span>
+              <span className="status-breakdown-meter" aria-hidden="true"><span style={{width:percentage+'%',background:statusColors.in_progress}}/></span>
+              <strong>{money(bucket.outstandingPaise)}</strong>
+            </div>;
+          })}
+        </div>
+      </div>
+      <div className="focus-panel">
+        <div className="panel-head"><div><h3>Oldest unpaid cases</h3><p>Up to five, ordered by age then outstanding balance</p></div></div>
+        {attention.priorityCases.length?attention.priorityCases.map(item=>
+          <Link key={item.id} href={'/cases/'+item.id} className="action-row">
+            <span className="action-row-symbol"><Clock3 size={19}/></span>
+            <span><strong>{item.caseCode} · {item.debtorName}</strong><small>{item.overdueDays} days overdue · {label(item.status)} · {money(item.outstandingPaise)} outstanding</small></span>
+            <ArrowUpRight size={18} aria-hidden="true"/>
+          </Link>):<div className="dashboard-empty">No active unpaid overdue cases in your workspace.</div>}
+      </div>
     </div>
   </section>;
 }

@@ -28,7 +28,7 @@ function activityScope(user,unreadOnly=false) {
     {$match:match},
     {$lookup:{from:Case.collection.name,localField:'caseId',foreignField:'_id',as:'case'}},
     {$unwind:'$case'},
-    {$match:access}
+    {$match:{...access,$expr:{$eq:['$organizationId','$case.organizationId']}}}
   ];
 }
 

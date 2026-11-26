@@ -10,16 +10,23 @@ export const User = mongoose.model('User', new mongoose.Schema({
   sessionVersion: {type:Number,default:0,min:0},
   notificationsSeenAt: {type:Date,default:null}
 }, options));
+// Session revocation stores only a hash of the signed cookie, never the token.
+const revokedSessionSchema=new mongoose.Schema({
+  tokenHash:{type:String,required:true,unique:true},expiresAt:{type:Date,required:true}
+},options);
+revokedSessionSchema.index({expiresAt:1},{expireAfterSeconds:0});
+export const RevokedSession=mongoose.model('RevokedSession',revokedSessionSchema);
 const caseSchema = new mongoose.Schema({
   caseCode: {type: String, required: true, unique: true}, organizationId: {...id, ref: 'Organization', required: true, index: true},
   createdBy: {...id, ref:'User', required: true}, debtorName: {type: String, required: true}, invoiceNo: {type: String, required: true},
-  issueDate: {type: Date, required: true}, dueDate: {type: Date, required: true}, principalPaise: {type: Number, required: true, min: 100},
+  issueDate: {type: Date, required: true}, dueDate: {type: Date, required: true}, principalPaise: {type: Number, required: true, min: 100, validate:Number.isSafeInteger},
   currency: {type: String, enum:['INR'], default:'INR'}, description: {type: String, default:''},
   disputed: {type:Boolean, default: false}, status: {type:String, enum:['draft','submitted','needs_info','rejected','accepted','in_progress','on_hold','closed'], default:'draft'},
-  feeRateBps: {type:Number, min:1500, max:3000, default:2000}, assignedTo: {...id, ref:'User'},
+  feeRateBps: {type:Number, min:1500, max:3000, default:2000, validate:Number.isInteger}, assignedTo: {...id, ref:'User'},
   decisionReason: {type:String, default:''}, submittedAt: Date, acceptedAt: Date,
-  // Demo-only lease prevents simultaneous financial mutations on the same case.
-  // Production still needs multi-document transactions and audited reconciliation.
+  // Legacy lease coordinates sample evidence uploads with case transitions.
+  // Financial transactions serialize on the same case document using this revision.
+  ledgerRevision:{type:Number,default:0,select:false},
   financialLockToken: {type:String, default:null, select:false},
   financialLockExpiresAt: {type:Date, default:null, select:false},
   evidenceLabel: {type:String, default:''} // demo-only text label; NOT an uploaded file
@@ -36,7 +43,7 @@ export const Activity = mongoose.model('Activity', new mongoose.Schema({
 }, options));
 const receiptSchema = new mongoose.Schema({
   caseId: {...id, ref:'Case', required:true,index:true}, organizationId:{...id, ref:'Organization', required:true},
-  amountPaise:{type:Number,required:true,min:1}, kind:{type:String,enum:['receipt','reversal'],default:'receipt'},
+  amountPaise:{type:Number,required:true,min:1,validate:Number.isSafeInteger}, kind:{type:String,enum:['receipt','reversal'],default:'receipt'},
   status:{type:String,enum:['recorded','verified','rejected'],default:'recorded'}, reference:{type:String,required:true},
   reversedFrom: {...id, ref:'Receipt'}, recordedBy:{...id, ref:'User',required:true},
   verifiedBy:{...id,ref:'User'}, verifiedAt:Date

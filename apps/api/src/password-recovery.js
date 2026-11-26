@@ -5,6 +5,7 @@
 import {createHash,randomBytes} from 'node:crypto';
 import {rateLimit} from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import {z} from 'zod';
 import {PasswordReset,User} from './models.js';
 import {emailDeliveryProvider,sendPasswordResetEmail} from './email-delivery.js';
@@ -20,7 +21,7 @@ const resetLimiter=rateLimit({
 const password=z.string().min(12).max(128)
   .regex(/[a-z]/,'Use a lowercase letter.')
   .regex(/[A-Z]/,'Use an uppercase letter.')
-  .regex(/[0-9]/,'Use a number.');
+  .regex(/[0-9]/,'Use a number.').refine(v=>Buffer.byteLength(v,'utf8')<=72,'Password must be at most 72 UTF-8 bytes.');
 const tokenHash=token=>createHash('sha256').update(token).digest('hex');
 
 export function installPasswordRecoveryRoutes(app,webOrigin){
@@ -61,19 +62,20 @@ export function installPasswordRecoveryRoutes(app,webOrigin){
 
   app.post('/api/v1/auth/password/reset',resetLimiter,async(req,res)=>{
     const input=z.object({token:z.string().min(30).max(150),password}).strict().parse(req.body);
-    const pending=await PasswordReset.findOneAndDelete({
-      tokenHash:tokenHash(input.token),expiresAt:{$gt:new Date()}
-    });
-    if(!pending)return res.status(400).json({
-      error:'This password reset link has expired or was already used. Request a new one.'
-    });
+    // Hash before opening the transaction; a database failure cannot consume the link.
     const passwordHash=await bcrypt.hash(input.password,12);
-    const user=await User.findOneAndUpdate({_id:pending.userId,active:true},{
-      $set:{passwordHash},$inc:{sessionVersion:1}
-    },{returnDocument:'after'});
-    if(!user)return res.status(400).json({error:'This password reset link is no longer valid.'});
-    // Older signed sessions become invalid through sessionVersion checking.
-    await PasswordReset.deleteMany({userId:user._id});
+    const user=await mongoose.connection.transaction(async session=>{
+      const pending=await PasswordReset.findOneAndDelete({
+        tokenHash:tokenHash(input.token),expiresAt:{$gt:new Date()}
+      },{session});
+      if(!pending)return null;
+      const updated=await User.findOneAndUpdate({_id:pending.userId,active:true},{
+        $set:{passwordHash},$inc:{sessionVersion:1}
+      },{session,returnDocument:'after'});
+      if(updated)await PasswordReset.deleteMany({userId:updated._id},{session});
+      return updated;
+    },{writeConcern:{w:'majority'}});
+    if(!user)return res.status(400).json({error:'This password reset link has expired or was already used. Request a new one.'});
     res.set('Cache-Control','no-store');
     return res.json({ok:true,message:'Password changed. Please sign in again.'});
   });
