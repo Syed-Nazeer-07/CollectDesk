@@ -120,3 +120,13 @@ const staffInviteSchema=new mongoose.Schema({
 staffInviteSchema.index({email:1,status:1});
 staffInviteSchema.index({expiresAt:1},{expireAfterSeconds:30*24*60*60});
 export const StaffInvite=mongoose.model('StaffInvite',staffInviteSchema);
+
+// Bounded fictional PDF evidence, stored as a single BSON document.
+const sampleDocumentSchema=new mongoose.Schema({
+  caseId:{...id,ref:'Case',required:true},organizationId:{...id,ref:'Organization',required:true},
+  uploadedBy:{...id,ref:'User',required:true},name:{type:String,required:true,maxlength:90},
+  size:{type:Number,required:true,min:16,max:1024*1024},
+  content:{type:Buffer,required:true,select:false,validate:v=>v.length>=16&&v.length<=1024*1024}
+},options);
+sampleDocumentSchema.index({caseId:1,organizationId:1,createdAt:-1});
+export const SampleDocument=mongoose.model('SampleDocument',sampleDocumentSchema);
