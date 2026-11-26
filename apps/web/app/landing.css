@@ -549,3 +549,5 @@ html[data-theme="light"] .lp,html.light .lp {--bg:#f5f7fa;--bg-2:#e9edf2;--panel
 html[data-theme="light"] .lp .lp-dash,html.light .lp .lp-dash {background:var(--panel);box-shadow:none}
 .lp .cdl-feature,.lp .cdl-step {border-radius:10px;box-shadow:none}
 .lp .lp-band {padding-block:clamp(52px,7vw,104px)}
+
+@media(min-width:1024px){.lp .cdl-feature-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}

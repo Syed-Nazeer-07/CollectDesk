@@ -87,8 +87,10 @@ async function session(email, mobile = false) {
     const startLink = page.getByRole('link', { name: /Create a creditor account/i });
     assert.equal(await startLink.getAttribute('href'), '/login?mode=signup',
       'Landing page account creation must open the existing registration flow');
-    assert.equal(await page.locator('.cdl-feature').count(), 4,
+    assert.equal(await page.locator('.cdl-feature').count(), 6,
       'Landing page should explain the core product capabilities');
+    await page.getByRole('heading',{name:'Monthly recovery reports'}).waitFor();
+    await page.getByRole('heading',{name:'Internal follow-up queue'}).waitFor();
     assert.equal(await page.locator('.cdl-step').count(), 3,
       'Customer onboarding should clearly explain each step');
     assert.equal(await page.title(), 'collectDesk',
