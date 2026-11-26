@@ -48,3 +48,6 @@ export function parsePaise(value:string,min=1,max=100_000_000_000){
   if(paise<BigInt(min)||paise>BigInt(max))throw new Error('Amount is outside the permitted range.');
   return Number(paise);
 }
+
+export type FollowUp={dueDate:string;note:string;revision:string};
+export function indiaDay(){const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));return v.year+'-'+v.month+'-'+v.day;}
