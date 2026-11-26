@@ -15,7 +15,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
   process.env.JWT_SECRET = 'integration-test-only-secret-replace-for-real-production';
   const mongoose = (await import('mongoose')).default;
   const bcrypt = (await import('bcryptjs')).default;
-  const {Organization, User, Case, Activity, Receipt, RevokedSession} = await import('../src/models.js');
+  const {Organization, User, Case, Activity, Receipt, RevokedSession, SampleDocument} = await import('../src/models.js');
 
   // Hard block before any data deletion. Never run against the demo or production DB.
   const parsed = new URL(uri);
@@ -29,7 +29,7 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     const app = (await import('../src/app.js')).default;
     const {assertTransactionTopology}=await import('../src/ledger.js');
     await assertTransactionTopology(mongoose.connection);
-    await Promise.all([Case.init(),Receipt.init(),Activity.init(),RevokedSession.init()]);
+    await Promise.all([Case.init(),Receipt.init(),Activity.init(),RevokedSession.init(),SampleDocument.init()]);
     const orgA = await Organization.create({name:'Fictional creditor A'});
     const orgB = await Organization.create({name:'Fictional creditor B'});
     const password = 'Test-Only-Password-2026!';
@@ -385,6 +385,12 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(response.status,404,'other creditor cannot upload against this case');
         response=await send(operator);
         assert.equal(response.status,404,'unassigned operator must not upload');
+        const originalAudit=Activity.create;
+        try{
+          Activity.create=async()=>{throw new Error('injected evidence audit failure');};
+          assert.equal((await send(a)).status,500);
+          assert.equal(await SampleDocument.countDocuments({caseId}),0);
+        }finally{Activity.create=originalAudit;}
         response=await send(a);
         assert.equal(response.status,201,JSON.stringify(response.data));
         const fileId=response.data.id;
@@ -409,6 +415,11 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         assert.equal(deletion.status,403,'admin cannot remove creditor evidence');
         deletion=await call(path+'/'+fileId,{method:'DELETE',cookie:b});
         assert.equal(deletion.status,404,'another creditor cannot delete evidence');
+        try{
+          Activity.create=async()=>{throw new Error('injected evidence delete audit failure');};
+          assert.equal((await call(path+'/'+fileId,{method:'DELETE',cookie:a})).status,500);
+          assert.equal(await SampleDocument.countDocuments({_id:fileId}),1);
+        }finally{Activity.create=originalAudit;}
         deletion=await call(path+'/'+fileId,{method:'DELETE',cookie:a});
         assert.equal(deletion.status,200,'draft owner may remove sample PDF');
         listing=await call(path,{cookie:a});

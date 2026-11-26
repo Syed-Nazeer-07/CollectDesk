@@ -42,7 +42,7 @@ export function label(status:string){return status.split('_').map(w=>w.charAt(0)
 
 /** Convert decimal text without floating point multiplication or rounding. */
 export function parsePaise(value:string,min=1,max=100_000_000_000){
-  if(!/^\d+(?:\.\d{1,2})?$/.test(value))throw new Error('Enter a valid amount with up to two decimal places.');
+  if(!/^\d{1,12}(?:\.\d{1,2})?$/.test(value))throw new Error('Enter a valid amount with up to two decimal places.');
   const [whole,fraction='']=value.split('.');
   const paise=BigInt(whole)*BigInt(100)+BigInt(fraction.padEnd(2,'0'));
   if(paise<BigInt(min)||paise>BigInt(max))throw new Error('Amount is outside the permitted range.');
