@@ -16,7 +16,7 @@ import {installStaffRoutes} from './staff-invites.js';
 import {installEvidenceRoutes} from './evidence.js';
 import {caseSort,caseFilters,casesCsv} from './case-register.js';
 import {installNotificationRoutes} from './notifications.js';
-import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,financialTotals,CASE_STATUSES,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser} from './rules.js';
+import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,financialTotals,CASE_STATUSES,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser,addPaise,collectionAttention,compareAttention} from './rules.js';
 
 const app=express();
 // Requests reach Express through the internal Next.js reverse proxy.
@@ -130,11 +130,15 @@ route.get('/dashboard/summary',async(req,res)=>{
   const summary={totalCases:0,activeCases:0,awaitingReview:0,totalOutstandingPaise:0,verifiedRecoveredPaise:0,estimatedFeesPaise:0};
   const counts=new Map(CASE_STATUSES.map(status=>[status,0]));
   const recentCases=[];
+  const today=indiaDateKey();
+  const aging=['1–30','31–60','61–90','91+'].map(band=>({band,count:0,outstandingPaise:0}));
+  const priorityCases=[];
+  let overdueCount=0,overdueOutstandingPaise=0;
   // Only one net ledger amount crosses the database boundary per accessible case.
   const cursor=Case.aggregate([
     {$match:scope(req.user)},
     {$sort:{updatedAt:-1,_id:-1}},
-    {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,updatedAt:1}},
+    {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,dueDate:1,createdAt:1,updatedAt:1,assignedTo:1}},
     {$lookup:{from:Receipt.collection.name,localField:'_id',foreignField:'caseId',as:'ledger',pipeline:[
       {$match:{status:'verified'}},
       {$group:{_id:null,net:{$sum:{$cond:[{$eq:['$kind','reversal']},{$multiply:[-1,'$amountPaise']},'$amountPaise']}}}}
@@ -148,16 +152,28 @@ route.get('/dashboard/summary',async(req,res)=>{
       summary.totalCases++;
       if (['accepted','in_progress','on_hold'].includes(row.status)) summary.activeCases++;
       if (row.status==='submitted') summary.awaitingReview++;
-      if (!['draft','rejected'].includes(row.status)) summary.totalOutstandingPaise+=totals.outstandingPaise;
-      summary.verifiedRecoveredPaise+=totals.recoveredPaise;
-      summary.estimatedFeesPaise+=totals.feePaise;
-      if (recentCases.length<6) recentCases.push({...row,id:String(_id)});
+      if (!['draft','rejected'].includes(row.status)) summary.totalOutstandingPaise=addPaise(summary.totalOutstandingPaise,totals.outstandingPaise);
+      summary.verifiedRecoveredPaise=addPaise(summary.verifiedRecoveredPaise,totals.recoveredPaise);
+      summary.estimatedFeesPaise=addPaise(summary.estimatedFeesPaise,totals.feePaise);
+      const caseRow={...row,id:String(_id)};
+      if (recentCases.length<6) recentCases.push(caseRow);
+      const attention=collectionAttention(row,totals.outstandingPaise,today);
+      if (attention) {
+        overdueCount++;
+        overdueOutstandingPaise=addPaise(overdueOutstandingPaise,attention.outstandingPaise);
+        const bucket=aging.find(b=>b.band===attention.band);
+        bucket.count++;
+        bucket.outstandingPaise=addPaise(bucket.outstandingPaise,attention.outstandingPaise);
+        priorityCases.push({id:caseRow.id,caseCode:row.caseCode,debtorName:row.debtorName,status:row.status,...attention});
+        priorityCases.sort(compareAttention);
+        if(priorityCases.length>5)priorityCases.pop();
+      }
     }
   } finally {
     await cursor.close();
   }
   if (!Object.values(summary).every(Number.isSafeInteger)) throw new Error('Unsafe portfolio total');
-  res.json({summary,recentCases,statusBreakdown:Array.from(counts,([status,count])=>({status,count}))});
+  res.json({summary,recentCases,statusBreakdown:Array.from(counts,([status,count])=>({status,count})),attention:{asOf:today,overdueCount,overdueOutstandingPaise,aging,priorityCases}});
 });
 const caseListQuery=z.object({
   status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),
@@ -314,10 +330,10 @@ route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>wi
   const input=receiptBody.parse(req.body);
   const existing=await Receipt.find({caseId:req.caseItem._id}).lean();
   const totals=calculateMoney(req.caseItem.principalPaise,req.caseItem.feeRateBps,existing);
-  const awaiting=existing.filter(r=>r.status==='recorded'&&r.kind==='receipt').reduce((a,r)=>a+r.amountPaise,0);
+  const awaiting=existing.filter(r=>r.status==='recorded'&&r.kind==='receipt').reduce((a,r)=>addPaise(a,r.amountPaise),0);
   if(input.amountPaise>totals.outstandingPaise-awaiting)return res.status(422).json({error:'Amount exceeds principal remaining after pending receipts.'});
   const r=await Receipt.create({...input,kind:'receipt',status:'recorded',caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,recordedBy:req.user._id});
-  await logEvent(req.caseItem,req.user,'receipt','Receipt recorded, awaiting verification.');
+  await logEvent(req.caseItem,req.user,'receipt','Receipt recorded, awaiting verification.','creditor',{receiptId:String(r._id),amountPaise:r.amountPaise,status:'recorded'});
   res.status(201).json({id:String(r._id),status:'recorded'});
 }));
 // Reject an erroneous pending fictional receipt so it no longer blocks case
@@ -332,7 +348,7 @@ route.post('/cases/:id/receipts/:receiptId/reject',getCase,requireRole('admin'),
     status:'recorded'
   },{$set:{status:'rejected'}});
   if(!result.matchedCount)return res.status(409).json({error:'Only pending receipts may be rejected.'});
-  await logEvent(req.caseItem,req.user,'receipt_rejected',`Pending receipt rejected: ${reason}`,'internal');
+  await logEvent(req.caseItem,req.user,'receipt_rejected',`Pending receipt rejected: ${reason}`,'internal',{receiptId:req.params.receiptId,from:'recorded',to:'rejected'});
   res.json({ok:true});
 }));
 route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
@@ -349,7 +365,7 @@ route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),
   if(r.amountPaise>totals.outstandingPaise)return res.status(422).json({error:'Verified total would exceed invoice principal.'});
   const result=await Receipt.updateOne({_id:r._id,status:'recorded'},{$set:{status:'verified',verifiedBy:req.user._id,verifiedAt:new Date()}});
   if(!result.modifiedCount)return res.status(409).json({error:'Receipt already processed.'});
-  await logEvent(req.caseItem,req.user,'verified','Receipt verified; financial totals updated.');
+  await logEvent(req.caseItem,req.user,'verified','Receipt verified; financial totals updated.','creditor',{receiptId:String(r._id),amountPaise:r.amountPaise,from:'recorded',to:'verified'});
   res.json({ok:true});
 }));
 route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin'),async(req,res)=>withFinancialLock(req,res,async()=>{
@@ -359,8 +375,8 @@ route.post('/cases/:id/receipts/:receiptId/reverse',getCase,requireRole('admin')
   if(!r)return res.status(404).json({error:'Verified receipt not found.'});
   const prior=await Receipt.findOne({reversedFrom:r._id,status:'verified'});
   if(prior)return res.status(409).json({error:'Receipt has already been reversed.'});
-  await Receipt.create({caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,amountPaise:r.amountPaise,kind:'reversal',status:'verified',reference:`REV-${r.reference}`,reversedFrom:r._id,recordedBy:req.user._id,verifiedBy:req.user._id,verifiedAt:new Date()});
-  await logEvent(req.caseItem,req.user,'reversal',`Verified receipt correction: ${body.reason}`,'creditor');res.json({ok:true});
+  const reversal=await Receipt.create({caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,amountPaise:r.amountPaise,kind:'reversal',status:'verified',reference:`REV-${r.reference}`,reversedFrom:r._id,recordedBy:req.user._id,verifiedBy:req.user._id,verifiedAt:new Date()});
+  await logEvent(req.caseItem,req.user,'reversal',`Verified receipt correction: ${body.reason}`,'creditor',{receiptId:String(r._id),reversalId:String(reversal._id),amountPaise:r.amountPaise});res.json({ok:true});
 }));
 app.use('/api/v1',route);
 app.use((_req,res)=>res.status(404).json({error:'Not found.'}));
