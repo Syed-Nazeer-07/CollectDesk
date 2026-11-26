@@ -497,6 +497,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.status,409,'accepted invoices must not be editable');
     r = await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.case.debtorName,invoice.debtorName,'accepted invoice fields remain unchanged');
+    const beforeAssignment=await call('/dashboard/summary',{cookie:operator});
+    assert.equal(beforeAssignment.status,200);
+    assert.ok(!beforeAssignment.data.attention.priorityCases.some(c=>c.id===caseId),'unassigned case must not appear in operator queue');
     const op = await User.findOne({role:'operator'});
     r = await call(`/cases/${caseId}/assign`,{method:'POST',cookie:admin,body:{operatorId:String(op._id)}});
     assert.equal(r.status,200);
@@ -578,6 +581,28 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     assert.equal(r.data.financials.feePaise,40_000);
     assert.equal(r.data.receipts.length,1,'verified receipt can be shared');
     assert.equal(r.data.receipts[0].recordedBy,null,'creditors must not receive staff recorder IDs');
+    await t.test('aging dashboard reconciles verified amounts and enforces current role scope',async()=>{
+      assert.equal((await call('/dashboard/summary')).status,401);
+      for(const cookie of [a,admin,operator]){
+        const result=await call('/dashboard/summary',{cookie});
+        assert.equal(result.status,200,JSON.stringify(result.data));
+        const attention=result.data.attention;
+        const priority=attention.priorityCases.find(c=>c.id===caseId);
+        assert.ok(priority,'accessible active case must appear in attention queue');
+        assert.equal(priority.outstandingPaise,800_000);
+        assert.ok(priority.overdueDays>0);
+        assert.equal(attention.aging.reduce((sum,b)=>sum+b.count,0),attention.overdueCount);
+        assert.equal(attention.aging.reduce((sum,b)=>sum+b.outstandingPaise,0),attention.overdueOutstandingPaise);
+        assert.ok(!attention.priorityCases.some(c=>c.id===closeId),'closed case must not appear in active attention');
+      }
+      const other=await call('/dashboard/summary',{cookie:b});
+      assert.equal(other.status,200);
+      assert.equal(other.data.attention.overdueCount,0);
+      assert.ok(!JSON.stringify(other.data).includes(caseId),'tenant B must not receive tenant A case data');
+      const audit=await Activity.findOne({caseId,kind:'verified'}).lean();
+      assert.equal(audit.metadata.receiptId,receiptId);
+      assert.equal(audit.metadata.amountPaise,200_000);
+    });
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Fictional receipt correction'}});
     assert.equal(r.status,200);
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Duplicate correction'}});
@@ -585,6 +610,9 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.financials.recoveredPaise,0,'reversal must adjust verified recovery');
     assert.equal(r.data.financials.feePaise,0,'reversal must adjust fee');
+    const reversedDashboard=await call('/dashboard/summary',{cookie:a});
+    assert.equal(reversedDashboard.status,200);
+    assert.equal(reversedDashboard.data.attention.priorityCases.find(c=>c.id===caseId)?.outstandingPaise,1_000_000,'aging balances must include reversals');
     assert.equal((await Case.findById(caseId)).status,'in_progress');
     // Construct contradictory pending data deliberately to simulate concurrent admins or import errors.
     // The per-case lease must prevent both from being verified past the principal.

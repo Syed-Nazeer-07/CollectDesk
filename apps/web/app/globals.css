@@ -3446,3 +3446,32 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
   .sidebar-nav .nav-link {min-height:44px;}
   .topbar-left .icon-button {min-width:44px;min-height:44px;}
 }
+
+
+/* Operational attention: use the existing workspace tokens, without forcing
+   currency values or debtor names into fixed-width status-chart columns. */
+.attention-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 24px;
+  align-items: start;
+}
+.attention-layout > div { min-width: 0; }
+.attention-aging .attention-aging-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: center;
+  cursor: default;
+}
+.attention-aging .status-breakdown-meter { grid-column: 1 / -1; grid-row: 2; }
+.attention-aging .attention-aging-row > strong {
+  grid-column: 2;
+  grid-row: 1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.attention-layout .action-row > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .attention-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}

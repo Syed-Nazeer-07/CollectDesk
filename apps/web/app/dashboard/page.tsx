@@ -134,13 +134,13 @@ function AttentionPanel({attention,role}:{attention:NonNullable<Dashboard['atten
         <p>Active unpaid cases only · As of {attention.asOf} (India)</p></div>
       <Link href="/cases?sort=due" className="text-link">Open register <ArrowRight size={15}/></Link>
     </div>
-    <div className="middle-grid">
+    <div className="attention-layout">
       <div className="focus-panel">
         <div className="finance-totals"><span>{attention.overdueCount} overdue active cases</span><strong>{money(attention.overdueOutstandingPaise)}</strong><p>Remaining principal after verified receipts and reversals.</p></div>
-        <div className="status-breakdown" aria-label="Outstanding balance by days overdue">
+        <div className="status-breakdown attention-aging" aria-label="Outstanding balance by days overdue">
           {attention.aging.map(bucket=>{
             const percentage=attention.overdueOutstandingPaise?100*bucket.outstandingPaise/attention.overdueOutstandingPaise:0;
-            return <div className="status-breakdown-row" key={bucket.band}>
+            return <div className="status-breakdown-row attention-aging-row" key={bucket.band}>
               <span className="status-breakdown-name">{bucket.band} days ({bucket.count})</span>
               <span className="status-breakdown-meter" aria-hidden="true"><span style={{width:percentage+'%',background:statusColors.in_progress}}/></span>
               <strong>{money(bucket.outstandingPaise)}</strong>
