@@ -557,6 +557,11 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
         const verify=await call(`/cases/${caseId}/receipts/${receiptId}/verify`,{method:'POST',cookie:admin});
         assert.equal(verify.status,500);
         assert.equal((await Receipt.findById(receiptId)).status,'recorded');
+        const hold=await call(`/cases/${caseId}/status`,{method:'POST',cookie:admin,body:{action:'hold',reason:'Failure injection'}});
+        assert.equal(hold.status,500);
+        assert.equal((await Case.findById(caseId)).status,'in_progress');
+        const note=await call(`/cases/${caseId}/activity`,{method:'POST',cookie:operator,body:{text:'Injected note',visibility:'internal'}});
+        assert.equal(note.status,500);
       }finally{Activity.create=originalCreate;}
       assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:a})).status,403);
       assert.equal((await call(`/cases/${caseId}/reconciliation`,{cookie:b})).status,404);
@@ -626,6 +631,16 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
       assert.equal(audit.metadata.receiptId,receiptId);
       assert.equal(audit.metadata.amountPaise,200_000);
     });
+    await t.test('reversal rolls back when its audit cannot be written',async()=>{
+      const original=Activity.create;
+      try{
+        Activity.create=async()=>{throw new Error('injected reversal audit failure');};
+        const failed=await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Injected failure'}});
+        assert.equal(failed.status,500);
+        assert.equal(await Receipt.countDocuments({reversedFrom:receiptId}),0);
+        assert.equal((await call(`/cases/${caseId}`,{cookie:a})).data.financials.recoveredPaise,200_000);
+      }finally{Activity.create=original;}
+    });
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Fictional receipt correction'}});
     assert.equal(r.status,200);
     r = await call(`/cases/${caseId}/receipts/${receiptId}/reverse`,{method:'POST',cookie:admin,body:{reason:'Duplicate correction'}});
@@ -633,6 +648,17 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}`,{cookie:a});
     assert.equal(r.data.financials.recoveredPaise,0,'reversal must adjust verified recovery');
     assert.equal(r.data.financials.feePaise,0,'reversal must adjust fee');
+    const reconciliation=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
+    assert.equal(reconciliation.status,200);
+    assert.equal(reconciliation.data.requiresReview,false,JSON.stringify(reconciliation.data));
+    const foreignReceipt=await Receipt.create({caseId,organizationId:orgB._id,amountPaise:100,reference:'MISMATCH',kind:'receipt',status:'verified',recordedBy:(await User.findOne({role:'admin'}))._id});
+    try{
+      const scoped=await call(`/cases/${caseId}`,{cookie:a});
+      assert.equal(scoped.data.financials.recoveredPaise,0);
+      assert.ok(!scoped.data.receipts.some(r=>r.id===String(foreignReceipt._id)));
+      const issue=await call(`/cases/${caseId}/reconciliation`,{cookie:admin});
+      assert.ok(issue.data.issues.some(i=>i.code==='receipt_tenant_mismatch'));
+    }finally{await Receipt.deleteOne({_id:foreignReceipt._id});}
     const reversedDashboard=await call('/dashboard/summary',{cookie:a});
     assert.equal(reversedDashboard.status,200);
     assert.equal(reversedDashboard.data.attention.priorityCases.find(c=>c.id===caseId)?.outstandingPaise,1_000_000,'aging balances must include reversals');

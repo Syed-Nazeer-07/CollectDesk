@@ -138,7 +138,7 @@ npm run build
 
 `npm run check` combines the API test suite and web build. `npm run smoke` and `npm run audit:browser` require a running, appropriately seeded test environment. **Never run the browser audit against a production database**: it creates and updates test records.
 
-For isolated API integration coverage, point `TEST_MONGODB_URI` at a disposable MongoDB database named `collectdesk_integration_test` or `collectdesk_ci_test`. The integration harness clears that database before running. Install `npx playwright install chromium` for the browser checks. With the fictional stack running at `http://localhost:3000`, set the fixture’s `DEMO_SEED_PASSWORD` and run `npm run audit:browser` and `node scripts/audit-layout.mjs`. See the [acceptance report](docs/DEMO_ACCEPTANCE.md) for fixture options, command results, and live-provider requirements.
+Financial and case mutations require MongoDB transactions: use Atlas or a replica set (the Compose stack and CI initialize a single-node test replica set). Standalone MongoDB is rejected at API startup; no unsafe fallback is provided. For isolated API integration coverage, point `TEST_MONGODB_URI` at a disposable replica-set MongoDB database named `collectdesk_integration_test` or `collectdesk_ci_test`. The integration harness clears that database before running. Install `npx playwright install chromium` for the browser checks. With the fictional stack running at `http://localhost:3000`, set the fixture’s `DEMO_SEED_PASSWORD` and run `npm run audit:browser` and `node scripts/audit-layout.mjs`. See the [acceptance report](docs/DEMO_ACCEPTANCE.md) for fixture options, command results, and live-provider requirements.
 
 ## Configuration and hosting
 

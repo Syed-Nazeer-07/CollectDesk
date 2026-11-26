@@ -121,13 +121,13 @@ route.get('/dashboard/summary',async(req,res)=>{
     {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,dueDate:1,createdAt:1,updatedAt:1,assignedTo:1,organizationId:1}},
     {$lookup:{from:Receipt.collection.name,localField:'_id',foreignField:'caseId',as:'ledger',let:{org:'$organizationId'},pipeline:[
       {$match:{status:'verified',$expr:{$eq:['$organizationId','$org']}}},
-      {$group:{_id:null,net:{$sum:{$cond:[{$eq:['$kind','reversal']},{$multiply:[-1,'$amountPaise']},'$amountPaise']}}}}
+      {$group:{_id:null,net:{$sum:{$cond:[{$eq:['$kind','reversal']},{$multiply:[-1,{$toDecimal:'$amountPaise'}]},{$toDecimal:'$amountPaise'}]}}}}
     ]}}
   ]).allowDiskUse(true).cursor({batchSize:128});
   try {
     for await (const item of cursor) {
       const {_id,ledger,feeRateBps,organizationId,...row}=item;
-      const totals=financialTotals(row.principalPaise,feeRateBps,ledger[0]?.net ?? 0);
+      const totals=financialTotals(row.principalPaise,feeRateBps,ledger[0]?Number(ledger[0].net.toString()):0);
       counts.set(row.status,(counts.get(row.status)||0)+1);
       summary.totalCases++;
       if (['accepted','in_progress','on_hold'].includes(row.status)) summary.activeCases++;
@@ -198,8 +198,11 @@ const caseBody=z.object({debtorName:z.string().trim().min(2).max(160),invoiceNo:
   description:z.string().trim().max(1200).default(''), disputed:z.boolean().default(false),evidenceLabel:z.string().trim().max(120).default('')}).strict().refine(x=>x.dueDate>=x.issueDate,{message:'Due date must be on or after issue date.',path:['dueDate']});
 route.post('/cases',requireRole('creditor'),async(req,res)=>{
   const input=caseBody.parse(req.body);
-  const item=await Case.create({...input,organizationId:req.user.organizationId,createdBy:req.user._id,caseCode:formatCaseCode(randomUUID().slice(0,8))});
-  await logEvent(item,req.user,'created','Draft case created.');
+  const item=await mongoose.connection.transaction(async session=>{
+    const [created]=await Case.create([{...input,organizationId:req.user.organizationId,createdBy:req.user._id,caseCode:formatCaseCode(randomUUID().slice(0,8))}],{session});
+    await logEvent(created,req.user,'created','Draft case created.','creditor',{},session);
+    return created;
+  },{writeConcern:{w:'majority'}});
   res.status(201).json({id:String(item._id),caseCode:item.caseCode});
 });
 route.get('/cases/:id',getCase,async(req,res)=>{
@@ -219,60 +222,58 @@ route.get('/cases/:id',getCase,async(req,res)=>{
     receipts:visibleReceipts.map(r=>({id:String(r._id),amountPaise:r.amountPaise,kind:r.kind,status:r.status,reference:r.reference,reversedFrom:r.reversedFrom?String(r.reversedFrom):null,
       recordedBy:req.user.role==='admin'?String(r.recordedBy):null,createdAt:r.createdAt}))});
 });
-route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>{
-  if(!canEditDraft(req.user.role,req.caseItem.status))return res.status(409).json({error:'Only draft or information-requested cases can be edited.'});
+route.patch('/cases/:id',getCase,requireRole('creditor'),async(req,res)=>withCaseTransaction(req,res,async(session)=>{
+  if(!canEditDraft(req.user.role,req.caseItem.status))return transactionResponse(409,{error:'Only draft or information-requested cases can be edited.'});
   const input=caseBody.parse(req.body);
   // Match the editable state on the write itself. An administrator or another
   // request could have submitted the case after getCase loaded its old status.
   const result=await Case.updateOne({
     _id:req.caseItem._id,
     organizationId:req.user.organizationId,
-    status:{$in:['draft','needs_info']},
-    financialLockToken:null
-  },{$set:input});
-  if(!result.matchedCount)return res.status(409).json({error:'This case is no longer editable. Refresh before continuing.'});
-  await logEvent(req.caseItem,req.user,'updated','Draft case details updated.');
-  res.json({ok:true});
-});
-route.post('/cases/:id/submit',getCase,requireRole('creditor'),async(req,res)=>{
-  if(!canSubmit(req.caseItem.status))return res.status(409).json({error:'Case has already been submitted.'});
-  if(!isOverdue(req.caseItem.dueDate))return res.status(422).json({error:'Only overdue invoices can be submitted. Check the due date.'});
+    status:{$in:['draft','needs_info']}
+  },{$set:input},{session,runValidators:true});
+  if(!result.matchedCount)return transactionResponse(409,{error:'This case is no longer editable. Refresh before continuing.'});
+  await logEvent(req.caseItem,req.user,'updated','Draft case details updated.','creditor',{},session);
+  return transactionResponse(200,{ok:true});
+}));
+route.post('/cases/:id/submit',getCase,requireRole('creditor'),async(req,res)=>withCaseTransaction(req,res,async(session)=>{
+  if(!canSubmit(req.caseItem.status))return transactionResponse(409,{error:'Case has already been submitted.'});
+  if(!isOverdue(req.caseItem.dueDate))return transactionResponse(422,{error:'Only overdue invoices can be submitted. Check the due date.'});
   const updated=await Case.updateOne({
     _id:req.caseItem._id,
     status:{$in:['draft','needs_info']},
-    financialLockToken:null,
     // Date-only invoices are stored at UTC midnight. Match the current Indian
     // business day at the actual write, not just the earlier getCase snapshot.
     dueDate:{$lt:new Date(indiaDateKey()+'T00:00:00.000Z')}
-  },{$set:{status:'submitted',submittedAt:new Date()}});
-  if(!updated.modifiedCount)return res.status(409).json({error:'This case changed or is processing an attachment. Refresh and retry.'});
-  await logEvent(req.caseItem,req.user,'submitted','Invoice submitted for review.');res.json({ok:true});
-});
+  },{$set:{status:'submitted',submittedAt:new Date()}},{session,runValidators:true});
+  if(!updated.modifiedCount)return transactionResponse(409,{error:'This case changed or is processing an attachment. Refresh and retry.'});
+  await logEvent(req.caseItem,req.user,'submitted','Invoice submitted for review.','creditor',{from:req.caseItem.status,to:'submitted'},session);return transactionResponse(200,{ok:true});
+}));
 const reviewBody=z.object({decision:z.enum(['accept','reject','request_info']),reason:z.string().trim().min(4).max(600),feeRateBps:z.number().int().min(1500).max(3000).optional()}).strict();
-route.post('/cases/:id/review',getCase,requireRole('admin'),async(req,res)=>{
-  if(!canReview(req.caseItem.status))return res.status(409).json({error:'Case is not awaiting review.'});
+route.post('/cases/:id/review',getCase,requireRole('admin'),async(req,res)=>withCaseTransaction(req,res,async(session)=>{
+  if(!canReview(req.caseItem.status))return transactionResponse(409,{error:'Case is not awaiting review.'});
   const input=reviewBody.parse(req.body);
   const update={status:REVIEW_DECISIONS[input.decision],decisionReason:input.reason};
   if(input.decision==='accept'){update.feeRateBps=input.feeRateBps??2000;update.acceptedAt=new Date();}
-  const result=await Case.updateOne({_id:req.caseItem._id,status:'submitted'},{$set:update});
-  if(!result.modifiedCount)return res.status(409).json({error:'Case review changed. Refresh and retry.'});
-  await logEvent(req.caseItem,req.user,'review',`Review: ${update.status.replace('_',' ')}. ${input.reason}`);
-  res.json({ok:true});
-});
+  const result=await Case.updateOne({_id:req.caseItem._id,status:'submitted'},{$set:update},{session,runValidators:true});
+  if(!result.modifiedCount)return transactionResponse(409,{error:'Case review changed. Refresh and retry.'});
+  await logEvent(req.caseItem,req.user,'review',`Review: ${update.status.replace('_',' ')}. ${input.reason}`,'creditor',{from:'submitted',to:update.status},session);
+  return transactionResponse(200,{ok:true});
+}));
 const assignBody=z.object({operatorId:z.string().refine(mongoose.isValidObjectId,'Invalid operator ID')}).strict();
-route.post('/cases/:id/assign',getCase,requireRole('admin'),async(req,res)=>{
-  if(!canAssign(req.caseItem.status))return res.status(409).json({error:'Only accepted or in-progress cases can be assigned.'});
+route.post('/cases/:id/assign',getCase,requireRole('admin'),async(req,res)=>withCaseTransaction(req,res,async(session)=>{
+  if(!canAssign(req.caseItem.status))return transactionResponse(409,{error:'Only accepted or in-progress cases can be assigned.'});
   const {operatorId}=assignBody.parse(req.body);
-  const operator=await User.findOne({_id:operatorId,role:'operator',active:true}).lean();
-  if(!operator)return res.status(422).json({error:'Operator does not exist.'});
+  const operator=await User.findOne({_id:operatorId,role:'operator',active:true}).session(session).lean();
+  if(!operator)return transactionResponse(422,{error:'Operator does not exist.'});
   // The case may have been closed/held or entered a ledger update while the
   // operator lookup was running. Check state and lease atomically on the write.
   const updated=await Case.updateOne({
-    _id:req.caseItem._id,status:{$in:['accepted','in_progress']},financialLockToken:null
-  },{$set:{assignedTo:operator._id,status:'in_progress'}});
-  if(!updated.matchedCount)return res.status(409).json({error:'Case changed while assigning. Refresh and retry.'});
-  await logEvent(req.caseItem,req.user,'assigned',`Case assigned to ${operator.name}.`);res.json({ok:true});
-});
+    _id:req.caseItem._id,status:{$in:['accepted','in_progress']}
+  },{$set:{assignedTo:operator._id,status:'in_progress'}},{session,runValidators:true});
+  if(!updated.matchedCount)return transactionResponse(409,{error:'Case changed while assigning. Refresh and retry.'});
+  await logEvent(req.caseItem,req.user,'assigned',`Case assigned to ${operator.name}.`,'creditor',{assignedTo:String(operator._id),previousAssignee:req.caseItem.assignedTo?String(req.caseItem.assignedTo):null},session);return transactionResponse(200,{ok:true});
+}));
 const transitionBody=z.object({
   action:z.enum(['hold','resume','close']),
   reason:z.string().trim().min(4).max(400)
@@ -333,7 +334,8 @@ route.post('/cases/:id/receipts/:receiptId/verify',getCase,requireRole('admin'),
   if(!mongoose.isValidObjectId(req.params.receiptId))return transactionResponse(404,{error:'Receipt not found.'});
   const r=await Receipt.findOne({caseId:req.caseItem._id,organizationId:req.caseItem.organizationId,_id:req.params.receiptId}).session(session);
   if(!r)return transactionResponse(404,{error:'Receipt not found.'});
-  if(r.status!=='recorded')return transactionResponse(409,{error:'Receipt has already been processed.'});
+  if(r.status!=='recorded'||r.kind!=='receipt')return transactionResponse(409,{error:'Receipt has already been processed or is not a pending receipt.'});
+  if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return transactionResponse(409,{error:'Case is not open for verification.'});
   // Optional strict maker/checker mode for teams with at least two admins.
   // Disabled by default so existing single-admin demo workspaces keep working.
   if(process.env.SEPARATE_RECEIPT_APPROVAL==='true' && String(r.recordedBy)===String(req.user._id))

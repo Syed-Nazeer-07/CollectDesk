@@ -17,7 +17,7 @@ export async function withCaseTransaction(req,res,operation){
       const current=await Case.findOneAndUpdate({
         _id:req.caseItem._id,...scopeForUser(req.user),
         $or:[{financialLockToken:null},{financialLockExpiresAt:{$lt:new Date()}}]
-      },{$inc:{ledgerRevision:1}},{session,returnDocument:'after'}).lean();
+      },{$inc:{ledgerRevision:1},$set:{financialLockToken:null,financialLockExpiresAt:null}},{session,returnDocument:'after'}).lean();
       if(!current||!assertAccess(req.user,current))throw new RejectedOperation(transactionResponse(409,{error:'Case changed or is being updated. Refresh and retry.'}));
       req.caseItem=current;
       const response=await operation(session);
@@ -58,6 +58,11 @@ export function inspectLedger(item,receipts,events){
     if(pendingPaise>totals.outstandingPaise)issues.push({code:'pending_exceeds_outstanding'});
   }catch{issues.push({code:'invalid_ledger_totals'});}
   const reversed=new Set();
+  const knownReceipts=new Set(valid.map(r=>String(r._id)));
+  for(const event of audit){
+    const linked=event.kind==='reversal'?event.metadata?.reversalId:event.metadata?.receiptId;
+    if(linked&&!knownReceipts.has(String(linked)))issues.push({code:'orphan_audit_event',eventId:String(event._id)});
+  }
   for(const r of valid){
     const receiptId=String(r._id);
     if(r.kind==='reversal'){
@@ -70,6 +75,8 @@ export function inspectLedger(item,receipts,events){
     for(const kind of expected){
       const matches=audit.filter(e=>e.kind===kind&&String(kind==='reversal'?e.metadata?.reversalId:e.metadata?.receiptId)===receiptId);
       if(matches.length!==1)issues.push({code:matches.length?'duplicate_audit_event':'missing_or_legacy_audit',receiptId,kind});
+      else if(matches[0].metadata?.amountPaise!==undefined&&matches[0].metadata.amountPaise!==r.amountPaise)
+        issues.push({code:'audit_amount_mismatch',receiptId,kind});
     }
   }
   return {caseId:id,totals,pendingPaise,receiptCount:valid.length,issues,requiresReview:issues.length>0};
