@@ -28,13 +28,14 @@ export default function DashboardPage(){
     {(user:User)=><div className="dashboard-content">
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
-        <section className="workspace-brief" aria-label="Workspace priorities">
+        <section className="workspace-brief overview-brief" aria-label="Workspace priorities">
           <div><span className="workspace-context">{user.role==='admin'?'Operations control':user.role==='operator'?'Assigned portfolio':'Creditor portfolio'}</span>
           <h2>{user.role==='admin'?'Manage the collection pipeline.':user.role==='operator'?'Focus on the next case.':'Track your outstanding invoices.'}</h2>
           <p>{user.role==='admin'?'Review submissions, coordinate assignments and verify receipts.':user.role==='operator'?'Prioritize overdue work and keep creditors informed with case updates.':'Follow review decisions, outstanding balances and verified recoveries in your company.'}</p></div>
           <Link className="button button-outline" href={user.role==='admin'?'/cases?status=submitted':user.role==='operator'?'/cases?sort=due':'/cases/new'}>{user.role==='admin'?'Review submissions':user.role==='operator'?'Open work queue':'Submit an invoice'}<ArrowRight size={15}/></Link>
         </section>
         {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
+        <div className="workspace-section-heading"><h2>Portfolio snapshot</h2><span>{data.attention?.asOf?'As of '+data.attention.asOf+' · India':'Current balances'}</span></div>
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Outstanding balance" value={money(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} priority sub="Excludes drafts and rejected cases"/>
           <Stat name="Verified recovered" value={money(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} priority sub="Verified receipts less reversals"/>
@@ -78,6 +79,10 @@ export default function DashboardPage(){
             </div>
           </section>
         </div>
+        <section className="ops-shortcuts" aria-label="Operational tools">
+          <Link href="/reports" className="panel ops-shortcut"><div><span className="workspace-context">Reporting</span><h3>Recovery movements</h3><p>Explore verified receipts and reversals by month, or export the period as CSV.</p></div><ArrowUpRight size={20}/></Link>
+          {user.role!=='creditor'&&data.tasks&&<Link href="/follow-ups" className="panel ops-shortcut"><div><span className="workspace-context">Next actions</span><h3>{data.tasks.due} due · {data.tasks.scheduled} scheduled</h3><p>Review and complete internal follow-ups for active cases.</p></div><ArrowUpRight size={20}/></Link>}
+        </section>
         {data.attention&&<AttentionPanel attention={data.attention} role={user.role}/>}
         <section className="panel cases-panel">
           <div className="panel-head"><div><h3>Recent cases</h3><p>Latest updates across your accessible cases</p></div><Link href="/cases" className="text-link">View all cases <ArrowRight size={15}/></Link></div>

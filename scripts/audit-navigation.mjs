@@ -30,6 +30,7 @@ try{
 
   for(const [path,title] of [
     ['/cases','All cases'],
+    ['/reports','Recovery reports'],
     ['/notifications','Activity updates'],
     ['/account','Account & access'],
     ['/support','Help & support'],
@@ -46,7 +47,7 @@ try{
   assert.equal(sessionRequests,initialChecks,
     'Sidebar navigation should reuse the recent session instead of asking /auth/me again');
   await context.close();
-  console.log('Persistent workspace navigation passed: 5 routes, no auth loading flash, no repeated session fetch.');
+  console.log('Persistent workspace navigation passed: 6 routes, no auth loading flash, no repeated session fetch.');
 } finally{
   await browser.close();
 }

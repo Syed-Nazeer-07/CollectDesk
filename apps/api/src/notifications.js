@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {Activity,Case,User} from './models.js';
 
-const KINDS = ['submitted','review','assigned','status','note','verified','reversal','receipt','receipt_rejected','updated'];
+const KINDS = ['submitted','review','assigned','status','note','verified','reversal','receipt','receipt_rejected','updated','follow_up_scheduled','follow_up_completed'];
 const querySchema = z.object({
   page:z.coerce.number().int().min(1).max(100).default(1),
   unread:z.enum(['0','1']).default('0')

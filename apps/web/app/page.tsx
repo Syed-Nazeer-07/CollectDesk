@@ -67,7 +67,9 @@ const capabilities=[
   {icon:'clip',title:'Invoice case intake',copy:'Create draft cases, submit overdue invoices, and keep your case details organized.'},
   {icon:'shield',title:'Structured case review',copy:'Track review decisions, requests for more information, and case status changes.'},
   {icon:'users',title:'Coordinated operations',copy:'Assigned staff can follow case progress and share appropriate updates.'},
-  {icon:'tick',title:'Verified recovery tracking',copy:'Separate recorded receipts from verified recovery totals, including corrections.'}
+  {icon:'tick',title:'Verified recovery tracking',copy:'Separate recorded receipts from verified recovery totals, including corrections.'},
+  {icon:'tick',title:'Monthly recovery reports',copy:'Compare verified movements with reversals across a selected date range and export the results.'},
+  {icon:'tick',title:'Internal follow-up queue',copy:'Schedule and complete next actions with role-restricted task history.'}
 ];
 
 const steps=[

@@ -14,9 +14,11 @@ import {installPasswordRecoveryRoutes} from './password-recovery.js';
 import {installSupportRoutes} from './support.js';
 import {installStaffRoutes} from './staff-invites.js';
 import {installEvidenceRoutes} from './evidence.js';
-import {caseSort,caseFilters,casesCsv} from './case-register.js';
+import {caseSort,caseFilters,casesCsv,workloadFilter} from './case-register.js';
 import {installNotificationRoutes} from './notifications.js';
 import {withCaseTransaction,transactionResponse,inspectLedger} from './ledger.js';
+import {installOperationsRoutes} from './operations.js';
+import {observeRequest,telemetrySnapshot} from './telemetry.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,financialTotals,CASE_STATUSES,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser,addPaise,collectionAttention,compareAttention} from './rules.js';
 
 const app=express();
@@ -25,6 +27,7 @@ const app=express();
 // public X-Forwarded-For headers. This restores per-client rate-limit logic.
 app.set('trust proxy','loopback, uniquelocal');
 app.disable('x-powered-by');
+app.use('/api/v1',observeRequest);
 app.use(helmet());
 // Render exposes the public HTTPS URL; WEB_ORIGIN can override it for custom domains.
 const webOrigin=process.env.WEB_ORIGIN || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
@@ -107,6 +110,8 @@ async function logEvent(item,user,kind,text,visibility='creditor',metadata={},se
 }
 installEvidenceRoutes(route,{getCase,logEvent});
 installNotificationRoutes(route);
+installOperationsRoutes(route,{getCase,logEvent});
+route.get('/operations/health',requireRole('admin'),(_req,res)=>res.json(telemetrySnapshot()));
 route.get('/operators',requireRole('admin'),async(_req,res)=>{
   const operators=await User.find({role:'operator',active:true}).select('name email').lean();
   res.json({operators:operators.map(u=>({id:String(u._id),name:u.name,email:u.email}))});
@@ -118,12 +123,13 @@ route.get('/dashboard/summary',async(req,res)=>{
   const today=indiaDateKey();
   const aging=['1–30','31–60','61–90','91+'].map(band=>({band,count:0,outstandingPaise:0}));
   const priorityCases=[];
+  const tasks={scheduled:0,due:0};
   let overdueCount=0,overdueOutstandingPaise=0;
   // Only one net ledger amount crosses the database boundary per accessible case.
   const cursor=Case.aggregate([
     {$match:scope(req.user)},
     {$sort:{updatedAt:-1,_id:-1}},
-    {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,dueDate:1,createdAt:1,updatedAt:1,assignedTo:1,organizationId:1}},
+    {$project:{caseCode:1,debtorName:1,invoiceNo:1,principalPaise:1,feeRateBps:1,status:1,dueDate:1,createdAt:1,updatedAt:1,assignedTo:1,organizationId:1,...(req.user.role==='creditor'?{}:{followUpDate:'$followUp.dueDate'})}},
     {$lookup:{from:Receipt.collection.name,localField:'_id',foreignField:'caseId',as:'ledger',let:{org:'$organizationId'},pipeline:[
       {$match:{status:'verified',$expr:{$eq:['$organizationId','$$org']}}},
       {$group:{_id:null,net:{$sum:{$cond:[{$eq:['$kind','reversal']},{$multiply:[-1,{$toDecimal:'$amountPaise'}]},{$toDecimal:'$amountPaise'}]}}}}
@@ -131,7 +137,11 @@ route.get('/dashboard/summary',async(req,res)=>{
   ]).allowDiskUse(true).cursor({batchSize:128});
   try {
     for await (const item of cursor) {
-      const {_id,ledger,feeRateBps,organizationId,...row}=item;
+      const {_id,ledger,feeRateBps,organizationId,followUpDate,...row}=item;
+      if(followUpDate&&['accepted','in_progress','on_hold'].includes(row.status)){
+        tasks.scheduled++;
+        if(followUpDate.toISOString().slice(0,10)<=today)tasks.due++;
+      }
       const totals=financialTotals(row.principalPaise,feeRateBps,ledger[0]?Number(ledger[0].net.toString()):0);
       counts.set(row.status,(counts.get(row.status)||0)+1);
       summary.totalCases++;
@@ -158,18 +168,20 @@ route.get('/dashboard/summary',async(req,res)=>{
     await cursor.close();
   }
   if (!Object.values(summary).every(Number.isSafeInteger)) throw new Error('Unsafe portfolio total');
-  res.json({summary,recentCases,statusBreakdown:Array.from(counts,([status,count])=>({status,count})),attention:{asOf:today,overdueCount,overdueOutstandingPaise,aging,priorityCases}});
+  res.json({summary,recentCases,statusBreakdown:Array.from(counts,([status,count])=>({status,count})),attention:{asOf:today,overdueCount,overdueOutstandingPaise,aging,priorityCases},...(req.user.role==='creditor'?{}:{tasks})});
 });
 const caseListQuery=z.object({
   status:z.enum(['draft','submitted','needs_info','accepted','in_progress','on_hold','rejected','closed']).optional(),
   q:z.string().trim().max(100).optional(),
+  workload:z.string().regex(/^(unassigned|[a-fA-F0-9]{24})$/).optional(),
   sort:z.enum(['updated','due','amount']).default('updated'),
   page:z.coerce.number().int().min(1).max(10000).default(1),
   limit:z.coerce.number().int().min(1).max(100).default(25)
 }).strict();
 route.get('/cases',async(req,res)=>{
-  const {status,q,page,limit,sort}=caseListQuery.parse(req.query);
-  const filter=caseFilters({status,q},scope(req.user),escapeRegex);
+  const {status,q,page,limit,sort,workload}=caseListQuery.parse(req.query);
+  if(workload&&req.user.role!=='admin')return res.status(403).json({error:'Workload filters require administrator access.'});
+  const filter=workloadFilter(caseFilters({status,q},scope(req.user),escapeRegex),workload);
   const [total,items]=await Promise.all([
     Case.countDocuments(filter),
     Case.find(filter).sort(caseSort(sort)).skip((page-1)*limit).limit(limit).lean()
@@ -177,10 +189,11 @@ route.get('/cases',async(req,res)=>{
   res.json({cases:items.map(c=>({id:String(c._id),caseCode:c.caseCode,debtorName:c.debtorName,invoiceNo:c.invoiceNo,principalPaise:c.principalPaise,status:c.status,dueDate:c.dueDate,createdAt:c.createdAt,updatedAt:c.updatedAt,assignedTo:c.assignedTo?String(c.assignedTo):null})),pagination:pageInfo(page,limit,total)});
 });
 // Export every accessible matching case, not merely the currently visible page.
-const exportQuery=caseListQuery.pick({status:true,q:true,sort:true});
+const exportQuery=caseListQuery.pick({status:true,q:true,sort:true,workload:true});
 route.get('/cases/export',async(req,res)=>{
-  const {status,q,sort}=exportQuery.parse(req.query);
-  const filter=caseFilters({status,q},scope(req.user),escapeRegex);
+  const {status,q,sort,workload}=exportQuery.parse(req.query);
+  if(workload&&req.user.role!=='admin')return res.status(403).json({error:'Workload filters require administrator access.'});
+  const filter=workloadFilter(caseFilters({status,q},scope(req.user),escapeRegex),workload);
   const maxRows=5000;
   const items=await Case.find(filter)
     .sort(caseSort(sort))
@@ -296,7 +309,7 @@ route.post('/cases/:id/status',getCase,requireRole('admin'),async(req,res)=>with
   const nextStatus=action==='hold'?'on_hold':action==='close'?'closed':req.caseItem.assignedTo?'in_progress':'accepted';
   const updated=await Case.updateOne(
     {_id:req.caseItem._id,status:previous},
-    {$set:{status:nextStatus}},{session}
+    {$set:{status:nextStatus,...(action==='close'?{followUp:null}:{})}},{session}
   );
   if(!updated.matchedCount)return transactionResponse(409,{error:'Case status changed. Refresh and retry.'});
   await logEvent(req.caseItem,req.user,'status',`Case ${action==='hold'?'placed on hold':action==='resume'?'resumed':'closed'}: ${reason}`,'creditor',{from:previous,to:nextStatus},session);
@@ -308,11 +321,20 @@ route.post('/cases/:id/activity',getCase,requireRole('admin','operator'),async(r
   const {text,visibility}=activityBody.parse(req.body);
   await logEvent(req.caseItem,req.user,'note',text,visibility,{},session);return transactionResponse(201,{ok:true});
 }));
-const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120)}).strict();
+const receiptBody=z.object({amountPaise:z.number().int().positive().max(1_000_000_000_00),reference:z.string().trim().min(3).max(120),retrySafe:z.literal(true).optional()}).strict();
 route.post('/cases/:id/receipts',getCase,requireRole('admin'),async(req,res)=>withCaseTransaction(req,res,async(session)=>{
-  if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return transactionResponse(409,{error:'Case must be accepted first.'});
-  const input=receiptBody.parse(req.body);
+  const {retrySafe,...input}=receiptBody.parse(req.body);
+  // The existing unique case/reference index is a durable business key.
+  // An explicitly retry-safe identical request returns the original receipt
+  // even after verification/closure; mismatches never replay or mutate it.
   const existing=await Receipt.find({caseId:req.caseItem._id,organizationId:req.caseItem.organizationId}).session(session).lean();
+  const previous=existing.find(r=>r.reference===input.reference);
+  if(previous){
+    if(retrySafe&&previous.kind==='receipt'&&previous.amountPaise===input.amountPaise&&String(previous.recordedBy)===String(req.user._id))
+      return transactionResponse(200,{id:String(previous._id),status:previous.status,replayed:true});
+    return transactionResponse(409,{error:'This receipt reference already exists. Review the existing entry.'});
+  }
+  if(!['accepted','in_progress','on_hold'].includes(req.caseItem.status))return transactionResponse(409,{error:'Case must be accepted first.'});
   const totals=calculateMoney(req.caseItem.principalPaise,req.caseItem.feeRateBps,existing);
   const awaiting=existing.filter(r=>r.status==='recorded'&&r.kind==='receipt').reduce((a,r)=>addPaise(a,r.amountPaise),0);
   if(input.amountPaise>totals.outstandingPaise-awaiting)return transactionResponse(422,{error:'Amount exceeds principal remaining after pending receipts.'});
@@ -385,7 +407,7 @@ app.use((error,_req,res,_next)=>{
   if(error?.type==='entity.too.large')return res.status(413).json({error:'Uploaded document is too large.'});
   if (['MongoServerSelectionError','MongooseServerSelectionError','MongoNetworkError'].includes(error?.name))
     return res.status(503).json({error:'Database temporarily unavailable. Please retry.'});
-  console.error('[API] Request failed', {name:error?.name});
+  console.error(JSON.stringify({event:'api_error',requestId:_req.requestId,errorType:typeof error?.name==='string'&&/^[A-Za-z]{1,60}$/.test(error.name)?error.name:'Error'}));
   res.status(500).json({error:'Something went wrong. Please retry.'});
 });
 export default app;

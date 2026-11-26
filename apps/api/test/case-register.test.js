@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {caseSort,caseFilters,csvCell,casesCsv} from '../src/case-register.js';
+import {caseSort,caseFilters,csvCell,casesCsv,workloadFilter} from '../src/case-register.js';
 
 test('register sorts use deterministic database keys',()=>{
   assert.deepEqual(caseSort('updated'),{updatedAt:-1,_id:-1});
@@ -35,4 +35,8 @@ test('CSV output quotes delimiters, sanitizes formula values and excludes intern
   assert.ok(!csv.includes('never export'));
   assert.ok(!csv.includes('passwordHash'));
   assert.equal(csv.trim().split('\r\n').length,2);
+});
+
+test('workload filter intersects rather than overwrites existing restrictions',()=>{
+  assert.deepEqual(workloadFilter({organizationId:'A',status:'closed'},'unassigned'),{organizationId:'A',status:'closed',$and:[{status:{$in:['accepted','in_progress','on_hold']}},{assignedTo:null}]});
 });

@@ -87,8 +87,10 @@ async function session(email, mobile = false) {
     const startLink = page.getByRole('link', { name: /Create a creditor account/i });
     assert.equal(await startLink.getAttribute('href'), '/login?mode=signup',
       'Landing page account creation must open the existing registration flow');
-    assert.equal(await page.locator('.cdl-feature').count(), 4,
+    assert.equal(await page.locator('.cdl-feature').count(), 6,
       'Landing page should explain the core product capabilities');
+    await page.getByRole('heading',{name:'Monthly recovery reports'}).waitFor();
+    await page.getByRole('heading',{name:'Internal follow-up queue'}).waitFor();
     assert.equal(await page.locator('.cdl-step').count(), 3,
       'Customer onboarding should clearly explain each step');
     assert.equal(await page.title(), 'collectDesk',
@@ -119,7 +121,7 @@ async function session(email, mobile = false) {
       'Website favicon should be present in the browser tab');
     assert.equal(await page.locator('.lp-f-orange, .lp-f-sky').count(),0,
       'Unnecessary circular floating graphics must not be displayed');
-    assert.equal(await page.locator('.cdl-feature[href="#stages"]').count(),4,
+    assert.equal(await page.locator('.cdl-feature[href="#stages"]').count(),6,
       'Feature cards should be real links into the case lifecycle');
     assert.equal(await page.locator('.lp-chip[href^="#stage-"]').count(),7,
       'Rotating lifecycle labels should link to their stages');
@@ -495,6 +497,27 @@ try {
   await operator.getByRole('button', { name: /Post update/i }).click();
   await operator.getByText('Public browser audit progress update').waitFor();
   log('Assigned operator posted public and internal activity');
+  await admin.goto(base+'/operations',{waitUntil:'domcontentloaded'});
+  await admin.getByRole('heading',{name:'Current operator workload'}).waitFor();
+  await admin.getByRole('heading',{name:'API service health'}).waitFor();
+  await admin.getByRole('link',{name:/Unassigned active cases/}).click();
+  await admin.getByLabel('Filter active workload').waitFor();
+  assert.equal(await admin.getByLabel('Filter active workload').inputValue(),'unassigned');
+  await admin.goto(caseUrl,{waitUntil:'domcontentloaded'});
+  await statusIs(admin,'In Progress');
+  await operator.getByLabel('Follow-up date').fill('2099-01-01');
+  await operator.getByLabel('Internal next action').fill('Browser QA next action');
+  await operator.getByRole('button',{name:'Schedule follow-up'}).click();
+  await operator.getByText('Follow-up scheduled.',{exact:true}).waitFor();
+  await operator.goto(base+'/follow-ups',{waitUntil:'domcontentloaded'});
+  await operator.getByText('Browser QA next action',{exact:true}).waitFor();
+  await operator.getByText('Browser QA next action',{exact:true}).click();
+  await operator.getByLabel('Follow-up outcome').fill('Browser QA completed');
+  await operator.getByRole('button',{name:'Complete follow-up'}).click();
+  await operator.getByText('Follow-up completed.',{exact:true}).waitFor();
+  await creditor.goto(base+'/reports',{waitUntil:'domcontentloaded'});
+  await creditor.getByRole('heading',{name:'Monthly recovery movements'}).waitFor();
+  assert.equal(await creditor.locator('a[href="/follow-ups"]').count(),0,'creditor cannot see staff queue navigation');
 
   step = 'notification center activity and read-state QA';
   await creditor.goto(base+'/notifications',{waitUntil:'domcontentloaded'});
