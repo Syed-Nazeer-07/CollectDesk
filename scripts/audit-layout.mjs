@@ -18,7 +18,7 @@ try {
   const roles=[
     ['public',[['/','.lp-hero'],['/login','.auth-form, .auth-field'],['/signup','.auth-unavailable, .auth-field'],['/forgot-password','.auth-unavailable, .auth-form'],['/reset-password?token=layout-test-only','.auth-card'],['/signup/verify?token=layout-test-only','.auth-card'],['/staff/activate?token=layout-test-only','.staff-activation-card']]],
     ['creditor',[['/dashboard','.metrics-grid'],['/reports','.report-table'],['/cases','.cases-table'],['/cases/new','.new-case-form'],['/account','.profile-form'],['/support','.support-form'],['/notifications','[aria-label="Filter activity updates"]']]],
-    ['admin',[['/staff','.staff-form'],['/follow-ups','.ops-metrics'],['/reports','.report-table']]],
+    ['admin',[['/staff','.staff-form'],['/follow-ups','.ops-metrics'],['/reports','.report-table'],['/operations','.health-grid']]],
     ['operator',[['/follow-ups','.ops-metrics'],['/reports','.report-table']]]
   ];
   for (const [role,routes] of roles){

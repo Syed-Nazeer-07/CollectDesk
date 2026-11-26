@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {Case,Receipt} from './models.js';
+import {Case,Receipt,User} from './models.js';
 import {requireRole} from './auth.js';
 import {scopeForUser,indiaDateKey} from './rules.js';
 import {withCaseTransaction,transactionResponse} from './ledger.js';
@@ -43,6 +43,30 @@ export function summarizeMovements(rows,from,to){
   return {from,to,months,totals};
 }
 export function installOperationsRoutes(route,{getCase,logEvent}){
+  // Admin-only, explicitly current workload rather than individual productivity.
+  route.get('/operations/control',requireRole('admin'),async(_req,res)=>{
+    const asOf=indiaDateKey(),cutoff=new Date(asOf+'T00:00:00.000Z');
+    const [groups,staff,pending]=await Promise.all([
+      Case.aggregate([{$match:{status:{$in:ACTIVE}}},{$group:{_id:{$ifNull:['$assignedTo',null]},active:{$sum:1},
+        onHold:{$sum:{$cond:[{$eq:['$status','on_hold']},1,0]}},
+        due:{$sum:{$cond:[{$and:[{$eq:[{$type:'$followUp.dueDate'},'date']},{$lte:['$followUp.dueDate',cutoff]}]},1,0]}},
+        scheduled:{$sum:{$cond:[{$eq:[{$type:'$followUp.dueDate'},'date']},1,0]}}}}]).option({maxTimeMS:15000}),
+      User.find({role:'operator',active:true}).select('name').sort({name:1,_id:1}).limit(501).lean(),
+      Receipt.aggregate([{$match:{kind:'receipt',status:'recorded'}},
+        {$lookup:{from:Case.collection.name,localField:'caseId',foreignField:'_id',as:'linked'}},
+        {$unwind:'$linked'},{$match:{$expr:{$eq:['$organizationId','$linked.organizationId']}}},
+        {$facet:{summary:[{$group:{_id:null,count:{$sum:1},total:{$sum:{$toDecimal:'$amountPaise'}}}}],
+          items:[{$sort:{createdAt:1,_id:1}},{$limit:25},{$project:{_id:0,caseId:1,caseCode:'$linked.caseCode',debtorName:'$linked.debtorName',amountPaise:1,createdAt:1}}]}}]).option({maxTimeMS:15000})
+    ]);
+    if(staff.length>500)return res.status(413).json({error:'Staff roster exceeds the demo reporting limit.'});
+    const activeIds=new Set(staff.map(x=>String(x._id)));
+    const workload=staff.map(x=>{const g=groups.find(y=>String(y._id)===String(x._id));return {id:String(x._id),name:x.name,active:g?.active??0,onHold:g?.onHold??0,due:g?.due??0,scheduled:g?.scheduled??0};});
+    workload.sort((a,b)=>b.due-a.due||b.active-a.active||a.name.localeCompare(b.name));
+    const unassigned=groups.filter(g=>!g._id).reduce((n,g)=>n+g.active,0);
+    const inactiveAssignments=groups.filter(g=>g._id&&!activeIds.has(String(g._id))).reduce((n,g)=>n+g.active,0);
+    const p=pending[0],summary=p?.summary?.[0];
+    res.json({asOf,workload,unassigned,inactiveAssignments,pending:{count:summary?.count??0,amountPaise:summary?safeDecimal(summary.total):0,items:p?.items??[]}});
+  });
   route.get('/reports/recoveries',async(req,res)=>{
     const {from,to}=reportQuery.parse(req.query);
     const range=reportRange(from,to);

@@ -18,6 +18,7 @@ import {caseSort,caseFilters,casesCsv} from './case-register.js';
 import {installNotificationRoutes} from './notifications.js';
 import {withCaseTransaction,transactionResponse,inspectLedger} from './ledger.js';
 import {installOperationsRoutes} from './operations.js';
+import {observeRequest,telemetrySnapshot} from './telemetry.js';
 import {assertAccess,canAssign,canClose,canEditDraft,canHold,canResume,canReview,canSubmit,calculateMoney,financialTotals,CASE_STATUSES,REVIEW_DECISIONS,formatCaseCode,indiaDateKey,isOverdue,pageInfo,scopeForUser,addPaise,collectionAttention,compareAttention} from './rules.js';
 
 const app=express();
@@ -26,6 +27,7 @@ const app=express();
 // public X-Forwarded-For headers. This restores per-client rate-limit logic.
 app.set('trust proxy','loopback, uniquelocal');
 app.disable('x-powered-by');
+app.use('/api/v1',observeRequest);
 app.use(helmet());
 // Render exposes the public HTTPS URL; WEB_ORIGIN can override it for custom domains.
 const webOrigin=process.env.WEB_ORIGIN || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
@@ -109,6 +111,7 @@ async function logEvent(item,user,kind,text,visibility='creditor',metadata={},se
 installEvidenceRoutes(route,{getCase,logEvent});
 installNotificationRoutes(route);
 installOperationsRoutes(route,{getCase,logEvent});
+route.get('/operations/health',requireRole('admin'),(_req,res)=>res.json(telemetrySnapshot()));
 route.get('/operators',requireRole('admin'),async(_req,res)=>{
   const operators=await User.find({role:'operator',active:true}).select('name email').lean();
   res.json({operators:operators.map(u=>({id:String(u._id),name:u.name,email:u.email}))});
@@ -401,7 +404,7 @@ app.use((error,_req,res,_next)=>{
   if(error?.type==='entity.too.large')return res.status(413).json({error:'Uploaded document is too large.'});
   if (['MongoServerSelectionError','MongooseServerSelectionError','MongoNetworkError'].includes(error?.name))
     return res.status(503).json({error:'Database temporarily unavailable. Please retry.'});
-  console.error('[API] Request failed', {name:error?.name});
+  console.error(JSON.stringify({event:'api_error',requestId:_req.requestId,errorType:typeof error?.name==='string'&&/^[A-Za-z]{1,60}$/.test(error.name)?error.name:'Error'}));
   res.status(500).json({error:'Something went wrong. Please retry.'});
 });
 export default app;

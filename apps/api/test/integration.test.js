@@ -585,6 +585,23 @@ test('end-to-end API workflow and authorization (MongoDB required)', {skip: !uri
     r = await call(`/cases/${caseId}/receipts`,{method:'POST',cookie:admin,body:{amountPaise:200_000,reference:'DEMO-UTR-1'}});
     assert.equal(r.status,201,JSON.stringify(r.data));
     const receiptId = r.data.id;
+    await t.test('administrator control room is restricted and matches pending ledger',async()=>{
+      for(const cookie of [a,b,operator]){
+        assert.equal((await call('/operations/control',{cookie})).status,403);
+        assert.equal((await call('/operations/health',{cookie})).status,403);
+      }
+      assert.equal((await call('/operations/control')).status,401);
+      const result=await call('/operations/control',{cookie:admin});
+      assert.equal(result.status,200,JSON.stringify(result.data));
+      assert.equal(result.data.pending.count,1);
+      assert.equal(result.data.pending.amountPaise,200_000);
+      assert.equal(String(result.data.pending.items[0].caseId),caseId);
+      assert.ok(result.data.workload.some(x=>x.id===String(op._id)&&x.active>=1));
+      const health=await call('/operations/health',{cookie:admin});
+      assert.equal(health.status,200);
+      assert.ok(health.data.sampleCount>0&&health.data.sampleCount<=2048);
+      assert.ok(!JSON.stringify(health.data).includes('creditora@test'));
+    });
     await t.test('explicit receipt retries use durable reference and never duplicate the audit',async()=>{
       const path='/cases/'+caseId+'/receipts';
       const payload={amountPaise:200_000,reference:'DEMO-UTR-1',retrySafe:true};
