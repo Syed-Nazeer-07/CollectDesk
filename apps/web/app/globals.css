@@ -3475,3 +3475,54 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 @media (max-width: 900px) {
   .attention-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
+
+
+/* Workspace refresh — neutral surfaces, compact information hierarchy, one
+   brand accent. Scoped to authenticated workspace so auth/marketing remain safe. */
+.app-root {
+  --bg:#101419; --bg-2:#14191f; --bg-3:#1b222a; --panel:#181e25;
+  --fg:#f2f4f6; --fg-dim:#b1bac5; --fg-faint:#919ba7;
+  --line:rgba(181,195,211,.10); --border:rgba(181,195,211,.16);
+  --input-bg:#14191f; --input-border:rgba(181,195,211,.23);
+  --radius-md:8px; --radius-lg:10px; --radius-xl:12px;
+  --shadow-sm:none; --shadow-md:none;
+  font-size:14px;
+}
+html[data-theme="light"] .app-root,html.light .app-root {
+  --bg:#f5f7fa; --bg-2:#ffffff; --bg-3:#e9edf2; --panel:#ffffff;
+  --fg:#16202c; --fg-dim:#526071; --fg-faint:#677586;
+  --line:rgba(30,48,70,.08); --border:rgba(30,48,70,.14);
+  --input-bg:#ffffff; --input-border:rgba(30,48,70,.20);
+}
+.app-root .sidebar {padding-block:20px;box-shadow:none;}
+.app-root .sidebar-top {padding-bottom:20px}
+.app-root .workspace-identity {box-shadow:none;margin-bottom:18px}
+.app-root .sidebar-nav {gap:3px}
+.app-root .sidebar-nav .nav-link {border-radius:7px;font-weight:550}
+.app-root .sidebar-nav .nav-link.active {font-weight:700}
+.app-root .topbar {background:var(--panel);backdrop-filter:none}
+.app-root .page-heading h1 {font-size:clamp(25px,2.6vw,34px);letter-spacing:-.04em}
+.app-root .page-heading {margin-bottom:22px}
+.workspace-context {display:block;color:var(--fg-dim);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.app-root .panel,.app-root .metric-card {box-shadow:none}
+.app-root .metric-financial {border-block-start:1px solid var(--border)}
+.app-root .metric-card {min-width:0}
+.app-root .metric-value,.app-root .money-cell {font-variant-numeric:tabular-nums}
+.app-root .metric-icon {background:var(--line);color:var(--fg-dim)}
+.app-root .dashboard-content {gap:18px}
+.app-root .cases-table th {font-size:11px;letter-spacing:.035em}
+.app-root .button-primary {box-shadow:none}
+.app-root .button:hover:not(:disabled) {transform:none}
+.workspace-brief {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 24px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.workspace-brief > div {min-width:0}
+.workspace-brief h2 {font-size:clamp(18px,2vw,25px);margin:7px 0}
+.workspace-brief p {color:var(--fg-dim);font-size:13px;max-width:620px}
+.workspace-brief .button {flex-shrink:0}
+.reconciliation-panel {margin-top:18px}
+.reconciliation-panel .recon-issues {display:grid;gap:8px;padding:0;margin:12px 0;list-style:none}
+.reconciliation-panel .recon-issues li {padding:9px 12px;border:1px solid var(--border);border-radius:7px;overflow-wrap:anywhere;color:var(--fg-dim)}
+@media(max-width:650px) {
+  .workspace-brief {align-items:stretch;flex-direction:column;padding:16px;gap:12px}
+  .workspace-brief .button {align-self:flex-start;white-space:normal}
+  .app-root .dashboard-content {gap:14px}
+}

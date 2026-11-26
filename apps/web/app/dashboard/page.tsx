@@ -28,12 +28,18 @@ export default function DashboardPage(){
     {(user:User)=><div className="dashboard-content">
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
+        <section className="workspace-brief" aria-label="Workspace priorities">
+          <div><span className="workspace-context">{user.role==='admin'?'Operations control':user.role==='operator'?'Assigned portfolio':'Creditor portfolio'}</span>
+          <h2>{user.role==='admin'?'Manage the collection pipeline.':user.role==='operator'?'Focus on the next case.':'Track your outstanding invoices.'}</h2>
+          <p>{user.role==='admin'?'Review submissions, coordinate assignments and verify receipts.':user.role==='operator'?'Prioritize overdue work and keep creditors informed with case updates.':'Follow review decisions, outstanding balances and verified recoveries in your company.'}</p></div>
+          <Link className="button button-outline" href={user.role==='admin'?'/cases?status=submitted':user.role==='operator'?'/cases?sort=due':'/cases/new'}>{user.role==='admin'?'Review submissions':user.role==='operator'?'Open work queue':'Submit an invoice'}<ArrowRight size={15}/></Link>
+        </section>
         {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Outstanding balance" value={money(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} priority sub="Excludes drafts and rejected cases"/>
           <Stat name="Verified recovered" value={money(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} priority sub="Verified receipts less reversals"/>
-          <Stat name="Active cases" value={String(data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub="Accepted, in progress or on hold"/>
-          <Stat name="Total cases" value={String(data.summary.totalCases)} icon={<FolderKanban size={19}/>} sub="Cases you can access"/>
+          <Stat name={user.role==='admin'?'Awaiting review':user.role==='operator'?'Assigned active cases':'Active cases'} value={String(user.role==='admin'?data.summary.awaitingReview:data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub={user.role==='admin'?'Submitted cases requiring a decision':'Accepted, in progress or on hold'}/>
+          <Stat name={user.role==='creditor'?'Total cases':'Overdue active cases'} value={String(user.role==='creditor'?data.summary.totalCases:data.attention?.overdueCount??0)} icon={<FolderKanban size={19}/>} sub={user.role==='creditor'?'Cases you can access':'Active unpaid cases past due'}/>
         </section>
         <div className="middle-grid">
           <section className="panel status-panel">
