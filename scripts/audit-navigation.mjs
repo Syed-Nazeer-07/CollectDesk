@@ -46,6 +46,33 @@ try{
 
   assert.equal(sessionRequests,initialChecks,
     'Sidebar navigation should reuse the recent session instead of asking /auth/me again');
+  // Creation belongs to Cases, not an independent navigation section.
+  assert.equal(await page.locator('.sidebar-nav a[href="/cases/new"]').count(),0);
+  assert.equal(await page.locator('.topbar a[href="/"]').count(),0);
+  await page.locator('.sidebar-nav a[href="/cases"]').click();
+  await page.waitForURL(base+'/cases');
+  assert.equal(await page.locator('.page-heading a[href="/cases/new"]').count(),1);
+  await page.locator('.page-heading a[href="/cases/new"]').click();
+  await page.waitForURL(base+'/cases/new');
+  assert.equal(await page.locator('.sidebar-nav a[href="/cases"]').getAttribute('aria-current'),'page');
+  assert.equal(await page.locator('.page-heading a[href="/cases/new"]').count(),0);
+  await page.locator('.sidebar-nav a[href="/account"]').click();
+  await page.waitForURL(base+'/account');
+  const appearance=page.getByLabel('Theme preference');
+  await appearance.waitFor();
+  await page.emulateMedia({colorScheme:'dark'});
+  await appearance.selectOption('system');
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
+  await page.emulateMedia({colorScheme:'light'});
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+  await appearance.selectOption('dark');
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await appearance.waitFor();
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
+  assert.equal(await appearance.inputValue(),'dark');
+  await appearance.selectOption('system');
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
   await context.close();
   console.log('Persistent workspace navigation passed: 6 routes, no auth loading flash, no repeated session fetch.');
 } finally{
