@@ -72,6 +72,17 @@ async function assertEmptyStateLayout(page,containerSelector,iconSelector,titleS
     containerSelector+' heading should be centered');
 }
 
+async function assertPlainCaseEmptyState(page){
+  const empty=page.locator('.cases-empty-filter');
+  assert.equal(await empty.locator('svg,.cases-empty-icon').count(),0,'Case empty state must not contain decorative icon');
+  assert.equal(await page.locator('.pagination-actions').count(),0,'Empty results must not show disabled pagination');
+  const layout=await empty.evaluate(el=>{
+    const box=el.getBoundingClientRect(),h=el.querySelector('h4').getBoundingClientRect(),p=el.querySelector('p').getBoundingClientRect();
+    return {centered:Math.abs((box.left+box.width/2)-(h.left+h.width/2))<8,stacked:h.bottom<=p.top,overflow:document.documentElement.scrollWidth>innerWidth+2};
+  });
+  assert.ok(layout.centered&&layout.stacked&&!layout.overflow,'Text-only case empty state must be aligned and responsive');
+}
+
 async function session(email, mobile = false) {
   const context = await browser.newContext({
     viewport: mobile ? { width: 390, height: 844 } : { width: 1365, height: 900 },
@@ -375,7 +386,7 @@ try {
   assert.equal(await creditor.getByLabel('Filter by status').inputValue(),'submitted');
   await creditor.getByRole('searchbox',{name:'Search cases'}).fill('zz-no-matching-case-ui-audit-987');
   await creditor.getByRole('heading',{name:'No matching cases'}).waitFor();
-  await assertEmptyStateLayout(creditor,'.cases-empty-filter','.cases-empty-icon','h4','p');
+  await assertPlainCaseEmptyState(creditor);
   await creditor.screenshot({path:'browser-audit-results/cases-empty-desktop.png',fullPage:true});
   await creditor.locator('.cases-empty-filter').getByRole('button',{name:'Clear filters'}).click();
   log('Account access, empty-state alignment and URL-synchronized case filtering work');
@@ -386,6 +397,10 @@ try {
   await creditor.reload();
   await creditor.getByText('Recovered your unfinished invoice from this tab.').waitFor();
   assert.equal(await creditor.locator('input[name="debtorName"]').inputValue(),'Browser Audit Fictional Supplies');
+  await creditor.goto(base+'/cases',{waitUntil:'domcontentloaded'});
+  await creditor.getByRole('button',{name:'New case',exact:true}).click();
+  await creditor.getByRole('dialog',{name:'New case'}).getByText('Recovered your unfinished invoice from this tab.').waitFor();
+  assert.equal(await creditor.locator('input[name="debtorName"]').inputValue(),'Browser Audit Fictional Supplies');
   const invoiceNo = 'AUDIT-' + Date.now();
   await creditor.locator('input[name="invoiceNo"]').fill(invoiceNo);
   await creditor.locator('input[name="issueDate"]').fill('2026-01-01');
@@ -393,7 +408,8 @@ try {
   await creditor.locator('input[name="amount"]').fill('1000.00');
   await creditor.getByRole('button', { name: /Submit for review/i }).click();
   await creditor.getByRole('alert').getByText(/Only overdue invoices can be submitted/i).waitFor();
-  assert.match(creditor.url(), /\/cases\/new$/, 'Rejected future-due invoice must not create a case');
+  assert.match(creditor.url(), /\/cases$/, 'Rejected future-due invoice must remain in the register');
+  await creditor.getByRole('dialog',{name:'New case'}).waitFor();
   await creditor.locator('input[name="dueDate"]').fill('2026-02-01');
   await creditor.locator('input[name="amount"]').fill('1000.00');
   await creditor.locator('textarea[name="description"]').fill('Fictional QA record; do not contact a real debtor.');
@@ -646,7 +662,7 @@ try {
   assert.ok(mobileCount > 0, 'Mobile case register did not load any demo records');
   await mobile.getByRole('searchbox',{name:'Search cases'}).fill('zz-no-matching-case-ui-audit-987');
   await mobile.getByRole('heading',{name:'No matching cases'}).waitFor();
-  await assertEmptyStateLayout(mobile,'.cases-empty-filter','.cases-empty-icon','h4','p');
+  await assertPlainCaseEmptyState(mobile);
   await mobile.screenshot({path:'browser-audit-results/cases-empty-mobile.png',fullPage:true});
   await mobile.locator('.cases-empty-filter').getByRole('button',{name:'Clear filters'}).click();
   await mobile.locator('.cases-table tbody tr').first().waitFor();

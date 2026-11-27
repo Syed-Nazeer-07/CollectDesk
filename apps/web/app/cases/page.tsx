@@ -150,17 +150,16 @@ function CaseRegister({canCreate,admin}:{canCreate:boolean;admin:boolean}){
     {loading?<div className="loading-panel" role="status"><div className="spinner"/> Loading cases…</div>:
       !error&&cases.length===0?
         <div className="cases-empty-filter" role="status">
-          <span className="cases-empty-icon" aria-hidden="true"><Search size={23}/></span>
           <h4>{filtered?'No matching cases':'No cases yet'}</h4>
           <p>{filtered?'Try another search or reset the status filter.':canCreate?'Create your first sample invoice case to start tracking progress.':'Accessible cases will appear here once they are assigned or submitted.'}</p>
           {filtered&&<button className="button button-outline" type="button" onClick={resetFilters}>Clear filters</button>}
         </div>:
       !error?<CaseTable cases={cases}/>:null}
-    <div className="table-bottom">
+    {(!loading&&!error&&pagination.total>0)&&<div className="table-bottom">
       <span aria-live="polite">{error?'Unable to load cases':loading?'Updating results…':
         pagination.total===0?'No cases to display':
         'Showing '+first+'–'+last+' of '+pagination.total+' cases · Page '+pagination.page+' of '+pagination.totalPages}</span>
-      <div className="pagination-actions">
+      {pagination.totalPages>1&&<div className="pagination-actions">
         <button type="button" className="button button-muted" aria-label="Previous page"
           disabled={loading||page<=1} onClick={()=>setPage(v=>Math.max(1,v-1))}>
           <ChevronLeft size={17}/> Previous
@@ -169,7 +168,7 @@ function CaseRegister({canCreate,admin}:{canCreate:boolean;admin:boolean}){
           disabled={loading||page>=pagination.totalPages} onClick={()=>setPage(v=>v+1)}>
           Next <ChevronRight size={17}/>
         </button>
-      </div>
-    </div>
+      </div>}
+    </div>}
   </section>;
 }

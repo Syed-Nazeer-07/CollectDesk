@@ -60,6 +60,26 @@ try {
         }
       }
     }
+    if(role==='creditor'){
+      await page.goto(base+'/cases',{waitUntil:'domcontentloaded'});
+      for(const theme of ['light','dark']){
+        await page.evaluate(theme=>localStorage.setItem('cd-theme',theme),theme);
+        await page.reload({waitUntil:'domcontentloaded'});
+        await page.waitForFunction(theme=>document.documentElement.dataset.theme===theme,theme);
+        for(const width of [360,390,768,1366,1920]){
+          await page.setViewportSize({width,height:900});
+          await page.getByRole('button',{name:'New case',exact:true}).click();
+          const dialog=page.getByRole('dialog',{name:'New case'});
+          await dialog.waitFor();
+          const fits=await dialog.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&el.scrollWidth<=el.clientWidth+1});
+          if(!fits)failures.push({route:'case-intake-dialog',theme,width});
+          checks++;
+          if(width===390||width===1366)await page.screenshot({path:output+'/creditor-intake-dialog-'+theme+'-'+width+'.png',animations:'disabled'});
+          await page.keyboard.press('Escape');
+          await dialog.waitFor({state:'hidden'});
+        }
+      }
+    }
   }
   console.log(JSON.stringify({checks,failures},null,2));
   assert.equal(failures.length,0,'See routes and dimensions above.');

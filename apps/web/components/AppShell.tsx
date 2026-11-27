@@ -8,6 +8,7 @@ import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 import {ThemeToggle} from '@/components/ThemeProvider';
 import BrandMark from '@/components/BrandMark';
 import NotificationBell from '@/components/NotificationBell';
+import CaseIntakeDialog from '@/components/CaseIntakeDialog';
 
 type Props={children:(user:User,onProfileSaved:(user:User)=>void)=>React.ReactNode;title:string;subtitle?:string;action?:boolean};
 
@@ -16,6 +17,7 @@ const roleName:Record<User['role'],string>={admin:'Administrator',creditor:'Cred
 export default function AppShell({children,title,subtitle,action=true}:Props){
   const {user,ready,error:sessionError,ensureSession,retrySession,acceptUser,forgetSession}=useWorkspaceSession();
   const [menu,setMenu]=useState(false);
+  const [intakeOpen,setIntakeOpen]=useState(false);
   const [logoutError,setLogoutError]=useState('');
   const [takingLong,setTakingLong]=useState(false);
   const pathname=usePathname();
@@ -31,7 +33,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
       router.replace('/onboarding');
     }
   },[ready,user,pathname,router]);
-  useEffect(()=>{setMenu(false);},[pathname]);
+  useEffect(()=>{setMenu(false);setIntakeOpen(false);},[pathname]);
   useEffect(()=>{
     if(!menu)return;
     function closeOnEscape(event:KeyboardEvent){
@@ -101,10 +103,11 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         </div>
       </header>
       <div className="main-content" id="workspace-content" tabIndex={-1}>
-        <div className="page-heading"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&(pathname==='/dashboard'||pathname==='/cases')&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
+        <div className="page-heading"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&(pathname==='/dashboard'||pathname==='/cases')&&<button type="button" className="button button-primary" aria-haspopup="dialog" onClick={()=>setIntakeOpen(true)}><Plus size={18}/> New case</button>}</div>
         {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user,acceptUser)}
         <footer className="app-footer"><Link href="/">CollectDesk website</Link><span>Sample records only · No real payments</span></footer>
       </div>
     </main>
+    {intakeOpen&&ready&&user?.role==='creditor'&&<CaseIntakeDialog user={user} onClose={()=>setIntakeOpen(false)}/>}
   </div>;
 }
