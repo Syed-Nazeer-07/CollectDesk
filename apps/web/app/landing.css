@@ -1,29 +1,10 @@
 /* CollectDesk landing page. All selectors are scoped under .lp so nothing leaks into the app. */
-.lp{--bg:#12171f; --bg-2:#19202b; --panel:#212a39; --line:rgba(244,238,221,.1);
-  --fg:#f4eedd; --fg-dim:rgba(244,238,221,.62); --fg-faint:rgba(244,238,221,.3);
-  --accent:#ff6a2b; --accent-ink:#1b0d05; --sky:#43c6e6; --mint:#5fd8a8; --amber:#ffc15e; --rose:#ff8a7a;
-  --paper:#f2ead6; --paper-2:#e9dfc6; --paper-ink:#1b1f27; --paper-dim:#5d594d; --paper-line:rgba(27,31,39,.14);
-  --display:'Manrope','Segoe UI',system-ui,sans-serif; --body:'DM Sans','Segoe UI',system-ui,sans-serif; --mono:'DM Mono',ui-monospace,Menlo,monospace;
+.lp{--paper:#e0e4e0; --paper-2:#d5dad5; --paper-ink:#1d2725; --paper-dim:#4b5a54; --paper-line:rgba(31,39,36,.19);
   --gutter:max(16px,env(safe-area-inset-left,0px)); --gutter-r:max(16px,env(safe-area-inset-right,0px));
   color-scheme:dark;}
 
 /* --- Light Mode for Landing Page --- */
-html[data-theme="light"] .lp,
-html.light .lp {
-  --bg: #f5f0e4;
-  --bg-2: #ede6d6;
-  --panel: #ffffff;
-  --line: rgba(27, 31, 39, 0.08);
-  --fg: #151a22;
-  --fg-dim: rgba(21, 26, 34, 0.68);
-  --fg-faint: rgba(21, 26, 34, 0.38);
-  --paper: #ede6d6;
-  --paper-2: #e3dcc9;
-  --paper-ink: #151a22;
-  --paper-dim: #5c6470;
-  --paper-line: rgba(27, 31, 39, 0.12);
-  color-scheme: light;
-}
+html[data-theme="light"] .lp, html.light .lp {color-scheme:light;}
 
 html[data-theme="light"] .lp .lp-nav-pill,
 html.light .lp .lp-nav-pill {
@@ -538,12 +519,10 @@ html.light .lp .lp-nav-link.lp-active {
 
 
 /* Landing refresh: quiet enterprise typography and restrained surfaces. */
-.lp {--bg:#101419;--bg-2:#14191f;--panel:#181e25;--fg:#f2f4f6;--fg-dim:#b1bac5;--fg-faint:#919ba7;--line:rgba(181,195,211,.16);--paper:#e9edf2;--paper-2:#dce3eb;--paper-ink:#16202c;--paper-dim:#526071}
-html[data-theme="light"] .lp,html.light .lp {--bg:#f5f7fa;--bg-2:#e9edf2;--panel:#ffffff;--fg:#16202c;--fg-dim:#526071;--fg-faint:#677586;--paper:#e9edf2;--paper-2:#dce3eb}
 .lp .lp-nav-pill {border-radius:12px;background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
 .lp .lp-btn,.lp .lp-btn-lg,.lp .lp-nav .lp-btn {border-radius:8px}
 .lp .lp-btn-accent {box-shadow:none}
-.lp .lp-hero h1 {letter-spacing:-.055em}
+.lp .lp-hero h1 {letter-spacing:-.035em}
 .lp .lp-hero-sub {max-width:720px}
 .lp .lp-dash {border-radius:12px;background:var(--panel);box-shadow:none}
 html[data-theme="light"] .lp .lp-dash,html.light .lp .lp-dash {background:var(--panel);box-shadow:none}
