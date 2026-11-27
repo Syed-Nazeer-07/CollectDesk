@@ -28,21 +28,19 @@ export default function DashboardPage(){
     {(user:User)=><div className="dashboard-content">
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
-        {user.role!=='creditor'&&<section className="workspace-brief overview-brief" aria-label="Workspace priorities">
-          <div><span className="workspace-context">{user.role==='admin'?'Operations control':user.role==='operator'?'Assigned portfolio':'Creditor portfolio'}</span>
-          <h2>{user.role==='admin'?'Manage the collection pipeline.':user.role==='operator'?'Focus on the next case.':'Track your outstanding invoices.'}</h2>
-          <p>{user.role==='admin'?'Review submissions, coordinate assignments and verify receipts.':user.role==='operator'?'Prioritize overdue work and keep creditors informed with case updates.':'Follow review decisions, outstanding balances and verified recoveries in your company.'}</p></div>
-          <Link className="button button-outline" href={user.role==='admin'?'/cases?status=submitted':user.role==='operator'?'/cases?sort=due':'/cases/new'}>{user.role==='admin'?'Review submissions':user.role==='operator'?'Open work queue':'Submit an invoice'}<ArrowRight size={15}/></Link>
-        </section>}
         <div className="workspace-section-heading"><h2>Portfolio snapshot</h2><span>{data.attention?.asOf?'As of '+data.attention.asOf+' · India':'Current balances'}</span></div>
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Outstanding balance" value={money(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} priority sub="Excludes drafts and rejected cases"/>
           <Stat name="Verified recovered" value={money(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} priority sub="Verified receipts less reversals"/>
           <Stat name={user.role==='admin'?'Awaiting review':user.role==='operator'?'Assigned active cases':'Active cases'} value={String(user.role==='admin'?data.summary.awaitingReview:data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub={user.role==='admin'?'Submitted cases requiring a decision':'Accepted, in progress or on hold'}/>
-          <Stat name={user.role==='creditor'?'Total cases':'Overdue active cases'} value={String(user.role==='creditor'?data.summary.totalCases:data.attention?.overdueCount??0)} icon={<FolderKanban size={19}/>} sub={user.role==='creditor'?'Cases you can access':'Active unpaid cases past due'}/>
+          <Stat name="Overdue active cases" value={String(data.attention?.overdueCount??0)} icon={<FolderKanban size={19}/>} sub="Active unpaid cases past due"/>
         </section>
         {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
         {data.summary.totalCases===0&&user.role==='creditor'?<section className="panel ops-empty"><h4>No cases yet</h4><p>Use New case above to enter a fictional invoice, save a draft, or submit an overdue case for review.</p><Link className="text-link" href="/cases">View case register <ArrowRight size={15}/></Link></section>:<>
+        {user.role!=='creditor'&&<section className="ops-shortcuts" aria-label="Priority work">
+          {user.role==='admin'&&<Link href="/operations" className="panel ops-shortcut"><div><h3>Operations control</h3><p>Review pending receipts and assignment exceptions.</p></div><ArrowUpRight size={18}/></Link>}
+          <Link href="/follow-ups" className="panel ops-shortcut"><div><h3>{data.tasks?data.tasks.due+' due · '+data.tasks.scheduled+' scheduled':'Follow-up queue'}</h3><p>Prioritize internal follow-ups and assigned work.</p></div><ArrowUpRight size={18}/></Link>
+        </section>}
         <div className="middle-grid">
           <section className="panel status-panel">
             <div className="panel-head"><div><h3>Case status</h3><p>Choose a status to filter the register</p></div><Link href="/cases" className="text-link">All cases <ArrowRight size={15}/></Link></div>
@@ -80,9 +78,8 @@ export default function DashboardPage(){
             </div>
           </section>
         </div>
-        <section className="ops-shortcuts" aria-label="Operational tools">
-          <Link href="/reports" className="panel ops-shortcut"><div><span className="workspace-context">Reporting</span><h3>Recovery movements</h3><p>Explore verified receipts and reversals by month, or export the period as CSV.</p></div><ArrowUpRight size={20}/></Link>
-          {user.role!=='creditor'&&data.tasks&&<Link href="/follow-ups" className="panel ops-shortcut"><div><span className="workspace-context">Next actions</span><h3>{data.tasks.due} due · {data.tasks.scheduled} scheduled</h3><p>Review and complete internal follow-ups for active cases.</p></div><ArrowUpRight size={20}/></Link>}
+        <section className="ops-shortcuts" aria-label="Reporting tools">
+          <Link href="/reports" className="panel ops-shortcut"><div><h3>Recovery movements</h3><p>Explore verified receipts and reversals by month, or export the period as CSV.</p></div><ArrowUpRight size={20}/></Link>
         </section>
         {data.attention&&data.attention.overdueCount>0&&<AttentionPanel attention={data.attention} role={user.role}/>}
         <section className="panel cases-panel">
