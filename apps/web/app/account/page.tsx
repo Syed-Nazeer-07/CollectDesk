@@ -4,6 +4,7 @@ import {useState, type FormEvent} from 'react';
 import Link from 'next/link';
 import {ArrowRight,BriefcaseBusiness,CheckCircle2,FileText,LockKeyhole,ShieldCheck,UserRound} from 'lucide-react';
 import AppShell from '@/components/AppShell';
+import {ThemeToggle} from '@/components/ThemeProvider';
 import {api, type User} from '@/lib/api';
 
 const roleInfo:Record<User['role'],{name:string;summary:string;permissions:string[]}> = {
@@ -32,17 +33,13 @@ export default function AccountPage(){
         <section className="panel demo-intro">
           <div className="demo-intro-heading">
             <span className="demo-intro-icon"><UserRound size={22}/></span>
-            <div><span className="eyebrow">SIGNED IN ACCOUNT</span><h2>{user.name}</h2><p>{user.email}</p></div>
+            <div><h2>{user.name}</h2><p>{user.email}</p></div>
           </div>
           <div className="account-role-panel">
             <span className="account-role-icon"><ShieldCheck size={21}/></span>
             <div><strong>{role.name}</strong><p>{role.summary}</p></div>
           </div>
           <ProfileForm user={user} onSaved={onProfileSaved}/>
-          <div className="demo-actions">
-            <Link href="/cases" className="button button-primary">Open case register <ArrowRight size={17}/></Link>
-            {user.role==='creditor'&&<Link href="/cases/new" className="button button-outline">Create a case</Link>}
-          </div>
         </section>
         <section className="panel demo-section">
           <div className="panel-head"><div><h3>What you can do</h3><p>Your permissions are set by authorized workspace administrators.</p></div></div>
@@ -51,6 +48,7 @@ export default function AccountPage(){
           </div>
           <div className="account-permission-note"><LockKeyhole size={17}/><p>Roles cannot be switched or self-assigned during sign-in. Contact a workspace administrator if your access needs to change.</p></div>
         </section>
+        <section className="panel demo-section"><div className="panel-head"><div><h3>Appearance</h3><p>Choose the workspace theme.</p></div><ThemeToggle /></div></section>
         <section className="demo-info-grid">
           <div className="panel demo-info-card"><BriefcaseBusiness size={21}/><h3>Workspace</h3>
             <p>{user.organizationId?'Your creditor access is scoped to your assigned organization.':'Your access is controlled by your assigned staff role.'}</p>
