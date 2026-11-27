@@ -11,13 +11,11 @@ import {
   Eye,
   EyeOff,
   LockKeyhole,
-  Globe,
   UserRound,
   Building2,
   Mail,
   Check,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import { api, User } from '@/lib/api';
 import { ThemeToggle } from '@/components/ThemeProvider';
@@ -212,8 +210,8 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
 
           <p>
             {isSignup
-              ? 'Create a creditor workspace in under a minute. Submit overdue invoices, follow reviews, and track verified recovery.'
-              : 'One focused place to review cases, coordinate next steps, and track verified recoveries with absolute transparency.'}
+              ? 'Create a creditor workspace. Submit overdue invoices, follow reviews, and track verified recovery.'
+              : 'One focused place to review cases, coordinate next steps, and track verified recoveries with a shared case history.'}
           </p>
 
           <div className="story-feature-list" aria-label="Workspace benefits">
@@ -269,9 +267,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
       {/* Right Form Panel */}
       <main className="login-panel">
         <div className="auth-header-actions">
-          <Link href="/" className="button button-muted button-small" title="Return to home page">
-            <Globe size={14} /> Site
-          </Link>
+          <Link href="/" className="text-link auth-mobile-home">Back to website</Link>
           <ThemeToggle />
         </div>
 
@@ -554,7 +550,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
                 </button>
 
                 <p className="auth-hint auth-verification-caption">
-                  ⚡ Instant access for commercial creditors. Sample records only.
+                  Sample records only. Email verification may be required.
                 </p>
 
                 {slow && (
@@ -601,7 +597,7 @@ export default function AuthWorkspace({ initialMode }: { initialMode: AuthMode }
             <span>
               {isSignup
                 ? 'Public signups receive Creditor role. Administrator and operator roles are provisioned separately.'
-                : 'Role-based access. Every transaction ledger entry is verified.'}
+                : 'Role-based access. Only verified receipts count toward recovery.'}
             </span>
           </div>
         </div>
