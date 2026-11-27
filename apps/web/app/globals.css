@@ -1,7 +1,7 @@
 /* ==========================================================================
    CollectDesk — Unified Design System & Multi-Page Theme (Light & Dark)
    Aesthetic aligned with the signature CollectDesk landing page.
-   Fonts: 'Manrope' (headings/display), 'DM Sans' (body), 'DM Mono' (tabular/codes)
+   Fonts: 'DM Sans' (headings and body), 'DM Mono' (tabular/codes)
    Palette: Radiant Orange #ff6a2b, Deep Slate #12171f, Warm Cream #f4eedd, Mint #5fd8a8, Sky #43c6e6
    ========================================================================== */
 
@@ -32,6 +32,7 @@
   --amber: #ffc15e;
   --amber-soft: rgba(255, 193, 94, 0.14);
   --rose: #ff8a7a;
+  --negative-text: #ff9b90;
   --rose-soft: rgba(255, 138, 122, 0.14);
 
   --radius-sm: 8px;
@@ -97,6 +98,7 @@ html.light {
   --border-focus: var(--accent);
 
   --fg: #1d2725;
+  --negative-text: #9e3028;
   --accent-text: #ad3f13; /* readable against light panels */
   --fg-dim: #4b5a54;
   --fg-faint: #596861;
@@ -3531,12 +3533,14 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 .ops-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:18px;font-size:12px;flex-wrap:wrap}
 .report-filters{display:flex;align-items:end;flex-wrap:wrap;gap:12px}.report-filters .field{flex:1 1 150px;min-width:0}
 .report-legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--fg-dim);margin:18px 0}
-.report-legend span:before{content:'';display:inline-block;width:10px;height:10px;border-radius:2px;background:#258b79;margin-right:7px}.report-legend span+span:before{background:#b97c4e}
+.report-legend span:before{content:'';display:inline-block;width:10px;height:10px;border-radius:2px;background:#258b79;margin-right:7px}.report-legend span:nth-child(2):before{background:#b97c4e}.report-legend .report-net-legend:before{display:none}
 .report-bars{display:grid;gap:12px;margin:0 0 24px}
 .report-month{display:grid;grid-template-columns:70px minmax(0,1fr);align-items:center;gap:12px;font-size:12px;color:var(--fg-dim)}
 .report-month>div{display:grid;gap:4px;background:var(--line);padding:4px;border-radius:4px}
 .report-month i{height:7px;border-radius:2px;background:#258b79}.report-month i+i{background:#b97c4e}
 .report-table td{font-variant-numeric:tabular-nums}
+@media(min-width:651px){.report-table .report-number{text-align:right}}
+.ops-metrics .report-negative,.report-table .report-negative,.report-month strong.report-negative{color:var(--negative-text)}
 @media(max-width:650px){.ops-metrics{grid-template-columns:1fr}.ops-task{grid-template-columns:minmax(0,1fr);gap:8px}.ops-due{text-align:left}.report-filters .button{flex:1 1 130px}.report-month{grid-template-columns:58px minmax(0,1fr)}}
 
 .ops-shortcuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
