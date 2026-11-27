@@ -338,7 +338,9 @@ try {
   await creditor.getByRole('button',{name:'Save display name'}).click();
   await creditor.getByText('Display name saved.').waitFor();
   await creditor.screenshot({ path: 'browser-audit-results/account-access.png', fullPage: true });
-  await creditor.getByRole('link', { name: /Open case register/i }).click();
+  assert.equal(await creditor.locator('.main-content a[href="/cases"], .main-content a[href="/cases/new"]').count(),0,
+    'Account settings must not contain unrelated case creation or register shortcuts');
+  await creditor.getByRole('navigation',{name:'Main navigation'}).getByRole('link',{name:'All cases',exact:true}).click();
   await creditor.getByRole('heading', { name: 'All cases', exact: true }).waitFor();
 
   await creditor.goto(base + '/dashboard', { waitUntil: 'domcontentloaded' });

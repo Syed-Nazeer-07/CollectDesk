@@ -69,9 +69,7 @@ function ActivityFeed({user}:{user:User}){
   }
   return <div className={styles.layout}>
     <section className={styles.intro}>
-      <div><span className={styles.eyebrow}>ACTIVITY CENTER</span>
-        <h2>Case activity by audience</h2>
-        <p>{user.role==='admin'?'Reviews, assignments, case changes, and receipt decisions across your workspace.':
+      <div><p>{user.role==='admin'?'Reviews, assignments, case changes, and receipt decisions across your workspace.':
           user.role==='operator'?'Updates from your currently assigned cases.':
           'Decisions and case updates from your company, without internal-only notes.'}</p>
       </div>
@@ -95,7 +93,7 @@ function ActivityFeed({user}:{user:User}){
       {error&&<div className="message error" role="alert">{error}
         <button type="button" onClick={()=>{setPage(1);setRefresh(n=>n+1);}}>Retry</button></div>}
       {busy&&items.length===0?<div className={styles.empty} role="status">Loading your activity…</div>:
-      items.length===0&&!error?<div className={styles.empty}><Inbox size={32}/>
+      items.length===0&&!error?<div className={styles.empty}><Inbox size={22} aria-hidden="true"/>
         <strong>{view==='unread'?"You're all caught up":'Nothing to review yet'}</strong>
         <p>{view==='unread'?'New case updates will appear here.':'Relevant updates appear here when your cases move forward.'}</p>
         {view==='unread'?<button type="button" className="button button-outline" onClick={()=>changeView('all')}>View all updates</button>:

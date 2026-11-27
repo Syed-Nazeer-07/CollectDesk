@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {useEffect,useRef,useState} from 'react';
-import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,BriefcaseBusiness,Globe,LifeBuoy,UserPlus,Bell,ChartNoAxesCombined,CalendarClock,Activity} from 'lucide-react';
+import {LayoutDashboard,FolderKanban,Plus,UserRound,LogOut,Menu,X,LifeBuoy,UserPlus,Bell,ChartNoAxesCombined,CalendarClock,Activity} from 'lucide-react';
 import {api,User} from '@/lib/api';
 import {useWorkspaceSession} from '@/components/WorkspaceSessionProvider';
 import {ThemeToggle} from '@/components/ThemeProvider';
@@ -67,14 +67,13 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
       </div>
       <div className="workspace-identity" aria-label="Current workspace">
         <span className="workspace-avatar">{user?.role==='admin'?'OP':user?.role==='operator'?'CO':'CR'}</span>
-        <span className="workspace-name"><strong>{user?.role==='admin'?'Operations control':user?.role==='operator'?'Collection workspace':'Creditor workspace'}</strong><small>{displayRole} · Sample data</small></span>
+        <span className="workspace-name"><strong>{user?.role==='admin'?'Operations control':user?.role==='operator'?'Collection workspace':'Creditor workspace'}</strong><small>Sample data only</small></span>
 
       </div>
       <nav className="sidebar-nav" aria-label="Main navigation">
         <span className="nav-caption">{user?.role==='admin'?'Operations':user?.role==='operator'?'My work':'Portfolio'}</span>
         <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/dashboard'?'active':''}`} aria-current={pathname==='/dashboard'?'page':undefined} href="/dashboard"><LayoutDashboard size={18}/> Overview</Link>
-        <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname.startsWith('/cases')&&pathname!=='/cases/new'?'active':''}`} aria-current={pathname.startsWith('/cases')&&pathname!=='/cases/new'?'page':undefined} href="/cases"><FolderKanban size={18}/> All cases</Link>
-        {user?.role==='creditor'&&<Link onClick={()=>setMenu(false)} className={`nav-link ${pathname==='/cases/new'?'active':''}`} aria-current={pathname==='/cases/new'?'page':undefined} href="/cases/new"><Plus size={18}/> Create case</Link>}
+        <Link onClick={()=>setMenu(false)} className={`nav-link ${pathname.startsWith('/cases')?'active':''}`} aria-current={pathname.startsWith('/cases')?'page':undefined} href="/cases"><FolderKanban size={18}/> All cases</Link>
         {user&&<Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/reports'?'active':'')} aria-current={pathname==='/reports'?'page':undefined} href="/reports"><ChartNoAxesCombined size={18}/> Recovery reports</Link>}
         {user&&user.role!=='creditor'&&<Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/follow-ups'?'active':'')} aria-current={pathname==='/follow-ups'?'page':undefined} href="/follow-ups"><CalendarClock size={18}/> Follow-up queue</Link>}
         <Link onClick={()=>setMenu(false)} className={'nav-link '+(pathname==='/notifications'?'active':'')} aria-current={pathname==='/notifications'?'page':undefined} href="/notifications"><Bell size={18}/> Activity updates</Link>
@@ -94,9 +93,6 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
       <header className="topbar">
         <div className="topbar-left"><button ref={menuTriggerRef} type="button" className="icon-button hide-desktop" aria-controls="workspace-sidebar" aria-expanded={menu} aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb"><span className="breadcrumb-root">Workspace</span><span className="breadcrumb-separator">/</span><b>{title}</b></span></div>
         <div className="topbar-right">
-          <Link href="/" className="button button-muted button-small" title="View landing page">
-            <Globe size={14} /> Site
-          </Link>
           {ready&&user&&<NotificationBell/>}
           <ThemeToggle />
           <Link href="/account" className="top-avatar-link" aria-label="View account and permissions" title="Account & access">
@@ -105,9 +101,9 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         </div>
       </header>
       <div className="main-content" id="workspace-content" tabIndex={-1}>
-        <div className="page-heading"><div><span className="workspace-context">{displayRole} workspace</span><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
+        <div className="page-heading"><div><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{action&&user?.role==='creditor'&&(pathname==='/dashboard'||pathname==='/cases')&&<Link href="/cases/new" className="button button-primary"><Plus size={18}/> New case</Link>}</div>
         {authError?<div className="message error" role="alert">{authError} <button type="button" onClick={load}>Try again</button></div>:!ready||!user?<div className="loading-panel" role="status"><div className="spinner"/> <div>Loading your workspace…{takingLong&&<div className="slow-session-notice"><p className="muted">The server is taking longer than expected. Free hosting can take about a minute to wake after inactivity.</p><button className="button button-outline" type="button" onClick={load}>Retry connection</button></div>}</div></div>:children(user,acceptUser)}
-        <footer className="app-footer"><span>CollectDesk · Case management</span><span>Sample records only · No real payments</span></footer>
+        <footer className="app-footer"><Link href="/">CollectDesk website</Link><span>Sample records only · No real payments</span></footer>
       </div>
     </main>
   </div>;
