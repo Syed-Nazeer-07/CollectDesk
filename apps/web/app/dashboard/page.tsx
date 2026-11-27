@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowRight,ArrowUpRight,FolderKanban,Wallet,Clock3,CheckCircle2,TrendingUp} from 'lucide-react';
+import {ArrowRight,ArrowUpRight,FolderKanban,Wallet,Clock3,CheckCircle2,TrendingUp,Circle} from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import {CaseTable} from '@/components/Widgets';
 import {api,Dashboard,money,User,label} from '@/lib/api';
@@ -28,13 +28,12 @@ export default function DashboardPage(){
     {(user:User)=><div className="dashboard-content">
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
-        <section className="workspace-brief overview-brief" aria-label="Workspace priorities">
+        {user.role!=='creditor'&&<section className="workspace-brief overview-brief" aria-label="Workspace priorities">
           <div><span className="workspace-context">{user.role==='admin'?'Operations control':user.role==='operator'?'Assigned portfolio':'Creditor portfolio'}</span>
           <h2>{user.role==='admin'?'Manage the collection pipeline.':user.role==='operator'?'Focus on the next case.':'Track your outstanding invoices.'}</h2>
           <p>{user.role==='admin'?'Review submissions, coordinate assignments and verify receipts.':user.role==='operator'?'Prioritize overdue work and keep creditors informed with case updates.':'Follow review decisions, outstanding balances and verified recoveries in your company.'}</p></div>
           <Link className="button button-outline" href={user.role==='admin'?'/cases?status=submitted':user.role==='operator'?'/cases?sort=due':'/cases/new'}>{user.role==='admin'?'Review submissions':user.role==='operator'?'Open work queue':'Submit an invoice'}<ArrowRight size={15}/></Link>
-        </section>
-        {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
+        </section>}
         <div className="workspace-section-heading"><h2>Portfolio snapshot</h2><span>{data.attention?.asOf?'As of '+data.attention.asOf+' · India':'Current balances'}</span></div>
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Outstanding balance" value={money(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} priority sub="Excludes drafts and rejected cases"/>
@@ -42,6 +41,8 @@ export default function DashboardPage(){
           <Stat name={user.role==='admin'?'Awaiting review':user.role==='operator'?'Assigned active cases':'Active cases'} value={String(user.role==='admin'?data.summary.awaitingReview:data.summary.activeCases)} icon={<TrendingUp size={19}/>} sub={user.role==='admin'?'Submitted cases requiring a decision':'Accepted, in progress or on hold'}/>
           <Stat name={user.role==='creditor'?'Total cases':'Overdue active cases'} value={String(user.role==='creditor'?data.summary.totalCases:data.attention?.overdueCount??0)} icon={<FolderKanban size={19}/>} sub={user.role==='creditor'?'Cases you can access':'Active unpaid cases past due'}/>
         </section>
+        {user.role==='creditor'&&<GettingStarted user={user} dashboard={data}/>}
+        {data.summary.totalCases===0&&user.role==='creditor'?<section className="panel ops-empty"><h4>No cases yet</h4><p>Use New case above to enter a fictional invoice, save a draft, or submit an overdue case for review.</p><Link className="text-link" href="/cases">View case register <ArrowRight size={15}/></Link></section>:<>
         <div className="middle-grid">
           <section className="panel status-panel">
             <div className="panel-head"><div><h3>Case status</h3><p>Choose a status to filter the register</p></div><Link href="/cases" className="text-link">All cases <ArrowRight size={15}/></Link></div>
@@ -60,11 +61,11 @@ export default function DashboardPage(){
           </section>
           <section className="panel focus-panel">
             <div className="panel-head"><div><h3>{user.role==='creditor'?'Your next actions':user.role==='admin'?'Operations queues':'Assigned work'}</h3></div></div>
-            <Link href={user.role==='creditor'?'/cases/new':user.role==='admin'?'/cases?status=submitted':'/cases'} className="action-row">
+            {user.role!=='creditor'&&<Link href={user.role==='admin'?'/cases?status=submitted':'/cases'} className="action-row">
               <span className="action-row-symbol"><Clock3 size={19}/></span>
-              <span><strong>{user.role==='creditor'?'Submit an invoice':user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Open assigned cases'}</strong><small>{user.role==='creditor'?'Prepare a sample overdue invoice for review':user.role==='admin'?'Open the submitted case queue':'See all cases assigned to your operator account'}</small></span>
+              <span><strong>{user.role==='admin'?`${data.summary.awaitingReview} case${data.summary.awaitingReview===1?'':'s'} awaiting review`:'Open assigned cases'}</strong><small>{user.role==='admin'?'Open the submitted case queue':'See all cases assigned to your operator account'}</small></span>
               <ArrowUpRight size={18} aria-hidden="true"/>
-            </Link>
+            </Link>}
             {(user.role==='creditor' ? ['needs_info','draft'] : user.role==='admin' ? ['accepted','on_hold'] : ['in_progress','on_hold']).map(status=>{
               const count=data.statusBreakdown.find(row=>row.status===status)?.count || 0;
               if (!count) return null;
@@ -83,11 +84,12 @@ export default function DashboardPage(){
           <Link href="/reports" className="panel ops-shortcut"><div><span className="workspace-context">Reporting</span><h3>Recovery movements</h3><p>Explore verified receipts and reversals by month, or export the period as CSV.</p></div><ArrowUpRight size={20}/></Link>
           {user.role!=='creditor'&&data.tasks&&<Link href="/follow-ups" className="panel ops-shortcut"><div><span className="workspace-context">Next actions</span><h3>{data.tasks.due} due · {data.tasks.scheduled} scheduled</h3><p>Review and complete internal follow-ups for active cases.</p></div><ArrowUpRight size={20}/></Link>}
         </section>
-        {data.attention&&<AttentionPanel attention={data.attention} role={user.role}/>}
+        {data.attention&&data.attention.overdueCount>0&&<AttentionPanel attention={data.attention} role={user.role}/>}
         <section className="panel cases-panel">
           <div className="panel-head"><div><h3>Recent cases</h3><p>Latest updates across your accessible cases</p></div><Link href="/cases" className="text-link">View all cases <ArrowRight size={15}/></Link></div>
           <CaseTable cases={data.recentCases}/>
         </section>
+        </>}
       </>}
     </div>}
   </AppShell>;
@@ -113,10 +115,11 @@ function GettingStarted({user,dashboard}:{user:User;dashboard:Dashboard}){
   ];
   const done=steps.filter(s=>s.done).length;
   if(done===steps.length)return null;
-  return <section className="onboarding-panel" aria-labelledby="onboarding-title">
+  return <details className="onboarding-panel" aria-labelledby="onboarding-title">
+    <summary className="onboarding-summary"><strong id="onboarding-title">Getting started</strong><span>{done} of {steps.length} completed</span></summary>
     <div className="onboarding-panel-top">
       <div><div className="eyebrow">GETTING STARTED</div>
-        <h3 id="onboarding-title">Set up your collection workflow</h3>
+        <h3>Set up your collection workflow</h3>
         <p>Follow these steps using sample records. Need help? <Link href="/support" className="text-link">Contact support <ArrowUpRight size={13}/></Link></p>
       </div>
       <span className="onboarding-progress">{done} of {steps.length} completed</span>
@@ -127,14 +130,14 @@ function GettingStarted({user,dashboard}:{user:User;dashboard:Dashboard}){
     </div>
     <div className="onboarding-steps">
       {steps.map((step,i)=>{
-        const inner=<><CheckCircle2 size={19} aria-hidden="true"/>
+        const inner=<>{step.done?<CheckCircle2 size={19} aria-hidden="true"/>:<Circle size={19} aria-hidden="true"/>}
           <strong>{i+1}. {step.title}</strong><span>{step.detail}</span></>;
         return step.done?
           <div key={step.title} className="onboarding-step onboarding-step-done" aria-label={step.title+' completed'}>{inner}</div>:
           <Link key={step.title} className="onboarding-step" href={step.href} aria-label={step.title}>{inner}</Link>;
       })}
     </div>
-  </section>;
+  </details>;
 }
 
 /** Backend-scoped, deterministic attention queue; never estimates collection probability. */
