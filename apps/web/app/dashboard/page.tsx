@@ -106,7 +106,7 @@ function GettingStarted({user,dashboard}:{user:User;dashboard:Dashboard}){
     ['needs_info','rejected','accepted','in_progress','on_hold','closed'].includes(s.status));
   const steps=[
     {title:'Company workspace',detail:'Your account is connected to its company.',done:Boolean(user.organizationId),href:'/account'},
-    {title:'Create your first case',detail:'Save a fictional invoice as a draft.',done:dashboard.summary.totalCases>0,href:'/cases/new'},
+    {title:'Create your first case',detail:'Save a fictional invoice as a draft.',done:dashboard.summary.totalCases>0,href:'/cases'},
     {title:'Submit for review',detail:'Send an overdue sample invoice.',done:hasSubmitted,href:'/cases?status=draft'},
     {title:'Follow the decision',detail:'See review updates and the case timeline.',done:hasDecision,href:'/cases'}
   ];
@@ -115,11 +115,9 @@ function GettingStarted({user,dashboard}:{user:User;dashboard:Dashboard}){
   return <details className="onboarding-panel" aria-labelledby="onboarding-title">
     <summary className="onboarding-summary"><strong id="onboarding-title">Getting started</strong><span>{done} of {steps.length} completed</span></summary>
     <div className="onboarding-panel-top">
-      <div><div className="eyebrow">GETTING STARTED</div>
-        <h3>Set up your collection workflow</h3>
+      <div><h3>Set up your collection workflow</h3>
         <p>Follow these steps using sample records. Need help? <Link href="/support" className="text-link">Contact support <ArrowUpRight size={13}/></Link></p>
       </div>
-      <span className="onboarding-progress">{done} of {steps.length} completed</span>
     </div>
     <div className="onboarding-progress-track" role="progressbar"
       aria-label="Getting started progress" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done}>

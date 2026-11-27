@@ -18,8 +18,8 @@ try {
   const roles=[
     ['public',[['/','.lp-hero'],['/login','.auth-form, .auth-field'],['/signup','.auth-unavailable, .auth-field'],['/forgot-password','.auth-unavailable, .auth-form'],['/reset-password?token=layout-test-only','.auth-card'],['/signup/verify?token=layout-test-only','.auth-card'],['/staff/activate?token=layout-test-only','.staff-activation-card']]],
     ['creditor',[['/dashboard','.metrics-grid'],['/reports','.report-table'],['/cases','.cases-table'],['/cases/new','.new-case-form'],['/account','.profile-form'],['/support','.support-form'],['/notifications','[aria-label="Filter activity updates"]']]],
-    ['admin',[['/staff','.staff-form'],['/follow-ups','.ops-metrics'],['/reports','.report-table'],['/operations','.health-grid']]],
-    ['operator',[['/follow-ups','.ops-metrics'],['/reports','.report-table']]]
+    ['admin',[['/dashboard','.metrics-grid'],['/cases','.cases-table'],['/staff','.staff-form'],['/follow-ups','.ops-metrics'],['/reports','.report-table'],['/operations','.health-grid']]],
+    ['operator',[['/dashboard','.metrics-grid'],['/cases','.cases-table'],['/follow-ups','.ops-metrics'],['/reports','.report-table']]]
   ];
   for (const [role,routes] of roles){
     if(role!=='public'){
@@ -27,9 +27,10 @@ try {
         headers:{Origin:base},data:{email:role+'@demo.collectdesk.test',password}
       });
       assert.equal(login.status(),200);
-      if(role==='creditor'){
+      {
         const result=await context.request.get(base+'/api/v1/cases?limit=1');
         const {cases}=await result.json();
+        assert.ok(cases.length>0,'Seeded '+role+' must have accessible cases');
         routes.push(['/cases/'+cases[0].id,'.detail-head']);
       }
     }

@@ -492,6 +492,7 @@ try {
   log('Admin accepted and assigned the case');
 
   step = 'admin hold and resume controls';
+  await admin.getByText('Change case status',{exact:true}).click();
   await admin.getByRole('button', { name: 'Place on hold' }).click();
   await admin.getByLabel('Reason for placing on hold').fill('Waiting for fictional supporting documents');
   await admin.getByRole('button', { name: 'Confirm hold' }).click();
@@ -506,6 +507,8 @@ try {
   const operator = await session('operator@demo.collectdesk.test');
   await operator.goto(caseUrl, { waitUntil: 'domcontentloaded' });
   await statusIs(operator, 'In Progress');
+  await operator.getByRole('link',{name:'Manage follow-up'}).waitFor();
+  assert.equal(await operator.getByText('Record a receipt',{exact:true}).count(),0,'Operator must not see receipt controls');
   await operator.getByRole('textbox', { name: 'Add case activity' }).fill('Private browser audit internal note');
   await operator.getByLabel('Visibility').selectOption('internal');
   await operator.getByRole('button', { name: /Post update/i }).click();
@@ -591,6 +594,7 @@ try {
   const privateVisible = await creditor.getByText('Private browser audit internal note').count();
   assert.equal(privateVisible, 0, 'Internal staff note leaked to creditor UI');
   await admin.reload();
+  await admin.getByText('Record a receipt',{exact:true}).click();
   await admin.getByLabel('Amount (INR)').fill('250');
   await admin.getByLabel('Evidence reference').fill('AUDIT-RECEIPT-001');
   await admin.getByRole('button', { name: /Record pending receipt/i }).click();
@@ -603,6 +607,12 @@ try {
   await wrongReceipt.getByLabel('Reason for rejecting pending receipt').fill('Incorrect fictional reference');
   await wrongReceipt.getByRole('button', {name:'Confirm pending rejection'}).click();
   await wrongReceipt.getByText('Rejected', {exact:true}).waitFor();
+  let verificationPrompt='';
+  admin.once('dialog',async dialog=>{verificationPrompt=dialog.message();await dialog.dismiss();});
+  await admin.getByRole('button', { name: 'Verify', exact: true }).click();
+  assert.match(verificationPrompt,/verified recovery ledger/);
+  await admin.locator('.receipt-row .status').filter({hasText:'Awaiting verification'}).waitFor();
+  admin.once('dialog',dialog=>dialog.accept());
   await admin.getByRole('button', { name: 'Verify', exact: true }).click();
   await admin.getByText('Verified', { exact: true }).last().waitFor();
   await creditor.reload();
@@ -627,6 +637,7 @@ try {
   await creditor.reload();
   assert.match(await creditor.locator('.detail-metric').nth(1).locator('b').innerText(), /0(?:\.00)?/,
     'Creditor recovery should reflect corrected receipt');
+  await admin.getByText('Change case status',{exact:true}).click();
   await admin.getByRole('button', { name: 'Close case' }).click();
   await admin.getByLabel('Reason for closing').fill('Fictional workflow finished with remaining outstanding principal');
   await admin.getByLabel('I understand closure is final and may leave an outstanding balance').check();

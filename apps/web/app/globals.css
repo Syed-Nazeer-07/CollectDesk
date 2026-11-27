@@ -3647,3 +3647,25 @@ html:has(.case-intake-dialog[open]){overflow:hidden}
 .case-intake-body>.message{margin-top:16px}
 @media(max-width:650px){.case-intake-dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px);border-radius:10px}.case-intake-header{padding:16px}.case-intake-body{padding:0 16px 16px}.case-intake-body .input-grid{grid-template-columns:minmax(0,1fr);gap:14px}.app-root .cases-empty-filter{min-height:155px;padding:24px 16px}}
 @media(prefers-reduced-motion:reduce){.app-root *,.app-root *::before,.app-root *::after{transition-duration:0s!important;animation-duration:0s!important;scroll-behavior:auto!important}}
+
+/* Case workspace: contextual actions first, neutral disclosures and explicit ledger safeguards. */
+.case-section-nav{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:10px 0;margin-bottom:14px;border-bottom:1px solid var(--border)}
+.case-section-nav a{padding:7px 12px;border-radius:6px;font-size:13px;font-weight:600;color:var(--fg-dim)}
+.case-section-nav a:hover{background:var(--panel-hover);color:var(--fg)}
+.case-section-nav a:focus-visible,.case-action-group summary:focus-visible{outline:2px solid var(--accent-text);outline-offset:3px}
+.detail-columns [id^="case-"]{scroll-margin-top:90px}
+.case-next-guidance{color:var(--fg-dim);font-size:13px;line-height:1.55;margin-bottom:16px}
+.case-action-group{border-top:1px solid var(--border);padding:12px 0}
+.case-action-group:first-of-type{margin-top:12px}
+.case-action-group summary{cursor:pointer;font-weight:650;font-size:14px;color:var(--fg);min-height:32px;padding:4px 0}
+.case-action-group[open] summary{margin-bottom:12px}
+.case-action-group .action-form{margin:0;padding:0;border:0}
+.case-financial-note{padding-top:14px;border-top:1px solid var(--border);margin-top:16px}
+.app-root .detail-main .timeline-circle{width:26px;height:26px;background:var(--bg-3);color:var(--fg-dim)}
+.app-root .detail-main .timeline-item{gap:12px}
+.app-root .detail-main .timeline-body{min-width:0;overflow-wrap:anywhere}
+.app-root .detail-main .timeline-heading{flex-wrap:wrap}
+.app-root .description-box small{color:var(--fg-dim)}
+@media(min-width:1101px){.detail-aside{grid-column:2;grid-row:1}.detail-main{grid-column:1;grid-row:1}}
+@media(max-width:1100px){.case-section-nav a{padding:8px 10px}}
+.followup-current{display:grid;gap:4px;padding:12px;margin-bottom:14px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;font-size:13px;overflow-wrap:anywhere}.followup-current span{color:var(--fg-dim)}
