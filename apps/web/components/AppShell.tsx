@@ -78,7 +78,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
       <div className="sidebar-top">
         <Link href="/dashboard" className="brand" onClick={()=>setMenu(false)} aria-label="CollectDesk overview">
           <BrandMark className="brand-mark"/>
-          <span className="brand-word">collect<span>Desk</span><small>CASE MANAGEMENT</small></span>
+          <span className="brand-word">collect<span>Desk</span></span>
         </Link>
         <button type="button" className="icon-button hide-desktop" onClick={()=>setMenu(false)} aria-label="Close navigation"><X size={20}/></button>
       </div>

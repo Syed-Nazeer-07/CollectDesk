@@ -2,7 +2,7 @@
    CollectDesk — Unified Design System & Multi-Page Theme (Light & Dark)
    Aesthetic aligned with the signature CollectDesk landing page.
    Fonts: 'DM Sans' (headings and body), 'DM Mono' (tabular/codes)
-   Palette: Radiant Orange #ff6a2b, Deep Slate #12171f, Warm Cream #f4eedd, Mint #5fd8a8, Sky #43c6e6
+   Palette: Ink navy, warm paper, copper accent, semantic status colors
    ========================================================================== */
 
 
@@ -35,6 +35,14 @@
   --negative-text: #ff9b90;
   --rose-soft: rgba(255, 138, 122, 0.14);
 
+  /* Shared editorial surfaces for navigation and sign-in. */
+  --ink-surface: #172435;
+  --ink-raised: #223348;
+  --ink-text: #f5f7fb;
+  --ink-secondary: #c3cddd;
+  --ink-muted: #aebbcf;
+  --ink-border: rgba(202,216,235,.18);
+  --ink-accent: #ffb08a;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -49,22 +57,22 @@ html[data-theme="dark"],
 html.dark {
   color-scheme: dark;
 
-  --bg: #12161a;
-  --bg-2: #191e23;
-  --bg-3: #242b32;
-  --panel: #1d2329;
-  --panel-hover: #252d34;
-  --panel-elevated: #282f37;
+  --bg: #111824;
+  --bg-2: #182230;
+  --bg-3: #233043;
+  --panel: #1b2736;
+  --panel-hover: #26374a;
+  --panel-elevated: #2b394b;
 
   --line: rgba(218,225,230,.12);
   --border: rgba(218,225,230,.19);
   --border-focus: var(--accent);
 
-  --fg: #f1f3f4;
-  --fg-dim: #bac3c9;
-  --fg-faint: #a0abb3;
+  --fg: #f5f7fa;
+  --fg-dim: #c3cddd;
+  --fg-faint: #aebbcf;
 
-  --input-bg: #171c21;
+  --input-bg: #15202e;
   --input-border: rgba(218,225,230,.26);
 
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -86,25 +94,25 @@ html[data-theme="light"],
 html.light {
   color-scheme: light;
 
-  --bg: #eceeec;
-  --bg-2: #f5f6f4;
-  --bg-3: #e0e4e0;
+  --bg: #f3f1ed;
+  --bg-2: #f8f7f4;
+  --bg-3: #e8e4de;
   --panel: #ffffff;
-  --panel-hover: #f4f5f3;
+  --panel-hover: #f7f5f1;
   --panel-elevated: #ffffff;
 
-  --line: rgba(31,39,36,.12);
-  --border: rgba(31,39,36,.19);
+  --line: #e8e9ec;
+  --border: #d8dce2;
   --border-focus: var(--accent);
 
-  --fg: #1d2725;
+  --fg: #172235;
   --negative-text: #9e3028;
   --accent-text: #ad3f13; /* readable against light panels */
-  --fg-dim: #4b5a54;
-  --fg-faint: #596861;
+  --fg-dim: #455368;
+  --fg-faint: #566579;
 
   --input-bg: #ffffff;
-  --input-border: rgba(31,39,36,.27);
+  --input-border: #a8b1bd;
 
   --shadow-sm: 0 2px 8px rgba(27, 31, 39, 0.05);
   --shadow-md: 0 12px 28px -8px rgba(27, 31, 39, 0.08);
@@ -228,7 +236,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 /* Sidebar */
 .sidebar {
-  width: 272px;
+  width: 252px;
   flex-shrink: 0;
   overflow-y: auto;
   display: flex;
@@ -2669,8 +2677,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .case-list-title h3 span {
   border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--bg-3);
+  color: var(--fg-dim);
   min-width: 27px;
   padding: 3px 8px;
   font: 700 12px/1.4 var(--body);
@@ -3442,7 +3450,15 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 .metric-financial {border-block-start:3px solid var(--accent-text);}
 .metric-financial .metric-value {font-size:clamp(22px,2.15vw,32px);overflow-wrap:anywhere;}
 .page-heading h1 {margin-top:0;}
-.login-card {transition:none;}
+.login-card {transition:none;border-radius:14px;box-shadow:none;max-width:480px}
+.login-story {border-right:0}
+.login-story .story-content h2{font-weight:650;letter-spacing:-.035em}
+.login-story .story-content h2 em{color:var(--ink-accent)}
+.login-story .story-feature-list>div{padding-block:8px;border-bottom:1px solid var(--ink-border)}
+.login-story .story-feature-list>div>span{width:30px;height:30px;background:none;box-shadow:none;border:0}
+.login-story .story-feature-list{gap:10px}
+.login-story .story-tag{text-transform:none;letter-spacing:.02em;font-family:var(--body);font-size:12px}
+.login-panel{background:var(--bg-2)}
 @media(max-width:768px) {
   .sidebar-nav .nav-link {min-height:44px;}
   .topbar-left .icon-button {min-width:44px;min-height:44px;}
@@ -3485,24 +3501,56 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
   --shadow-sm:none; --shadow-md:none;
   font-size:14px;
 }
-.app-root .sidebar {padding-block:20px;box-shadow:none;}
+.app-root .sidebar,.login-story {
+  --bg-2:var(--ink-surface);--bg-3:var(--ink-surface);
+  --panel:var(--ink-raised);--line:var(--ink-border);--border:var(--ink-border);
+  --fg:var(--ink-text);--fg-dim:var(--ink-secondary);--fg-faint:var(--ink-muted);
+  --accent-text:var(--ink-accent);--accent-soft:rgba(255,176,138,.13);
+  background:var(--ink-surface);color:var(--ink-text);color-scheme:dark;
+}
+.app-root .sidebar {padding-block:24px;box-shadow:none;border-right:0}
+.app-root .sidebar .brand-word span,.login-story .story-brand > span:last-child > span {color:var(--ink-accent)}
+.app-root .sidebar .workspace-avatar,.app-root .sidebar .user-avatar {background:var(--ink-raised);color:var(--ink-text);border:1px solid var(--ink-border)}
+.app-root .sidebar .icon-button {color:var(--ink-text)}
+.app-root .sidebar .sidebar-nav .nav-link.active {background:var(--ink-raised);color:var(--ink-text)}
+.app-root .sidebar .nav-link.active::before {background:var(--ink-accent)}
+.app-root .sidebar .nav-link:focus-visible,.app-root .sidebar button:focus-visible,.login-story a:focus-visible {outline-color:var(--ink-accent)}
+.app-root .sidebar .nav-caption {color:var(--ink-muted);text-transform:none;letter-spacing:0;font-size:12px}
 .app-root .sidebar-top {padding-bottom:20px}
-.app-root .workspace-identity {box-shadow:none;margin-bottom:14px;padding:10px 8px;background:transparent;border:0}
+.app-root .workspace-identity {box-shadow:none;margin:0 4px 20px;padding:12px 8px;border:0;border-block:1px solid var(--ink-border);border-radius:0;background:transparent}
 .app-root .sidebar-nav {gap:3px}
-.app-root .sidebar-nav .nav-link {border-radius:7px;font-weight:550}
+.app-root .sidebar-nav .nav-link {border-radius:6px;font-weight:500;gap:11px;min-height:44px;padding-inline:12px}
 .app-root .sidebar-nav .nav-link.active {font-weight:700}
 .app-root .topbar {background:var(--panel);backdrop-filter:none}
-.app-root .page-heading h1 {font-size:clamp(24px,2.4vw,30px);letter-spacing:-.025em}
-.app-root .page-heading {margin-bottom:22px}
+.app-root .page-heading h1 {font-size:clamp(28px,2.7vw,36px);font-weight:700;letter-spacing:-.035em;line-height:1.15}
+.app-root .page-heading {margin-bottom:26px;padding-bottom:18px;border-bottom:1px solid var(--border)}
 .workspace-context {display:block;color:var(--fg-dim);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .app-root .panel,.app-root .metric-card {box-shadow:none}
 .app-root .metric-financial {border-block-start:1px solid var(--border)}
+/* A single financial statement, not four floating marketing cards. */
+.app-root .metrics-grid{gap:0;border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow:hidden}
+.app-root .metrics-grid .metric-card{border:0;border-radius:0;padding:20px 22px;background:transparent}
+.app-root .metrics-grid .metric-card+.metric-card{border-inline-start:1px solid var(--border)}
+.app-root .metrics-grid .metric-card .metric-value{font-weight:700;font-size:clamp(24px,2.35vw,34px);letter-spacing:-.045em}
+.app-root .metrics-grid .metric-top{font-size:13px;line-height:1.45;align-items:flex-start}
+.app-root .metrics-grid .metric-icon{display:none}
+.app-root .metrics-grid .metric-card p{line-height:1.45}
+@media(min-width:1101px){.app-root .metrics-grid{grid-template-columns:repeat(2,minmax(0,1.25fr)) repeat(2,minmax(0,1fr))}}
+@media(max-width:1100px){.app-root .metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.app-root .metrics-grid .metric-card:nth-child(3){border-inline-start:0}.app-root .metrics-grid .metric-card:nth-child(n+3){border-top:1px solid var(--border)}}
 .app-root .metric-card {min-width:0}
 .app-root .metric-value,.app-root .money-cell {font-variant-numeric:tabular-nums}
 .app-root .metric-icon {background:transparent;border:0;color:var(--fg-dim)}
 .app-root .dashboard-content {gap:18px}
-.app-root .cases-table th {font-size:11px;letter-spacing:.035em}
+.app-root .cases-table th {font-size:12px;letter-spacing:0;text-transform:none;background:var(--bg-2);font-weight:600}
 .app-root .button-primary {box-shadow:none}
+.app-root .button-primary:hover:not(:disabled){box-shadow:none}
+.app-root .button-outline:hover:not(:disabled){color:var(--accent-text)}
+.app-root .table-view{border-radius:6px;background:transparent;border:1px solid var(--border)}
+.app-root .table-view:hover{background:var(--action-orange);color:var(--action-foreground)}
+.app-root .table-case{font-weight:500}
+.app-root .status{border-radius:5px;padding:4px 8px}
+.app-root .panel-head h3{font-size:17px;letter-spacing:-.02em}
+.app-root .metric-value,.app-root .detail-metric b,.app-root .money-cell{font-family:var(--body);font-weight:650}
 .app-root .button:hover:not(:disabled) {transform:none}
 .workspace-brief {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 24px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg)}
 .workspace-brief > div {min-width:0}
@@ -3673,11 +3721,11 @@ html:has(.case-intake-dialog[open]){overflow:hidden}
 
 /* Phone layouts: keep the operational summary above the fold. */
 @media(max-width:820px){
-  .app-root .metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .app-root .metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
   .app-root .metrics-grid .metric-card{padding:14px 12px}
   .app-root .metrics-grid .metric-top{font-size:12px;line-height:1.4;align-items:flex-start;gap:4px}
   .app-root .metrics-grid .metric-icon{display:none}
-  .app-root .metrics-grid .metric-value{font-size:clamp(19px,4.6vw,25px);margin:8px 0 5px;line-height:1.2}
+  .app-root .metrics-grid .metric-card .metric-value{font-size:clamp(19px,4.6vw,25px);margin:8px 0 5px;line-height:1.2}
   .app-root .metrics-grid .metric-card p{font-size:11px;line-height:1.4}
   .app-root .detail-metrics{gap:0;border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow:hidden}
   .app-root .detail-metric{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:3px 12px;align-items:center;border:0;border-radius:0;padding:12px 16px}

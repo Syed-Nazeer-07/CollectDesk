@@ -45,6 +45,10 @@ try {
         for(const width of [360,390,768,1366,1920]){
           await page.setViewportSize({width,height:900});
           const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+          if(role!=='public'&&width>=1366){
+            const rail=await page.locator('.sidebar').evaluate(el=>({background:getComputedStyle(el).backgroundColor,text:getComputedStyle(el.querySelector('.nav-link')).color}));
+            if(rail.background!=='rgb(23, 36, 53)'||rail.text==='rgb(23, 36, 53)')failures.push({route,theme,width,rail});
+          }
           if(overflow>1) failures.push({route,theme,width,overflow});
           if(route.startsWith('/cases/')&&route!=='/cases/new'&&width<=650){
             const amount=await page.locator('.detail-amount strong').evaluate(el=>{

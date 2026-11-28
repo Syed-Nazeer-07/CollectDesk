@@ -522,7 +522,11 @@ html.light .lp .lp-nav-link.lp-active {
 .lp .lp-nav-pill {border-radius:12px;background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
 .lp .lp-btn,.lp .lp-btn-lg,.lp .lp-nav .lp-btn {border-radius:8px}
 .lp .lp-btn-accent {box-shadow:none}
-.lp .lp-hero h1 {letter-spacing:-.035em}
+.lp .lp-hero h1 {letter-spacing:-.045em;font-weight:650}
+.lp .lp-hero::before{background:none}
+.lp .lp-nav.lp-scrolled .lp-nav-pill{background:var(--panel);box-shadow:none}
+.lp .lp-btn:hover,.lp .cdl-feature:hover,.lp .cdl-step:hover{transform:none}
+.lp .cdl-feature-icon{width:32px;height:32px;border-radius:0;background:transparent;color:var(--accent-text)}
 .lp .lp-hero-sub {max-width:720px}
 .lp .lp-dash {border-radius:12px;background:var(--panel);box-shadow:none}
 html[data-theme="light"] .lp .lp-dash,html.light .lp .lp-dash {background:var(--panel);box-shadow:none}

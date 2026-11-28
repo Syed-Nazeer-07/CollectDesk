@@ -28,7 +28,7 @@ export default function DashboardPage(){
     {(user:User)=><div className="dashboard-content">
       {error?<div className="message error" role="alert">{error} <button type="button" onClick={()=>setRefresh(v=>v+1)}>Retry</button></div>:!data?
         <div className="loading-panel" role="status"><div className="spinner"/> Loading dashboard…</div>:<>
-        <div className="workspace-section-heading"><h2>Portfolio snapshot</h2><span>{data.attention?.asOf?'As of '+data.attention.asOf+' · India':'Current balances'}</span></div>
+        <div className="workspace-section-heading"><h2>Financial overview</h2><span>{data.attention?.asOf?'As of '+data.attention.asOf+' · India':'Current balances'}</span></div>
         <section className="metrics-grid" aria-label="Key metrics">
           <Stat name="Outstanding balance" value={money(data.summary.totalOutstandingPaise)} icon={<Wallet size={19}/>} priority sub="Excludes drafts and rejected cases"/>
           <Stat name="Verified recovered" value={money(data.summary.verifiedRecoveredPaise)} icon={<CheckCircle2 size={19}/>} priority sub="Verified receipts less reversals"/>
