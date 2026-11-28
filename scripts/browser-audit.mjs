@@ -656,10 +656,20 @@ try {
   await mobile.screenshot({path:'browser-audit-results/mobile-notifications.png',fullPage:true});
   assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,
     'Activity feed should not overflow mobile viewport');
-  const navTrigger=mobile.getByRole('button',{name:'Open menu'});
+  const navTrigger=mobile.locator('button[aria-label="Open menu"]');
+  assert.equal(await mobile.locator('#workspace-sidebar').isVisible(),false,'Closed navigation must be hidden from keyboard and visual access');
   await navTrigger.click();
   assert.equal(await navTrigger.getAttribute('aria-expanded'),'true',
     'Mobile menu must announce its expanded state');
+  const navDialog=mobile.getByRole('dialog',{name:'Workspace navigation'});
+  await navDialog.waitFor();
+  await mobile.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Close navigation');
+  assert.equal(await mobile.locator('main.main').evaluate(el=>el.inert),true,'Background must be inert while navigation is open');
+  await mobile.locator('.sidebar-signout').focus();
+  await mobile.keyboard.press('Tab');
+  assert.ok(await navDialog.evaluate(el=>el.contains(document.activeElement)),'Tab must stay inside navigation');
+  await mobile.keyboard.press('Shift+Tab');
+  assert.ok(await navDialog.evaluate(el=>el.contains(document.activeElement)),'Reverse Tab must stay inside navigation');
   await mobile.keyboard.press('Escape');
   assert.equal(await navTrigger.getAttribute('aria-expanded'),'false',
     'Escape must close the mobile menu');

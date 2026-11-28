@@ -102,7 +102,7 @@ function ActivityFeed({user}:{user:User}){
       <div className={styles.list}>
         {items.map(item=><Link key={item.id} href={'/cases/'+encodeURIComponent(item.caseId)}
           className={styles.entry+(item.unread?' '+styles.unread:'')}>
-          <span className={styles.indicator} aria-hidden="true">{item.unread?'•':''}</span>
+          <span className={styles.indicator} aria-hidden="true">{item.unread?'•':''}</span>{item.unread&&<span className={styles.screenReader}>Unread update. </span>}
           <span className={styles.entryBody}>
             <span className={styles.entryTop}><strong>{titles[item.kind]||'Case updated'}</strong><time dateTime={item.createdAt}>{activityTime(item.createdAt)}</time></span>
             <span className={styles.description}>{item.text}</span>

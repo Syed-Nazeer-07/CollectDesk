@@ -53,6 +53,10 @@ try {
             });
             if(amount.lines!==1||amount.overflow>1)failures.push({route,theme,width,amount});
           }
+          if(route==='/dashboard'&&width<=820){
+            const grid=await page.locator('.metrics-grid').evaluate(el=>({columns:getComputedStyle(el).gridTemplateColumns.split(' ').length,overflow:el.scrollWidth>el.clientWidth+1}));
+            if(grid.columns!==2||grid.overflow)failures.push({route,theme,width,grid});
+          }
           checks++;
           if(width===390||width===1366){
             const slug=role+'-'+(route.startsWith('/cases/')&&route!=='/cases/new'?'case-detail':route.split('?')[0].replaceAll('/','-').slice(1)||'landing');

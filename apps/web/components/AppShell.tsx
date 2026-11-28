@@ -23,6 +23,8 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   const pathname=usePathname();
   const router=useRouter();
   const menuTriggerRef=useRef<HTMLButtonElement|null>(null);
+  const sidebarRef=useRef<HTMLElement|null>(null);
+  const wasMenuOpen=useRef(false);
   const authError=sessionError||logoutError;
   const load=()=>{setLogoutError('');retrySession();};
   // The root session provider survives Next.js client-side route transitions.
@@ -35,15 +37,28 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   },[ready,user,pathname,router]);
   useEffect(()=>{setMenu(false);setIntakeOpen(false);},[pathname]);
   useEffect(()=>{
-    if(!menu)return;
-    function closeOnEscape(event:KeyboardEvent){
-      if(event.key==='Escape'){
-        setMenu(false);
-        menuTriggerRef.current?.focus();
-      }
+    if(!menu){
+      if(wasMenuOpen.current){wasMenuOpen.current=false;menuTriggerRef.current?.focus();}
+      return;
     }
-    document.addEventListener('keydown',closeOnEscape);
-    return()=>document.removeEventListener('keydown',closeOnEscape);
+    wasMenuOpen.current=true;
+    const sidebar=sidebarRef.current;
+    const media=window.matchMedia('(max-width: 820px)');
+    if(!media.matches){setMenu(false);return;}
+    sidebar?.querySelector<HTMLElement>('button[aria-label="Close navigation"]')?.focus();
+    function onKey(event:KeyboardEvent){
+      if(event.key==='Escape'){event.preventDefault();setMenu(false);return;}
+      if(event.key!=='Tab'||!sidebar)return;
+      const items=Array.from(sidebar.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex="0"]')).filter(el=>el.getClientRects().length>0);
+      if(!items.length)return;
+      const first=items[0],last=items[items.length-1],current=document.activeElement;
+      if(event.shiftKey&&(current===first||!sidebar.contains(current))){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&(current===last||!sidebar.contains(current))){event.preventDefault();first.focus();}
+    }
+    function onResize(){if(!media.matches)setMenu(false);}
+    document.addEventListener('keydown',onKey);
+    media.addEventListener('change',onResize);
+    return()=>{document.removeEventListener('keydown',onKey);media.removeEventListener('change',onResize);};
   },[menu]);
   useEffect(()=>{
     if(ready)return;
@@ -57,9 +72,9 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
   const initials=user?.name?.split(' ').map(part=>part[0]).slice(0,2).join('')||'CD';
   const displayRole=user?roleName[user.role]:'Workspace user';
   return <div className="app-root" data-workspace-role={user?.role||'guest'}>
-    <a className="workspace-skip" href="#workspace-content">Skip to workspace content</a>
-    {menu&&<button className="mobile-overlay" type="button" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}
-    <aside id="workspace-sidebar" aria-label="Workspace navigation" className={`sidebar ${menu?'open':''}`}>
+    <a className="workspace-skip" href="#workspace-content" tabIndex={menu?-1:undefined}>Skip to workspace content</a>
+    {menu&&<div className="mobile-overlay" aria-hidden="true" onClick={()=>setMenu(false)}/>}
+    <aside ref={sidebarRef} id="workspace-sidebar" role={menu?'dialog':undefined} aria-modal={menu?true:undefined} aria-label="Workspace navigation" className={`sidebar ${menu?'open':''}`}>
       <div className="sidebar-top">
         <Link href="/dashboard" className="brand" onClick={()=>setMenu(false)} aria-label="CollectDesk overview">
           <BrandMark className="brand-mark"/>
@@ -91,7 +106,7 @@ export default function AppShell({children,title,subtitle,action=true}:Props){
         <button className="sidebar-signout" type="button" onClick={logout}><LogOut size={16}/> Sign out</button>
       </div>
     </aside>
-    <main className="main">
+    <main className="main" inert={menu}>
       <header className="topbar">
         <div className="topbar-left"><button ref={menuTriggerRef} type="button" className="icon-button hide-desktop" aria-controls="workspace-sidebar" aria-expanded={menu} aria-label="Open menu" onClick={()=>setMenu(true)}><Menu size={21}/></button><span className="breadcrumb"><span className="breadcrumb-root">Workspace</span><span className="breadcrumb-separator">/</span><b>{title}</b></span></div>
         <div className="topbar-right">
