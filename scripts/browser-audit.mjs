@@ -20,7 +20,7 @@ const sessions = [];
 let step = 'initialization';
 
 
-// Primary actions use white text and a sufficiently dark orange background.
+// Primary actions use white text and a sufficiently dark slate background.
 // Calculate contrast from the browser's computed colors, not hard-coded tokens.
 async function assertPrimaryContrast(page,selector){
   const {textColor,background}=await page.locator(selector).first().evaluate(node=>{
@@ -40,7 +40,7 @@ async function assertPrimaryContrast(page,selector){
   const ratio=(Math.max(fg,bg)+0.05)/(Math.min(fg,bg)+0.05);
   assert.ok(ratio>=4.5,
     selector+' contrast below WCAG AA: '+ratio.toFixed(2)+' ('+textColor+' on '+background+')');
-  assert.ok(fg>bg,'Primary action should use light text on orange.');
+  assert.ok(fg>bg,'Primary action should use light text on slate.');
 }
 
 // Measure actual browser layout: catch inline icon/text collisions in empty states.
@@ -153,6 +153,8 @@ async function session(email, mobile = false) {
       fullPage: true
     });
     await assertPrimaryContrast(page,'.lp .lp-btn-accent');
+    assert.equal(await page.locator('.lp .lp-btn-accent').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(71, 85, 105)','Landing primary action must use slate');
+    assert.equal(await page.locator('.lp-brand svg.lp-brand-mark rect').first().getAttribute('fill'),'#475569','Brand artwork must use slate');
     await startLink.click();
     await page.waitForURL(/\/login\?mode=signup(?:&.*)?$/);
     await page.getByRole('heading', { name: 'Create your account' }).waitFor();
@@ -252,6 +254,7 @@ async function session(email, mobile = false) {
   assert.notEqual(topbarColor,'transparent','Sticky workspace toolbar must not be transparent');
   if(email==='creditor@demo.collectdesk.test'){
     await assertPrimaryContrast(page,'.page-heading .button-primary');
+    assert.equal(await page.locator('.page-heading .button-primary').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(71, 85, 105)','Workspace primary action must use slate');
     await assertPrimaryContrast(page,'.action-row-symbol');
   }
   const horizontalOverflow=await page.evaluate(()=>

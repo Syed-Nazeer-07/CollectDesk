@@ -5,7 +5,7 @@ import { WorkspaceSessionProvider } from '@/components/WorkspaceSessionProvider'
 
 export const metadata: Metadata = {
   title: 'collectDesk',
-  icons: { icon: [{ url: '/icon.svg?v=3', type: 'image/svg+xml' }] },
+  icons: { icon: [{ url: '/icon.svg?v=4', type: 'image/svg+xml' }] },
   description:
     'Commercial case tracking, review workflows, and verified recovery reporting. Clear, transparent case management from intake to closure.',
 };

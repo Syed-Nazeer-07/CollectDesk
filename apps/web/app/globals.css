@@ -2,7 +2,7 @@
    CollectDesk — Unified Design System & Multi-Page Theme (Light & Dark)
    Aesthetic aligned with the signature CollectDesk landing page.
    Fonts: 'DM Sans' (headings and body), 'DM Mono' (tabular/codes)
-   Palette: Ink navy, warm paper, copper accent, semantic status colors
+   Palette: Ink navy, warm paper, slate accent, semantic status colors
    ========================================================================== */
 
 
@@ -13,17 +13,17 @@
   --mono: 'DM Mono', ui-monospace, Menlo, monospace;
 
   /* Universal Accents */
-  --accent: #ff6a2b;
-  --accent-hover: #ff7f47;
-  --accent-active: #e65315;
-  --accent-ink: #1b0d05;
-  /* White-on-orange controls require a darker accessible fill than brand artwork. */
-  --action-orange: #c74610;
-  --action-orange-hover: #a83b0d;
+  --accent: #a8b8cc;
+  --accent-hover: #c4d0df;
+  --accent-active: #64748b;
+  --accent-ink: #172435;
+  /* White-on-slate controls require a darker accessible fill than brand artwork. */
+  --action-slate: #475569;
+  --action-slate-hover: #334155;
   --action-foreground: #ffffff;
-  --accent-text: #ff9b6b; /* readable on dark workspace surfaces */
-  --accent-soft: rgba(255, 106, 43, 0.14);
-  --accent-glow: rgba(255, 106, 43, 0.35);
+  --accent-text: #bdcadd; /* readable on dark workspace surfaces */
+  --accent-soft: rgba(100,116,139, 0.14);
+  --accent-glow: rgba(100,116,139, 0.35);
 
   --sky: #43c6e6;
   --sky-soft: rgba(67, 198, 230, 0.14);
@@ -42,7 +42,7 @@
   --ink-secondary: #c3cddd;
   --ink-muted: #aebbcf;
   --ink-border: rgba(202,216,235,.18);
-  --ink-accent: #ffb08a;
+  --ink-accent: #bdcadd;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -107,7 +107,11 @@ html.light {
 
   --fg: #172235;
   --negative-text: #9e3028;
-  --accent-text: #ad3f13; /* readable against light panels */
+  --accent: #526176;
+  --accent-hover: #475569;
+  --accent-active: #334155;
+  --accent-ink: #ffffff;
+  --accent-text: #475569; /* readable against light panels */
   --fg-dim: #455368;
   --fg-faint: #566579;
 
@@ -203,7 +207,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .theme-toggle-btn:hover {
-  background: rgba(255, 106, 43, 0.12);
+  background: rgba(100,116,139, 0.12);
   border-color: var(--accent);
   color: var(--accent);
   transform: translateY(-1px);
@@ -629,14 +633,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .button-primary {
-  background: var(--action-orange);
+  background: var(--action-slate);
   color: var(--action-foreground);
   font-weight: 700;
   box-shadow: 0 8px 24px -8px var(--accent-glow);
 }
 
 .button-primary:hover:not(:disabled) {
-  background: var(--action-orange-hover);
+  background: var(--action-slate-hover);
   box-shadow: 0 12px 28px -6px var(--accent-glow);
 }
 
@@ -761,7 +765,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   gap: 28px;
   padding: 32px 36px;
   border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, rgba(255, 106, 43, 0.12), rgba(67, 198, 230, 0.06)), var(--panel);
+  background: linear-gradient(135deg, rgba(100,116,139, 0.12), rgba(67, 198, 230, 0.06)), var(--panel);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   position: relative;
@@ -939,7 +943,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--action-orange);
+  background: var(--action-slate);
   color: var(--action-foreground);
   display: grid;
   place-items: center;
@@ -1083,7 +1087,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .table-view:hover {
-  background: var(--action-orange);
+  background: var(--action-slate);
   color: var(--action-foreground);
   transform: translateY(-1px);
 }
@@ -1898,9 +1902,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .account-option.selected .account-check {
-  background: var(--action-orange);
+  background: var(--action-slate);
   color: var(--action-foreground);
-  border-color: var(--action-orange);
+  border-color: var(--action-slate);
 }
 
 .account-option strong {
@@ -2254,7 +2258,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .auth-mode-switch button.active {
-  background: var(--action-orange);
+  background: var(--action-slate);
   color: var(--action-foreground);
   box-shadow: 0 4px 14px -2px var(--accent-glow);
 }
@@ -2642,7 +2646,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   color: var(--accent);
 }
 .story-feature-list > div > span {
-  border-color: rgba(255, 106, 43, .26);
+  border-color: rgba(100,116,139, .26);
   box-shadow: none;
 }
 .story-feature-list {
@@ -3505,7 +3509,7 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
   --bg-2:var(--ink-surface);--bg-3:var(--ink-surface);
   --panel:var(--ink-raised);--line:var(--ink-border);--border:var(--ink-border);
   --fg:var(--ink-text);--fg-dim:var(--ink-secondary);--fg-faint:var(--ink-muted);
-  --accent-text:var(--ink-accent);--accent-soft:rgba(255,176,138,.13);
+  --accent-text:var(--ink-accent);--accent-soft:rgba(189,202,221,.13);
   background:var(--ink-surface);color:var(--ink-text);color-scheme:dark;
 }
 .app-root .sidebar {padding-block:24px;box-shadow:none;border-right:0}
@@ -3546,7 +3550,7 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 .app-root .button-primary:hover:not(:disabled){box-shadow:none}
 .app-root .button-outline:hover:not(:disabled){color:var(--accent-text)}
 .app-root .table-view{border-radius:6px;background:transparent;border:1px solid var(--border)}
-.app-root .table-view:hover{background:var(--action-orange);color:var(--action-foreground)}
+.app-root .table-view:hover{background:var(--action-slate);color:var(--action-foreground)}
 .app-root .table-case{font-weight:500}
 .app-root .status{border-radius:5px;padding:4px 8px}
 .app-root .panel-head h3{font-size:17px;letter-spacing:-.02em}
@@ -3582,7 +3586,7 @@ html[data-theme="light"] .table-muted { color: var(--fg-dim); }
 .ops-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:18px;font-size:12px;flex-wrap:wrap}
 .report-filters{display:flex;align-items:end;flex-wrap:wrap;gap:12px}.report-filters .field{flex:1 1 150px;min-width:0}
 .report-legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--fg-dim);margin:18px 0}
-.report-legend span:before{content:'';display:inline-block;width:10px;height:10px;border-radius:2px;background:#258b79;margin-right:7px}.report-legend span:nth-child(2):before{background:#b97c4e}.report-legend .report-net-legend:before{display:none}
+.report-legend span:before{content:'';display:inline-block;width:10px;height:10px;border-radius:2px;background:#258b79;margin-right:7px}.report-legend span:nth-child(2):before{background:#64748b}.report-legend .report-net-legend:before{display:none}
 .report-bars{display:grid;gap:12px;margin:0 0 24px}
 .report-month{display:grid;grid-template-columns:70px minmax(0,1fr);align-items:center;gap:12px;font-size:12px;color:var(--fg-dim)}
 .report-month>div{display:grid;gap:4px;background:var(--line);padding:4px;border-radius:4px}
